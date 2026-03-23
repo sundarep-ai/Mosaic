@@ -1,0 +1,275 @@
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { getBalance, getMonthlySummary, getExpenses } from "../api/expenses";
+import config from "../config";
+
+const CATEGORY_ICONS = {
+  Groceries: "shopping_cart",
+  Rent: "home_work",
+  Utilities: "bolt",
+  Dining: "restaurant",
+  Transportation: "directions_car",
+  Entertainment: "subscriptions",
+  Healthcare: "health_and_safety",
+  Shopping: "shopping_bag",
+  Travel: "flight_takeoff",
+  Other: "more_horiz",
+};
+
+const CATEGORY_BG = {
+  Groceries: "bg-primary-container text-on-primary-container",
+  Rent: "bg-surface-container-high text-on-surface",
+  Utilities: "bg-secondary-container text-on-secondary-container",
+  Dining: "bg-tertiary-container text-on-tertiary-container",
+  Transportation: "bg-primary-container text-on-primary-container",
+  Entertainment: "bg-surface-container-highest text-on-surface-variant",
+  Healthcare: "bg-primary-container text-on-primary-container",
+  Shopping: "bg-secondary-container text-on-secondary-container",
+  Travel: "bg-tertiary-container text-on-tertiary-container",
+  Other: "bg-surface-container-highest text-on-surface-variant",
+};
+
+export default function Landing() {
+  const [balance, setBalance] = useState(null);
+  const [monthlySummary, setMonthlySummary] = useState([]);
+  const [recentExpenses, setRecentExpenses] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [balData, monthData, recentData] = await Promise.all([
+          getBalance(),
+          getMonthlySummary(),
+          getExpenses({ limit: 5, sort: "desc" }),
+        ]);
+        setBalance(balData);
+        setMonthlySummary(monthData);
+        setRecentExpenses(recentData);
+      } catch (err) {
+        console.error("Failed to fetch dashboard data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  const balanceAmount = balance?.amount ?? 0;
+  const balanceText = balance?.description ?? "All settled up!";
+
+  return (
+    <div className="space-y-10">
+      {/* Header */}
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <h1 className="font-headline text-3xl font-extrabold text-on-surface tracking-tight mb-2">
+            Dashboard
+          </h1>
+          <p className="text-on-surface-variant font-medium">
+            Your shared financial overview at a glance.
+          </p>
+        </div>
+        <Link
+          to="/add"
+          className="bg-gradient-to-br from-primary to-primary-dim text-on-primary px-8 py-4 rounded-full font-headline font-bold flex items-center gap-2 shadow-[0_4px_24px_rgba(16,106,106,0.2)] active:scale-95 transition-transform"
+        >
+          <span
+            className="material-symbols-outlined"
+            style={{ fontVariationSettings: "'FILL' 1" }}
+          >
+            add_circle
+          </span>
+          Add Expense
+        </Link>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+        {/* Balance Card */}
+        <div className="md:col-span-4 bg-surface-container-lowest p-8 rounded-[2rem] flex flex-col justify-between relative overflow-hidden group">
+          <div className="relative z-10">
+            <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
+              Current Balance
+            </span>
+            <div className="mt-4 flex items-baseline gap-2">
+              <span className="font-headline text-5xl font-extrabold text-primary">
+                {Math.abs(balanceAmount) < 0.01
+                  ? "$0.00"
+                  : `$${Math.abs(balanceAmount).toFixed(2)}`}
+              </span>
+            </div>
+            <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-container text-on-primary-container text-sm font-bold">
+              <span className="material-symbols-outlined text-[16px]">
+                {balanceAmount > 0.01
+                  ? "trending_up"
+                  : balanceAmount < -0.01
+                    ? "trending_down"
+                    : "check_circle"}
+              </span>
+              {balanceText}
+            </div>
+          </div>
+          <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500"></div>
+          <div className="mt-12 flex items-center gap-4 text-on-surface-variant">
+            <div className="flex -space-x-3">
+              <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest bg-primary-container flex items-center justify-center">
+                <span className="material-symbols-outlined text-sm text-on-primary-container">
+                  person
+                </span>
+              </div>
+              <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest bg-secondary-container flex items-center justify-center">
+                <span className="material-symbols-outlined text-sm text-on-secondary-container">
+                  person
+                </span>
+              </div>
+            </div>
+            <p className="text-xs font-medium italic">
+              Shared between {config.users.userA} & {config.users.userB}
+            </p>
+          </div>
+        </div>
+
+        {/* Quick Actions & Monthly Summary */}
+        <div className="md:col-span-8 bg-surface-container p-8 rounded-[2rem]">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="font-headline text-xl font-bold">
+              This Month&apos;s Spend by Category
+            </h3>
+          </div>
+
+          {monthlySummary.length === 0 ? (
+            <p className="text-on-surface-variant text-sm">
+              No expenses this month yet.
+            </p>
+          ) : (
+            <div className="space-y-5">
+              {monthlySummary.map((item) => {
+                const maxAmount = Math.max(
+                  ...monthlySummary.map((i) => i.amount),
+                );
+                const pct =
+                  maxAmount > 0
+                    ? Math.round((item.amount / maxAmount) * 100)
+                    : 0;
+                return (
+                  <div key={item.category} className="flex items-center gap-4">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center ${CATEGORY_BG[item.category] || CATEGORY_BG.Other}`}
+                    >
+                      <span className="material-symbols-outlined">
+                        {CATEGORY_ICONS[item.category] || "more_horiz"}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex justify-between text-sm mb-1.5">
+                        <span className="font-bold">{item.category}</span>
+                        <span className="text-on-surface-variant font-medium">
+                          ${item.amount.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="h-2 w-full bg-surface-container-high rounded-full">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Activity */}
+        <div className="md:col-span-12 bg-surface-container-lowest p-8 rounded-[2rem]">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="font-headline text-2xl font-bold">
+              Recent Activity
+            </h3>
+            <Link
+              to="/history"
+              className="text-primary font-bold text-sm flex items-center gap-1 hover:underline"
+            >
+              View All History
+              <span className="material-symbols-outlined text-[18px]">
+                chevron_right
+              </span>
+            </Link>
+          </div>
+
+          {recentExpenses.length === 0 ? (
+            <p className="text-on-surface-variant text-sm">
+              No expenses recorded yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-on-surface-variant font-label text-xs uppercase tracking-widest border-b border-surface-container-high">
+                    <th className="pb-4 font-bold">Description</th>
+                    <th className="pb-4 font-bold">Category</th>
+                    <th className="pb-4 font-bold">Paid By</th>
+                    <th className="pb-4 font-bold">Date</th>
+                    <th className="pb-4 font-bold text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-container-low">
+                  {recentExpenses.map((expense) => (
+                    <tr
+                      key={expense.id}
+                      className="group hover:bg-surface-container-low/50 transition-colors"
+                    >
+                      <td className="py-5 pr-4">
+                        <div className="flex items-center gap-4">
+                          <div
+                            className={`w-10 h-10 rounded-2xl flex items-center justify-center ${CATEGORY_BG[expense.category] || CATEGORY_BG.Other}`}
+                          >
+                            <span className="material-symbols-outlined text-sm">
+                              {CATEGORY_ICONS[expense.category] || "more_horiz"}
+                            </span>
+                          </div>
+                          <p className="font-bold text-on-surface">
+                            {expense.description}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="py-5">
+                        <span className="px-3 py-1 rounded-full bg-surface-container-high text-[11px] font-bold uppercase text-on-surface-variant">
+                          {expense.category}
+                        </span>
+                      </td>
+                      <td className="py-5">
+                        <span className="text-sm font-medium">
+                          {expense.paid_by}
+                        </span>
+                      </td>
+                      <td className="py-5">
+                        <span className="text-sm text-on-surface-variant font-medium">
+                          {expense.date}
+                        </span>
+                      </td>
+                      <td className="py-5 text-right">
+                        <span className="font-headline font-bold text-lg">
+                          ${expense.amount.toFixed(2)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,355 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { createExpense, suggestCategory } from "../api/expenses";
+import config from "../config";
+
+const CATEGORIES = [
+  "Groceries",
+  "Rent",
+  "Utilities",
+  "Dining",
+  "Transportation",
+  "Entertainment",
+  "Healthcare",
+  "Shopping",
+  "Travel",
+  "Other",
+];
+
+export default function AddExpense() {
+  const navigate = useNavigate();
+  const today = new Date().toISOString().split("T")[0];
+
+  const [form, setForm] = useState({
+    date: today,
+    description: "",
+    amount: "",
+    category: "Groceries",
+    paid_by: config.users.userA,
+    split_method: "50/50",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [suggested, setSuggested] = useState(false);
+  const debounceRef = useRef(null);
+
+  const handleDescriptionChange = useCallback((value) => {
+    clearTimeout(debounceRef.current);
+    setSuggested(false);
+    if (value.trim().length < 3) return;
+    debounceRef.current = setTimeout(async () => {
+      const cat = await suggestCategory(value);
+      if (cat) {
+        setForm((prev) => ({ ...prev, category: cat }));
+        setSuggested(true);
+      }
+    }, 400);
+  }, []);
+
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+    if (name === "description") handleDescriptionChange(value);
+    if (name === "category") setSuggested(false);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (!form.description.trim()) {
+      setError("Description is required.");
+      return;
+    }
+    if (!form.amount || parseFloat(form.amount) <= 0) {
+      setError("Amount must be greater than 0.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await createExpense({ ...form, amount: parseFloat(form.amount) });
+      navigate("/");
+    } catch {
+      setError("Failed to log expense. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const splitMethods = [
+    {
+      value: "50/50",
+      label: "Split 50/50",
+      icon: "call_split",
+      filled: true,
+    },
+    {
+      value: form.paid_by === config.users.userA ? `100% ${config.users.userB}` : `100% ${config.users.userA}`,
+      label: (
+        <>
+          100%
+          <br />
+          (Other Owes)
+        </>
+      ),
+      icon: "send_to_mobile",
+      filled: false,
+    },
+    {
+      value: "Personal",
+      label: "Personal",
+      icon: "person_off",
+      filled: false,
+    },
+  ];
+
+  return (
+    <div className="max-w-2xl mx-auto px-4">
+      <section className="bg-surface-container-lowest rounded-[2rem] p-8 shadow-[0_4px_32px_rgba(47,51,52,0.04)]">
+        <header className="mb-10 text-center">
+          <h2 className="font-headline text-3xl font-extrabold text-primary tracking-tight mb-2">
+            New Expense
+          </h2>
+          <p className="text-on-surface-variant font-medium">
+            Keep your shared balance in harmony.
+          </p>
+        </header>
+
+        {error && (
+          <div className="bg-error-container/20 border border-error/20 text-error px-4 py-3 rounded-xl text-sm mb-6 flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">error</span>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Amount Section (Hero Input) */}
+          <div className="flex flex-col items-center justify-center py-6">
+            <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2">
+              Total Amount
+            </label>
+            <div className="relative flex items-center justify-center">
+              <span className="text-4xl font-headline font-bold text-primary mr-1">
+                $
+              </span>
+              <input
+                autoFocus
+                type="number"
+                name="amount"
+                value={form.amount}
+                onChange={handleChange}
+                step="0.01"
+                min="0.01"
+                className="w-48 text-5xl font-headline font-extrabold text-primary bg-transparent border-none focus:ring-0 text-center placeholder:text-primary/20"
+                placeholder="0.00"
+                required
+              />
+            </div>
+            <div className="h-1 w-24 bg-primary-container rounded-full mt-4"></div>
+          </div>
+
+          {/* Date & Description Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex flex-col">
+              <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 ml-1">
+                Date
+              </label>
+              <div className="bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-white transition-colors">
+                <span className="material-symbols-outlined text-primary/60 mr-3">
+                  calendar_today
+                </span>
+                <input
+                  type="date"
+                  name="date"
+                  value={form.date}
+                  onChange={handleChange}
+                  className="bg-transparent border-none focus:ring-0 w-full font-medium text-on-surface"
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex flex-col">
+              <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 ml-1">
+                Description
+                {suggested && (
+                  <span className="inline-flex items-center gap-1 ml-2 text-[10px] font-normal text-primary normal-case tracking-normal">
+                    <span className="material-symbols-outlined text-[12px]">
+                      auto_awesome
+                    </span>
+                    Auto-suggested category
+                  </span>
+                )}
+              </label>
+              <div className="bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-white transition-colors">
+                <span className="material-symbols-outlined text-primary/60 mr-3">
+                  edit_note
+                </span>
+                <input
+                  type="text"
+                  name="description"
+                  value={form.description}
+                  onChange={handleChange}
+                  placeholder="What was it for?"
+                  className="bg-transparent border-none focus:ring-0 w-full font-medium text-on-surface"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Category */}
+          <div className="flex flex-col">
+            <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 ml-1">
+              Category
+            </label>
+            <div className="bg-surface-container-high rounded-xl px-4 py-1 flex items-center focus-within:bg-white transition-colors">
+              <span className="material-symbols-outlined text-primary/60 mr-3">
+                category
+              </span>
+              <select
+                name="category"
+                value={form.category}
+                onChange={handleChange}
+                className="bg-transparent border-none focus:ring-0 w-full font-medium text-on-surface py-3"
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Who Paid */}
+          <div className="flex flex-col">
+            <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-3 ml-1">
+              Who Paid?
+            </label>
+            <div className="bg-surface-container-high p-1.5 rounded-2xl flex gap-1.5 h-16">
+              {[config.users.userA, config.users.userB].map((user) => (
+                <button
+                  key={user}
+                  type="button"
+                  onClick={() => {
+                    const newForm = { ...form, paid_by: user };
+                    if (form.split_method.startsWith("100%")) {
+                      const other = user === config.users.userA ? config.users.userB : config.users.userA;
+                      newForm.split_method = `100% ${other}`;
+                    }
+                    setForm(newForm);
+                  }}
+                  className={`flex-1 rounded-xl flex items-center justify-center gap-2 transition-colors ${
+                    form.paid_by === user
+                      ? "bg-white shadow-sm font-bold text-primary border-2 border-primary/10"
+                      : "font-semibold text-on-surface-variant hover:bg-surface-container"
+                  }`}
+                >
+                  <span
+                    className="material-symbols-outlined"
+                    style={
+                      form.paid_by === user
+                        ? { fontVariationSettings: "'FILL' 1" }
+                        : undefined
+                    }
+                  >
+                    person
+                  </span>
+                  {user}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Split Method */}
+          <div className="flex flex-col">
+            <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-3 ml-1">
+              Split Method
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              {splitMethods.map((method) => {
+                const isActive = form.split_method === method.value;
+                return (
+                  <button
+                    key={method.value}
+                    type="button"
+                    onClick={() =>
+                      setForm({ ...form, split_method: method.value })
+                    }
+                    className={`flex flex-col items-center justify-center py-4 px-1 rounded-2xl border-2 transition-colors group ${
+                      isActive
+                        ? "bg-secondary-container/30 border-secondary/20 hover:bg-secondary-container/50"
+                        : "bg-surface-container-high border-transparent hover:border-outline-variant/20"
+                    }`}
+                  >
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 group-active:scale-90 transition-transform ${
+                        isActive
+                          ? "bg-secondary-container"
+                          : "bg-surface-variant"
+                      }`}
+                    >
+                      <span
+                        className={`material-symbols-outlined ${isActive ? "text-on-secondary-container" : "text-on-surface-variant"}`}
+                        style={
+                          isActive
+                            ? { fontVariationSettings: "'FILL' 1" }
+                            : undefined
+                        }
+                      >
+                        {method.icon}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[11px] text-center leading-tight ${
+                        isActive
+                          ? "font-bold text-on-secondary-container"
+                          : "font-semibold text-on-surface-variant"
+                      }`}
+                    >
+                      {method.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Submit */}
+          <div className="pt-6">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full h-16 rounded-full bg-gradient-to-r from-primary to-primary-dim text-on-primary font-headline font-bold text-lg shadow-lg hover:shadow-primary/20 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined">check_circle</span>
+              {submitting ? "Logging..." : "Log Expense"}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      {/* Collaborative Tip */}
+      <div className="mt-8 mb-12 bg-secondary-container/20 p-6 rounded-3xl flex items-start gap-4 border border-secondary-container/30">
+        <div className="bg-secondary-container p-3 rounded-2xl">
+          <span className="material-symbols-outlined text-on-secondary-container">
+            info
+          </span>
+        </div>
+        <div>
+          <h4 className="font-bold text-on-secondary-container mb-1">
+            Collaborative Tip
+          </h4>
+          <p className="text-sm text-on-secondary-container opacity-80 leading-relaxed">
+            Use &quot;Split 50/50&quot; for shared expenses and
+            &quot;Personal&quot; for individual ones. The balance will
+            automatically update to reflect who owes whom.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

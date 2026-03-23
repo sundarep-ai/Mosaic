@@ -1,0 +1,66 @@
+
+**Objective:**
+Build "TallyUs" — a local-host, two-user expense tracking web application with a Python/FastAPI backend and React frontend, from scratch to fully working.
+
+**Starting State:**
+Empty project directory. No existing code, no database, no dependencies installed.
+
+**Target State:**
+A fully functional full-stack app with:
+- A FastAPI backend serving a REST API on `localhost:8000` with a local SQLite database managed via SQLModel
+- A React frontend (Vite) on `localhost:5173` using Tailwind CSS, React Router, Recharts, and Lucide React
+- Two hardcoded users: "User A" and "User B" — no authentication
+
+**Tech Stack (locked — do not substitute):**
+- Backend: Python, FastAPI, SQLite, SQLModel
+- Frontend: React (Vite), Tailwind CSS, React Router, Recharts, Lucide React
+
+**Data Model — `Expense` table:**
+- `id`: Primary Key (auto-increment integer)
+- `date`: Date
+- `description`: String
+- `amount`: Float
+- `category`: String (e.g., Groceries, Rent, Utilities, Dining)
+- `paid_by`: String — "User A" or "User B"
+- `split_method`: String — one of "50/50", "100% User A", "100% User B", "Personal"
+
+**Pages & Features to Build (5 total):**
+
+1. **Landing Page (`/`):** Display the current balance status (e.g., "User A owes User B $50.00") calculated from all expenses and their split methods. Show a "This Month's Spend by Category" summary. Show a brief list of recent activity (last 5-10 expenses).
+
+2. **Add New Expense (`/add`):** A form with fields: Date, Description, Category (dropdown), Amount, Who Paid (User A / User B), Split Method (dropdown: "50/50", "100% User A", "100% User B", "Personal"). Include a "Log Expense" submit button. On success, redirect to Landing Page.
+
+3. **Spend Tracking Analytics (`/analytics`):** A dashboard with a date range filter (preset buttons: 1M, 3M, 6M, 1Y, and a custom date range picker). Display within the filtered range: total shared spend, a Bar Chart for spend by category, a Spending Velocity line chart (spend over time), a Pie Chart for category distribution, and a table of the top 5 largest expenses.
+
+4. **Expense History (`/history`):** A data table listing all expenses with a filterable search bar (search by description, category, paid_by). Each row MUST have Edit and Delete actions. Edit opens an inline or modal form. Delete requires confirmation.
+
+5. **Export (on History page):** A button that calls a backend endpoint to export the currently filtered expense data as an `.xlsx` file download.
+
+**Allowed Actions:**
+- Create all project files (backend and frontend) including requirements.txt
+- Provide detailed instructions to install packages, create SQLite database and migrate an existing '.xlsx'
+
+
+**Forbidden Actions:**
+- Do NOT install packages via `pip` or `npm`
+- Do NOT create & see SQLite Databse
+- Do not run build/install commands
+- Do NOT add authentication, login, or user management beyond the two hardcoded users
+- Do NOT add Docker, CI/CD, or deployment configs
+- Do NOT add features beyond what is specified above
+- Do NOT refactor or add abstractions beyond what the scope requires
+- Do NOT delete files without showing a diff first
+
+**Stop Conditions — pause and ask before proceeding when:**
+- An error cannot be resolved in 2 attempts
+- A design decision has multiple valid approaches that affect architecture
+- Any dependency outside the locked tech stack would need to be added
+- The task requires changes outside the stated scope
+
+**Checkpoints:**
+After completing each of these phases, output ✅ with a summary:
+1. Backend: project setup, data model, database, and all API endpoints
+2. Frontend: project setup, routing, and all 5 pages/features wired to the API
+3. Integration: end-to-end verification that all pages work with real data
+
+At the end, output a full summary of every file created and how to start both servers.
