@@ -1,9 +1,10 @@
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlmodel import Session, select
 
+from auth import get_current_user
 from database import get_session
 from models import Expense
 
@@ -12,9 +13,11 @@ router = APIRouter()
 
 @router.get("/analytics")
 def get_analytics(
+    request: Request,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
 ):
     statement = select(Expense)
     if start_date:

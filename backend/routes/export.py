@@ -1,12 +1,13 @@
 from io import BytesIO
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import or_
 from sqlmodel import Session, select
 import openpyxl
 
+from auth import get_current_user
 from database import get_session
 from models import Expense
 
@@ -15,10 +16,12 @@ router = APIRouter()
 
 @router.get("/export")
 def export_expenses(
+    request: Request,
     search: Optional[str] = None,
     paid_by: Optional[str] = None,
     category: Optional[str] = None,
     session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
 ):
     statement = select(Expense)
 
