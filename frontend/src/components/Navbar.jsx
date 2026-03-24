@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 import config from "../config";
 
 const topLinks = [
@@ -16,6 +17,7 @@ const bottomLinks = [
 
 export default function Navbar() {
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   return (
     <>
@@ -27,24 +29,11 @@ export default function Navbar() {
               to="/"
               className="flex items-center gap-2"
             >
-              {/* Logo placeholder — drop your logo.png into frontend/public/ */}
-              <div className="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center overflow-hidden">
-                <img
-                  src="/logo.png"
-                  alt={config.appName}
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.parentElement.querySelector(".logo-fallback").style.display = "flex";
-                  }}
-                  onLoad={(e) => {
-                    e.target.parentElement.querySelector(".logo-fallback").style.display = "none";
-                  }}
-                />
-                <span className="logo-fallback material-symbols-outlined text-primary text-lg flex items-center justify-center">
-                  account_balance_wallet
-                </span>
-              </div>
+              <img
+                src="/logo.png"
+                alt={config.appName}
+                className="w-8 h-8 object-contain"
+              />
               <span className="text-xl font-bold text-primary italic font-headline">
                 {config.appName}
               </span>
@@ -72,12 +61,16 @@ export default function Navbar() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <button aria-label="Account" className="p-2 rounded-full hover:bg-surface-container transition-colors active:scale-95 duration-200">
-              <span className="material-symbols-outlined text-primary" aria-hidden="true">
-                account_circle
+            {user && (
+              <span className="text-sm font-medium text-on-surface-variant hidden sm:inline">
+                {user.displayName}
               </span>
-            </button>
-            <button aria-label="Log out" className="p-2 rounded-full hover:bg-surface-container transition-colors active:scale-95 duration-200">
+            )}
+            <button
+              aria-label="Log out"
+              onClick={logout}
+              className="p-2 rounded-full hover:bg-surface-container transition-colors active:scale-95 duration-200"
+            >
               <span className="material-symbols-outlined text-primary" aria-hidden="true">
                 logout
               </span>

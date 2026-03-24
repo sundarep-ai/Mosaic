@@ -14,6 +14,7 @@ class ExpenseBase(SQLModel):
 
 class Expense(ExpenseBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[str] = Field(default=None)
 
 
 class ExpenseCreate(ExpenseBase):

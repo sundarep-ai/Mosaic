@@ -1,10 +1,11 @@
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import or_
 from sqlmodel import Session, select
 
+from auth import get_current_user
 from config import USER_A, USER_B
 from database import get_session
 from models import Expense, ExpenseBase, ExpenseCreate, ExpenseUpdate
@@ -40,12 +41,14 @@ def _validate_expense(data: ExpenseBase) -> None:
 
 @router.get("/expenses")
 def list_expenses(
+    request: Request,
     search: Optional[str] = None,
     paid_by: Optional[str] = None,
     category: Optional[str] = None,
     limit: Optional[int] = None,
     sort: Optional[str] = "desc",
     session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
 ):
     statement = select(Expense)
 
@@ -74,7 +77,11 @@ def list_expenses(
 
 
 @router.get("/expenses/{expense_id}")
-def get_expense(expense_id: int, session: Session = Depends(get_session)):
+def get_expense(
+    expense_id: int,
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
     expense = session.get(Expense, expense_id)
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
@@ -82,9 +89,14 @@ def get_expense(expense_id: int, session: Session = Depends(get_session)):
 
 
 @router.post("/expenses", status_code=201)
-def create_expense(data: ExpenseCreate, session: Session = Depends(get_session)):
+def create_expense(
+    data: ExpenseCreate,
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
     _validate_expense(data)
     expense = Expense.model_validate(data)
+    expense.user_id = current_user
     session.add(expense)
     session.commit()
     session.refresh(expense)
@@ -93,7 +105,10 @@ def create_expense(data: ExpenseCreate, session: Session = Depends(get_session))
 
 @router.put("/expenses/{expense_id}")
 def update_expense(
-    expense_id: int, data: ExpenseUpdate, session: Session = Depends(get_session)
+    expense_id: int,
+    data: ExpenseUpdate,
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
 ):
     expense = session.get(Expense, expense_id)
     if not expense:
@@ -103,6 +118,7 @@ def update_expense(
     update_data = data.model_dump()
     for key, value in update_data.items():
         setattr(expense, key, value)
+    expense.user_id = current_user
 
     session.add(expense)
     session.commit()
@@ -111,7 +127,11 @@ def update_expense(
 
 
 @router.delete("/expenses/{expense_id}")
-def delete_expense(expense_id: int, session: Session = Depends(get_session)):
+def delete_expense(
+    expense_id: int,
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
     expense = session.get(Expense, expense_id)
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
@@ -121,7 +141,11 @@ def delete_expense(expense_id: int, session: Session = Depends(get_session)):
 
 
 @router.get("/suggest-category")
-def suggest_category(description: str = "", session: Session = Depends(get_session)):
+def suggest_category(
+    description: str = "",
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
     """Suggest a category based on historical expenses with similar descriptions."""
     keywords = [w for w in description.strip().lower().split() if len(w) >= 3]
     if not keywords:
@@ -145,7 +169,10 @@ def suggest_category(description: str = "", session: Session = Depends(get_sessi
 
 
 @router.get("/balance")
-def get_balance(session: Session = Depends(get_session)):
+def get_balance(
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
     """Calculate net balance between User A and User B.
 
     Positive amount = User A owes User B.
@@ -182,7 +209,10 @@ def get_balance(session: Session = Depends(get_session)):
 
 
 @router.get("/monthly-summary")
-def get_monthly_summary(session: Session = Depends(get_session)):
+def get_monthly_summary(
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
     """Return category spend totals for the current month."""
     today = date.today()
     first_of_month = today.replace(day=1)
