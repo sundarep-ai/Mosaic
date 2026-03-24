@@ -59,6 +59,36 @@ def get_analytics(
         for k, v in sorted(by_category.items(), key=lambda x: x[1], reverse=True)
     ]
 
+    # Spend by payer
+    by_payer: dict[str, float] = {}
+    payer_count: dict[str, int] = {}
+    for e in expenses:
+        by_payer[e.paid_by] = by_payer.get(e.paid_by, 0) + e.amount
+        payer_count[e.paid_by] = payer_count.get(e.paid_by, 0) + 1
+    payer_data = [
+        {
+            "payer": k,
+            "amount": round(v, 2),
+            "count": payer_count[k],
+        }
+        for k, v in sorted(by_payer.items(), key=lambda x: x[1], reverse=True)
+    ]
+
+    # Spend by split method
+    by_split: dict[str, float] = {}
+    split_count: dict[str, int] = {}
+    for e in expenses:
+        by_split[e.split_method] = by_split.get(e.split_method, 0) + e.amount
+        split_count[e.split_method] = split_count.get(e.split_method, 0) + 1
+    split_data = [
+        {
+            "method": k,
+            "amount": round(v, 2),
+            "count": split_count[k],
+        }
+        for k, v in sorted(by_split.items(), key=lambda x: x[1], reverse=True)
+    ]
+
     # Top 5 largest expenses
     top_expenses = sorted(expenses, key=lambda e: e.amount, reverse=True)[:5]
 
@@ -68,5 +98,7 @@ def get_analytics(
         "by_category": category_data,
         "over_time": time_data,
         "distribution": distribution,
+        "by_payer": payer_data,
+        "by_split_method": split_data,
         "top_expenses": top_expenses,
     }

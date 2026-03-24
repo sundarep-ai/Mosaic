@@ -31,26 +31,6 @@ const CHART_COLORS = [
   "#777b7c",
 ];
 
-const CATEGORY_ICON_BG = {
-  Groceries: "bg-primary-container text-primary",
-  Rent: "bg-surface-container-high text-on-surface",
-  Utilities: "bg-secondary-container text-secondary",
-  Dining: "bg-tertiary-container text-on-tertiary-container",
-  Transportation: "bg-primary-container text-primary",
-  Entertainment: "bg-surface-container-highest text-on-surface-variant",
-  Healthcare: "bg-primary-container text-primary",
-  Shopping: "bg-secondary-container text-secondary",
-  Travel: "bg-tertiary-container text-on-tertiary-container",
-  Other: "bg-surface-container-highest text-on-surface-variant",
-};
-
-const CATEGORY_BAR_COLOR = {
-  Groceries: "bg-primary",
-  Utilities: "bg-secondary",
-  Dining: "bg-tertiary-fixed",
-  Other: "bg-outline-variant",
-};
-
 const PRESETS = [
   { label: "1M", months: 1 },
   { label: "3M", months: 3 },
@@ -125,12 +105,6 @@ export default function Analytics() {
 
   const totalSpend = data?.total_spend ?? 0;
   const totalShared = data?.total_shared_spend ?? 0;
-
-  // Compute max for category progress bars
-  const maxCatAmount =
-    data?.by_category?.length > 0
-      ? Math.max(...data.by_category.map((c) => c.amount))
-      : 1;
 
   return (
     <div className="space-y-10">
@@ -271,40 +245,62 @@ export default function Analytics() {
             )}
           </div>
 
-          {/* Spending by Category */}
+          {/* Payer Breakdown */}
           <div className="md:col-span-5 bg-surface-container-lowest p-8 rounded-[2rem]">
-            <h3 className="font-headline text-xl font-bold mb-8">
-              Spending by Category
+            <h3 className="font-headline text-xl font-bold mb-2">
+              Payer Breakdown
             </h3>
-            {data.by_category?.length > 0 ? (
+            <p className="text-on-surface-variant text-sm font-medium mb-8">
+              Who's picking up the tab
+            </p>
+            {data.by_payer?.length > 0 ? (
               <div className="space-y-6">
-                {data.by_category.map((cat) => {
-                  const pct = Math.round((cat.amount / maxCatAmount) * 100);
-                  const barColor =
-                    CATEGORY_BAR_COLOR[cat.category] || "bg-primary";
+                {data.by_payer.map((p, i) => {
+                  const pct =
+                    totalSpend > 0
+                      ? Math.round((p.amount / totalSpend) * 100)
+                      : 0;
+                  const colors = [
+                    {
+                      bar: "bg-primary",
+                      bg: "bg-primary-container",
+                      text: "text-primary",
+                    },
+                    {
+                      bar: "bg-secondary",
+                      bg: "bg-secondary-container",
+                      text: "text-secondary",
+                    },
+                  ];
+                  const c = colors[i % colors.length];
                   return (
-                    <div key={cat.category} className="flex items-center gap-4">
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center ${CATEGORY_ICON_BG[cat.category] || CATEGORY_ICON_BG.Other}`}
-                      >
-                        <span className="material-symbols-outlined">
-                          {CATEGORY_ICONS[cat.category] || "more_horiz"}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between text-sm mb-1.5">
-                          <span className="font-bold">{cat.category}</span>
-                          <span className="text-on-surface-variant font-medium">
-                            ${cat.amount.toFixed(2)}
+                    <div key={p.payer}>
+                      <div className="flex items-center gap-4 mb-3">
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center ${c.bg} ${c.text}`}
+                        >
+                          <span className="material-symbols-outlined">
+                            person
                           </span>
                         </div>
-                        <div className="h-2 w-full bg-surface-container-high rounded-full">
-                          <div
-                            className={`h-full ${barColor} rounded-full transition-all duration-500`}
-                            style={{ width: `${pct}%` }}
-                          ></div>
+                        <div className="flex-1">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="font-bold">{p.payer}</span>
+                            <span className="text-on-surface-variant font-medium">
+                              ${p.amount.toFixed(2)} · {pct}%
+                            </span>
+                          </div>
+                          <div className="h-2 w-full bg-surface-container-high rounded-full">
+                            <div
+                              className={`h-full ${c.bar} rounded-full transition-all duration-500`}
+                              style={{ width: `${pct}%` }}
+                            ></div>
+                          </div>
                         </div>
                       </div>
+                      <p className="text-xs text-on-surface-variant ml-14">
+                        {p.count} expense{p.count !== 1 ? "s" : ""}
+                      </p>
                     </div>
                   );
                 })}
@@ -367,35 +363,46 @@ export default function Analytics() {
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[80px] rounded-full -mr-20 -mt-20"></div>
           </div>
 
-          {/* Bar Chart */}
+          {/* Split Method Breakdown */}
           <div className="md:col-span-12 bg-surface-container-lowest p-8 rounded-[2rem]">
-            <h3 className="font-headline text-xl font-bold mb-8">
-              Spend by Category (Bar)
+            <h3 className="font-headline text-xl font-bold mb-2">
+              Split Method Breakdown
             </h3>
-            {data.by_category?.length > 0 ? (
+            <p className="text-on-surface-variant text-sm font-medium mb-8">
+              How expenses are divided
+            </p>
+            {data.by_split_method?.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={data.by_category}>
+                <BarChart
+                  data={data.by_split_method}
+                  layout="vertical"
+                  margin={{ left: 20 }}
+                >
                   <CartesianGrid
                     strokeDasharray="3 3"
                     stroke="#e6e8e9"
-                    vertical={false}
+                    horizontal={false}
                   />
                   <XAxis
-                    dataKey="category"
-                    tick={{ fontSize: 11, fill: "#5c6060" }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={80}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
+                    type="number"
                     tick={{ fontSize: 12, fill: "#5c6060" }}
                     axisLine={false}
                     tickLine={false}
+                    tickFormatter={(val) => `$${val}`}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="method"
+                    tick={{ fontSize: 13, fill: "#5c6060", fontWeight: 600 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={100}
                   />
                   <Tooltip
-                    formatter={(val) => [`$${val.toFixed(2)}`, "Amount"]}
+                    formatter={(val, name, props) => [
+                      `$${val.toFixed(2)} (${props.payload.count} expense${props.payload.count !== 1 ? "s" : ""})`,
+                      "Amount",
+                    ]}
                     contentStyle={{
                       borderRadius: "1rem",
                       border: "none",
@@ -405,8 +412,9 @@ export default function Analytics() {
                   />
                   <Bar
                     dataKey="amount"
-                    fill="#106a6a"
-                    radius={[8, 8, 0, 0]}
+                    fill="#7a5a00"
+                    radius={[0, 8, 8, 0]}
+                    barSize={32}
                   />
                 </BarChart>
               </ResponsiveContainer>
