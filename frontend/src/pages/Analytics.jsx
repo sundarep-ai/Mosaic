@@ -16,7 +16,7 @@ import {
 } from "recharts";
 import { getAnalytics } from "../api/expenses";
 import { CATEGORY_ICONS } from "../constants/categories";
-import config from "../config";
+import { useUsers } from "../ConfigContext";
 
 const CHART_COLORS = [
   "#106a6a",
@@ -49,6 +49,7 @@ function getDateRange(months) {
 }
 
 export default function Analytics() {
+  const { userA, userB } = useUsers();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -192,7 +193,7 @@ export default function Analytics() {
                 </div>
               </div>
               <p className="text-xs font-medium italic">
-                Shared between {config.users.userA} & {config.users.userB}
+                Shared between {userA} & {userB}
               </p>
             </div>
           </div>

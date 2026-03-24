@@ -7,7 +7,7 @@ import {
   suggestCategory,
 } from "../api/expenses";
 import { CATEGORIES } from "../constants/categories";
-import config from "../config";
+import { useUsers } from "../ConfigContext";
 
 const CUSTOM_CATEGORY_VALUE = "__custom__";
 
@@ -16,13 +16,14 @@ export default function AddExpense() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const today = new Date().toISOString().split("T")[0];
+  const { userA, userB } = useUsers();
 
   const [form, setForm] = useState({
     date: today,
     description: "",
     amount: "",
     category: "Groceries",
-    paid_by: config.users.userA,
+    paid_by: userA,
     split_method: "50/50",
   });
   const [customCategory, setCustomCategory] = useState("");
@@ -137,6 +138,11 @@ export default function AddExpense() {
       return;
     }
 
+    if (form.split_method === `100% ${form.paid_by}`) {
+      setError("Split method cannot assign 100% to the person who paid.");
+      return;
+    }
+
     const payload = {
       ...form,
       category: effectiveCategory,
@@ -171,9 +177,9 @@ export default function AddExpense() {
     },
     {
       value:
-        form.paid_by === config.users.userA
-          ? `100% ${config.users.userB}`
-          : `100% ${config.users.userA}`,
+        form.paid_by === userA
+          ? `100% ${userB}`
+          : `100% ${userA}`,
       label: (
         <>
           100%
@@ -346,7 +352,7 @@ export default function AddExpense() {
               Who Paid?
             </label>
             <div className="bg-surface-container-high p-1.5 rounded-2xl flex gap-1.5 h-16">
-              {[config.users.userA, config.users.userB].map((user) => (
+              {[userA, userB].map((user) => (
                 <button
                   key={user}
                   type="button"
@@ -354,9 +360,9 @@ export default function AddExpense() {
                     const newForm = { ...form, paid_by: user };
                     if (form.split_method.startsWith("100%")) {
                       const other =
-                        user === config.users.userA
-                          ? config.users.userB
-                          : config.users.userA;
+                        user === userA
+                          ? userB
+                          : userA;
                       newForm.split_method = `100% ${other}`;
                     }
                     setForm(newForm);

@@ -1,8 +1,9 @@
 from datetime import date
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import or_
+from sqlalchemy import case, func, or_
 from sqlmodel import Session, select
 
 from auth import get_current_user
@@ -113,6 +114,9 @@ def update_expense(
     expense = session.get(Expense, expense_id)
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
+    # Allow edit if legacy row (no owner) or if current user owns it
+    if expense.user_id is not None and expense.user_id != current_user:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this expense")
 
     _validate_expense(data)
     update_data = data.model_dump()
@@ -135,9 +139,16 @@ def delete_expense(
     expense = session.get(Expense, expense_id)
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
+    if expense.user_id is not None and expense.user_id != current_user:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this expense")
     session.delete(expense)
     session.commit()
     return {"ok": True}
+
+
+def _escape_like(s: str) -> str:
+    """Escape SQL LIKE wildcard characters."""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 @router.get("/suggest-category")
@@ -146,25 +157,33 @@ def suggest_category(
     session: Session = Depends(get_session),
     current_user: str = Depends(get_current_user),
 ):
-    """Suggest a category based on historical expenses with similar descriptions."""
+    """Suggest a category based on historical expenses with similar descriptions.
+
+    Uses a frequency-weighted approach: categories that appear more often with
+    matching keywords score higher, rewarding consistency over one-off matches.
+    """
     keywords = [w for w in description.strip().lower().split() if len(w) >= 3]
     if not keywords:
         return {"category": None}
 
-    conditions = [Expense.description.ilike(f"%{kw}%") for kw in keywords]
+    conditions = [Expense.description.ilike(f"%{_escape_like(kw)}%") for kw in keywords]
     matches = session.exec(select(Expense).where(or_(*conditions))).all()
 
     if not matches:
         return {"category": None}
 
-    # Score each match by how many keywords it contains, then tally by category
+    # Frequency-weighted scoring: each match contributes (keyword_hits / total_keywords)
+    # so categories with many consistent matches outweigh single high-overlap matches.
     category_score: dict[str, float] = {}
+    category_freq: dict[str, int] = {}
     for e in matches:
         desc_lower = e.description.lower()
-        score = sum(1 for kw in keywords if kw in desc_lower)
-        category_score[e.category] = category_score.get(e.category, 0) + score
+        hits = sum(1 for kw in keywords if kw in desc_lower)
+        relevance = hits / len(keywords)
+        category_score[e.category] = category_score.get(e.category, 0) + relevance
+        category_freq[e.category] = category_freq.get(e.category, 0) + 1
 
-    best = max(category_score, key=category_score.get)
+    best = max(category_score, key=lambda k: category_score[k])
     return {"category": best}
 
 
@@ -173,39 +192,52 @@ def get_balance(
     session: Session = Depends(get_session),
     current_user: str = Depends(get_current_user),
 ):
-    """Calculate net balance between User A and User B.
+    """Calculate net balance between User A and User B via SQL aggregation.
 
     Positive amount = User A owes User B.
     Negative amount = User B owes User A.
     """
-    expenses = session.exec(select(Expense)).all()
+    balance_expr = func.coalesce(
+        func.sum(
+            case(
+                # 50/50: A paid -> B owes half (negative), B paid -> A owes half (positive)
+                (
+                    (Expense.split_method == "50/50") & (Expense.paid_by == USER_A),
+                    -Expense.amount / 2,
+                ),
+                (
+                    (Expense.split_method == "50/50") & (Expense.paid_by == USER_B),
+                    Expense.amount / 2,
+                ),
+                # 100% A: B paid A's share -> A owes B
+                (
+                    (Expense.split_method == f"100% {USER_A}") & (Expense.paid_by == USER_B),
+                    Expense.amount,
+                ),
+                # 100% B: A paid B's share -> B owes A
+                (
+                    (Expense.split_method == f"100% {USER_B}") & (Expense.paid_by == USER_A),
+                    -Expense.amount,
+                ),
+                else_=Decimal("0"),
+            )
+        ),
+        Decimal("0"),
+    )
 
-    balance = 0.0
-    for e in expenses:
-        if e.split_method == "Personal":
-            continue
-        elif e.split_method == "50/50":
-            if e.paid_by == USER_A:
-                balance -= e.amount / 2  # B owes A half
-            else:
-                balance += e.amount / 2  # A owes B half
-        elif e.split_method == f"100% {USER_A}":
-            # User A is responsible for 100%
-            if e.paid_by == USER_B:
-                balance += e.amount  # A owes B (B paid A's share)
-        elif e.split_method == f"100% {USER_B}":
-            # User B is responsible for 100%
-            if e.paid_by == USER_A:
-                balance -= e.amount  # B owes A (A paid B's share)
+    result = session.exec(
+        select(balance_expr).where(Expense.split_method != "Personal")
+    ).one()
+    balance = Decimal(str(result))
 
-    if abs(balance) < 0.01:
+    if abs(balance) < Decimal("0.01"):
         description = "All settled up!"
     elif balance > 0:
         description = f"{USER_A} owes {USER_B} ${abs(balance):.2f}"
     else:
         description = f"{USER_B} owes {USER_A} ${abs(balance):.2f}"
 
-    return {"amount": round(balance, 2), "description": description}
+    return {"amount": float(round(balance, 2)), "description": description}
 
 
 @router.get("/monthly-summary")
@@ -213,21 +245,19 @@ def get_monthly_summary(
     session: Session = Depends(get_session),
     current_user: str = Depends(get_current_user),
 ):
-    """Return category spend totals for the current month."""
+    """Return category spend totals for the current month via SQL aggregation."""
     today = date.today()
     first_of_month = today.replace(day=1)
 
-    expenses = session.exec(
-        select(Expense).where(Expense.date >= first_of_month)
+    rows = session.exec(
+        select(Expense.category, func.sum(Expense.amount).label("total"))
+        .where(Expense.date >= first_of_month)
+        .where(Expense.category != "Payment")
+        .group_by(Expense.category)
+        .order_by(func.sum(Expense.amount).desc())
     ).all()
 
-    by_category: dict[str, float] = {}
-    for e in expenses:
-        if e.category == "Payment":
-            continue
-        by_category[e.category] = by_category.get(e.category, 0) + e.amount
-
     return [
-        {"category": cat, "amount": round(amt, 2)}
-        for cat, amt in sorted(by_category.items(), key=lambda x: x[1], reverse=True)
+        {"category": cat, "amount": float(round(Decimal(str(total)), 2))}
+        for cat, total in rows
     ]

@@ -1,3 +1,4 @@
+from datetime import date
 from io import BytesIO
 from typing import Optional
 
@@ -66,5 +67,5 @@ def export_expenses(
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.spreadsheet",
-        headers={"Content-Disposition": "attachment; filename=expenses.xlsx"},
+        headers={"Content-Disposition": f"attachment; filename=expenses_{date.today().isoformat()}.xlsx"},
     )

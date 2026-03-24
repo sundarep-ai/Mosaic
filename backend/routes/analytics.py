@@ -1,7 +1,9 @@
 from datetime import date
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from auth import get_current_user
@@ -9,6 +11,20 @@ from database import get_session
 from models import Expense
 
 router = APIRouter()
+
+
+def _dec(val) -> Decimal:
+    """Safely convert a SQL result to Decimal."""
+    return Decimal(str(val)) if val else Decimal("0")
+
+
+def _date_filters(statement, start_date, end_date):
+    """Apply date range and exclude Payment category."""
+    if start_date:
+        statement = statement.where(Expense.date >= start_date)
+    if end_date:
+        statement = statement.where(Expense.date <= end_date)
+    return statement.where(Expense.category != "Payment")
 
 
 @router.get("/analytics")
@@ -19,88 +35,113 @@ def get_analytics(
     session: Session = Depends(get_session),
     current_user: str = Depends(get_current_user),
 ):
-    statement = select(Expense)
-    if start_date:
-        statement = statement.where(Expense.date >= start_date)
-    if end_date:
-        statement = statement.where(Expense.date <= end_date)
-
-    all_expenses = session.exec(statement.order_by(Expense.date.asc())).all()
-
-    # Exclude Payment category from analytics
-    expenses = [e for e in all_expenses if e.category != "Payment"]
-
-    # Total spend
-    total_spend = sum(e.amount for e in expenses)
-
-    # Total shared spend (exclude Personal)
-    shared = [e for e in expenses if e.split_method != "Personal"]
-    total_shared_spend = sum(e.amount for e in shared)
+    # Total spend (excluding Payment)
+    total_row = session.exec(
+        _date_filters(
+            select(
+                func.coalesce(func.sum(Expense.amount), 0),
+                func.coalesce(
+                    func.sum(
+                        func.iif(Expense.split_method != "Personal", Expense.amount, 0)
+                    ),
+                    0,
+                ),
+            ),
+            start_date,
+            end_date,
+        )
+    ).one()
+    total_spend = _dec(total_row[0])
+    total_shared_spend = _dec(total_row[1])
 
     # Spend by category
-    by_category: dict[str, float] = {}
-    for e in expenses:
-        by_category[e.category] = by_category.get(e.category, 0) + e.amount
+    cat_rows = session.exec(
+        _date_filters(
+            select(Expense.category, func.sum(Expense.amount).label("total"))
+            .group_by(Expense.category)
+            .order_by(func.sum(Expense.amount).desc()),
+            start_date,
+            end_date,
+        )
+    ).all()
     category_data = [
-        {"category": k, "amount": round(v, 2)}
-        for k, v in sorted(by_category.items(), key=lambda x: x[1], reverse=True)
+        {"category": cat, "amount": float(round(_dec(total), 2))}
+        for cat, total in cat_rows
     ]
-
-    # Spend over time (grouped by month)
-    by_month: dict[str, float] = {}
-    for e in expenses:
-        key = e.date.strftime("%Y-%m")
-        by_month[key] = by_month.get(key, 0) + e.amount
-    time_data = [
-        {"month": k, "amount": round(v, 2)} for k, v in sorted(by_month.items())
-    ]
-
-    # Category distribution with percentages
     distribution = [
         {
-            "category": k,
-            "amount": round(v, 2),
-            "percentage": round(v / total_spend * 100, 1) if total_spend > 0 else 0,
+            "category": cat,
+            "amount": float(round(_dec(total), 2)),
+            "percentage": float(round(_dec(total) / total_spend * 100, 1)) if total_spend > 0 else 0,
         }
-        for k, v in sorted(by_category.items(), key=lambda x: x[1], reverse=True)
+        for cat, total in cat_rows
+    ]
+
+    # Spend over time (grouped by month) -- use strftime for SQLite
+    month_rows = session.exec(
+        _date_filters(
+            select(
+                func.strftime("%Y-%m", Expense.date).label("month"),
+                func.sum(Expense.amount).label("total"),
+            )
+            .group_by(func.strftime("%Y-%m", Expense.date))
+            .order_by(func.strftime("%Y-%m", Expense.date)),
+            start_date,
+            end_date,
+        )
+    ).all()
+    time_data = [
+        {"month": month, "amount": float(round(_dec(total), 2))}
+        for month, total in month_rows
     ]
 
     # Spend by payer
-    by_payer: dict[str, float] = {}
-    payer_count: dict[str, int] = {}
-    for e in expenses:
-        by_payer[e.paid_by] = by_payer.get(e.paid_by, 0) + e.amount
-        payer_count[e.paid_by] = payer_count.get(e.paid_by, 0) + 1
+    payer_rows = session.exec(
+        _date_filters(
+            select(
+                Expense.paid_by,
+                func.sum(Expense.amount).label("total"),
+                func.count(Expense.id).label("cnt"),
+            )
+            .group_by(Expense.paid_by)
+            .order_by(func.sum(Expense.amount).desc()),
+            start_date,
+            end_date,
+        )
+    ).all()
     payer_data = [
-        {
-            "payer": k,
-            "amount": round(v, 2),
-            "count": payer_count[k],
-        }
-        for k, v in sorted(by_payer.items(), key=lambda x: x[1], reverse=True)
+        {"payer": payer, "amount": float(round(_dec(total), 2)), "count": cnt}
+        for payer, total, cnt in payer_rows
     ]
 
     # Spend by split method
-    by_split: dict[str, float] = {}
-    split_count: dict[str, int] = {}
-    for e in expenses:
-        by_split[e.split_method] = by_split.get(e.split_method, 0) + e.amount
-        split_count[e.split_method] = split_count.get(e.split_method, 0) + 1
+    split_rows = session.exec(
+        _date_filters(
+            select(
+                Expense.split_method,
+                func.sum(Expense.amount).label("total"),
+                func.count(Expense.id).label("cnt"),
+            )
+            .group_by(Expense.split_method)
+            .order_by(func.sum(Expense.amount).desc()),
+            start_date,
+            end_date,
+        )
+    ).all()
     split_data = [
-        {
-            "method": k,
-            "amount": round(v, 2),
-            "count": split_count[k],
-        }
-        for k, v in sorted(by_split.items(), key=lambda x: x[1], reverse=True)
+        {"method": method, "amount": float(round(_dec(total), 2)), "count": cnt}
+        for method, total, cnt in split_rows
     ]
 
-    # Top 5 largest expenses
-    top_expenses = sorted(expenses, key=lambda e: e.amount, reverse=True)[:5]
+    # Top 5 largest expenses (need full rows, so limited select is fine)
+    top_stmt = _date_filters(
+        select(Expense), start_date, end_date
+    ).order_by(Expense.amount.desc()).limit(5)
+    top_expenses = session.exec(top_stmt).all()
 
     return {
-        "total_spend": round(total_spend, 2),
-        "total_shared_spend": round(total_shared_spend, 2),
+        "total_spend": float(round(total_spend, 2)),
+        "total_shared_spend": float(round(total_shared_spend, 2)),
         "by_category": category_data,
         "over_time": time_data,
         "distribution": distribution,

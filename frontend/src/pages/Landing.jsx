@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getBalance, getMonthlySummary, getExpenses } from "../api/expenses";
 import { CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
-import config from "../config";
+import { useUsers } from "../ConfigContext";
 
 export default function Landing() {
+  const { userA, userB } = useUsers();
   const [balance, setBalance] = useState(null);
   const [monthlySummary, setMonthlySummary] = useState([]);
   const [recentExpenses, setRecentExpenses] = useState([]);
@@ -116,7 +117,7 @@ export default function Landing() {
               </div>
             </div>
             <p className="text-xs font-medium italic">
-              Shared between {config.users.userA} & {config.users.userB}
+              Shared between {userA} & {userB}
             </p>
           </div>
         </div>

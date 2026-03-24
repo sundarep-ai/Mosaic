@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
+import { API_BASE } from "../config";
 
 export async function getExpenses(params = {}) {
   const query = new URLSearchParams(params).toString();

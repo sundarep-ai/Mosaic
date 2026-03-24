@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   getExpenses,
@@ -6,7 +6,7 @@ import {
   exportExpenses,
 } from "../api/expenses";
 import { CATEGORIES, CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
-import config from "../config";
+import { useUsers } from "../ConfigContext";
 
 function formatDate(dateStr) {
   try {
@@ -44,20 +44,22 @@ function getSplitBadge(method) {
 
 export default function History() {
   const navigate = useNavigate();
+  const { userA, userB } = useUsers();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [filterPaidBy, setFilterPaidBy] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [fetchError, setFetchError] = useState(null);
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
     try {
       const params = {};
-      if (search) params.search = search;
+      if (appliedSearch) params.search = appliedSearch;
       if (filterPaidBy) params.paid_by = filterPaidBy;
       if (filterCategory) params.category = filterCategory;
       const data = await getExpenses(params);
@@ -67,15 +69,15 @@ export default function History() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [appliedSearch, filterPaidBy, filterCategory]);
 
   useEffect(() => {
     fetchExpenses();
-  }, [filterPaidBy, filterCategory]);
+  }, [fetchExpenses]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    fetchExpenses();
+    setAppliedSearch(search);
   };
 
   const handleDeleteConfirm = async () => {
@@ -181,8 +183,8 @@ export default function History() {
             className="bg-transparent border-none focus:ring-0 text-primary font-bold pr-8 cursor-pointer"
           >
             <option value="">All</option>
-            <option value={config.users.userA}>{config.users.userA}</option>
-            <option value={config.users.userB}>{config.users.userB}</option>
+            <option value={userA}>{userA}</option>
+            <option value={userB}>{userB}</option>
           </select>
         </div>
       </section>

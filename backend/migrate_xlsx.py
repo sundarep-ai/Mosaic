@@ -10,6 +10,7 @@ Expected columns (header matching is case-insensitive and flexible):
 
 import sys
 from datetime import datetime
+from decimal import Decimal
 
 import openpyxl
 from sqlalchemy import func
@@ -88,10 +89,11 @@ def migrate(filepath: str) -> None:
             expense = Expense(
                 date=date_val,
                 description=str(row[col_map["description"]]),
-                amount=float(row[col_map["amount"]]),
+                amount=Decimal(str(row[col_map["amount"]])),
                 category=str(row[col_map["category"]]),
                 paid_by=str(row[col_map["paid_by"]]),
                 split_method=str(row[col_map["split_method"]]),
+                user_id=None,
             )
             session.add(expense)
             count += 1
