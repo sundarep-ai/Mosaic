@@ -193,6 +193,8 @@ def get_monthly_summary(session: Session = Depends(get_session)):
 
     by_category: dict[str, float] = {}
     for e in expenses:
+        if e.category == "Payment":
+            continue
         by_category[e.category] = by_category.get(e.category, 0) + e.amount
 
     return [

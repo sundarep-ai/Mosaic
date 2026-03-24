@@ -22,7 +22,10 @@ def get_analytics(
     if end_date:
         statement = statement.where(Expense.date <= end_date)
 
-    expenses = session.exec(statement.order_by(Expense.date.asc())).all()
+    all_expenses = session.exec(statement.order_by(Expense.date.asc())).all()
+
+    # Exclude Payment category from analytics
+    expenses = [e for e in all_expenses if e.category != "Payment"]
 
     # Total spend
     total_spend = sum(e.amount for e in expenses)

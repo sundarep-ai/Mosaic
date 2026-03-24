@@ -8,6 +8,7 @@ export const CATEGORIES = [
   "Healthcare",
   "Shopping",
   "Travel",
+  "Payment",
   "Other",
 ];
 
@@ -21,6 +22,7 @@ export const CATEGORY_ICONS = {
   Healthcare: "health_and_safety",
   Shopping: "shopping_bag",
   Travel: "flight_takeoff",
+  Payment: "payments",
   Other: "more_horiz",
 };
 
@@ -34,5 +36,6 @@ export const CATEGORY_BG = {
   Healthcare: "bg-primary-container text-on-primary-container",
   Shopping: "bg-secondary-container text-on-secondary-container",
   Travel: "bg-tertiary-container text-on-tertiary-container",
+  Payment: "bg-surface-container-high text-on-surface",
   Other: "bg-surface-container-highest text-on-surface-variant",
 };
