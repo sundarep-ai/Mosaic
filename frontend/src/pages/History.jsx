@@ -1,52 +1,12 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   getExpenses,
-  updateExpense,
   deleteExpense,
   exportExpenses,
 } from "../api/expenses";
+import { CATEGORIES, CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import config from "../config";
-
-const CATEGORIES = [
-  "Groceries",
-  "Rent",
-  "Utilities",
-  "Dining",
-  "Transportation",
-  "Entertainment",
-  "Healthcare",
-  "Shopping",
-  "Travel",
-  "Other",
-];
-const SPLIT_METHODS = ["50/50", `100% ${config.users.userA}`, `100% ${config.users.userB}`, "Personal"];
-
-const CATEGORY_ICONS = {
-  Groceries: "shopping_cart",
-  Rent: "home_work",
-  Utilities: "bolt",
-  Dining: "restaurant",
-  Transportation: "directions_car",
-  Entertainment: "subscriptions",
-  Healthcare: "health_and_safety",
-  Shopping: "shopping_bag",
-  Travel: "flight_takeoff",
-  Other: "more_horiz",
-};
-
-const CATEGORY_BG = {
-  Groceries: "bg-primary-container text-on-primary-container",
-  Rent: "bg-surface-container-high text-on-surface",
-  Utilities: "bg-secondary-container text-on-secondary-container",
-  Dining: "bg-tertiary-container text-on-tertiary-container",
-  Transportation: "bg-primary-container text-on-primary-container",
-  Entertainment: "bg-surface-container-highest text-on-surface-variant",
-  Healthcare: "bg-primary-container text-on-primary-container",
-  Shopping: "bg-secondary-container text-on-secondary-container",
-  Travel: "bg-tertiary-container text-on-tertiary-container",
-  Other: "bg-surface-container-highest text-on-surface-variant",
-};
 
 function formatDate(dateStr) {
   try {
@@ -83,17 +43,18 @@ function getSplitBadge(method) {
 }
 
 export default function History() {
+  const navigate = useNavigate();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterPaidBy, setFilterPaidBy] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
-  const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [saving, setSaving] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
 
   const fetchExpenses = async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const params = {};
       if (search) params.search = search;
@@ -102,7 +63,7 @@ export default function History() {
       const data = await getExpenses(params);
       setExpenses(data);
     } catch (err) {
-      console.error("Failed to fetch expenses:", err);
+      setFetchError("Failed to load expenses. Please check the server.");
     } finally {
       setLoading(false);
     }
@@ -117,23 +78,6 @@ export default function History() {
     fetchExpenses();
   };
 
-  const handleEditSave = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await updateExpense(editTarget.id, {
-        ...editTarget,
-        amount: parseFloat(editTarget.amount),
-      });
-      setEditTarget(null);
-      fetchExpenses();
-    } catch (err) {
-      console.error("Failed to update expense:", err);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleDeleteConfirm = async () => {
     try {
       await deleteExpense(deleteTarget.id);
@@ -145,15 +89,16 @@ export default function History() {
   };
 
   const handleExport = async () => {
-    const params = {};
-    if (search) params.search = search;
-    if (filterPaidBy) params.paid_by = filterPaidBy;
-    if (filterCategory) params.category = filterCategory;
-    await exportExpenses(params);
+    try {
+      const params = {};
+      if (search) params.search = search;
+      if (filterPaidBy) params.paid_by = filterPaidBy;
+      if (filterCategory) params.category = filterCategory;
+      await exportExpenses(params);
+    } catch {
+      alert("Export failed. Please try again.");
+    }
   };
-
-  const inputClass =
-    "block w-full rounded-xl border-none bg-surface-container-high px-4 py-3 text-on-surface font-medium focus:ring-0 focus:bg-white transition-colors";
 
   return (
     <div className="space-y-8">
@@ -196,10 +141,12 @@ export default function History() {
           onSubmit={handleSearchSubmit}
           className="lg:col-span-2 bg-surface-container-high rounded-3xl p-4 flex items-center gap-3"
         >
+          <label htmlFor="expense-search" className="sr-only">Search transactions</label>
           <span className="material-symbols-outlined text-on-surface-variant">
             search
           </span>
           <input
+            id="expense-search"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -245,6 +192,10 @@ export default function History() {
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          </div>
+        ) : fetchError ? (
+          <div className="text-center py-16 text-error text-sm">
+            {fetchError}
           </div>
         ) : expenses.length === 0 ? (
           <div className="text-center py-16 text-on-surface-variant">
@@ -314,18 +265,18 @@ export default function History() {
                   </div>
                   <div className="col-span-1 flex justify-end gap-2">
                     <button
-                      onClick={() => setEditTarget({ ...expense })}
+                      onClick={() => navigate(`/edit/${expense.id}`)}
                       className="p-2 rounded-lg hover:bg-surface-container-high text-outline transition-colors"
-                      title="Edit"
+                      aria-label="Edit expense"
                     >
-                      <span className="material-symbols-outlined">edit</span>
+                      <span className="material-symbols-outlined" aria-hidden="true">edit</span>
                     </button>
                     <button
                       onClick={() => setDeleteTarget(expense)}
                       className="p-2 rounded-lg hover:bg-error-container/20 text-outline hover:text-error transition-colors"
-                      title="Delete"
+                      aria-label="Delete expense"
                     >
-                      <span className="material-symbols-outlined">delete</span>
+                      <span className="material-symbols-outlined" aria-hidden="true">delete</span>
                     </button>
                   </div>
                 </div>
@@ -342,146 +293,6 @@ export default function History() {
           </>
         )}
       </div>
-
-      {/* Edit Modal */}
-      {editTarget && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-container-lowest rounded-[2rem] shadow-xl max-w-md w-full p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-headline text-xl font-bold text-on-surface">
-                Edit Expense
-              </h2>
-              <button
-                onClick={() => setEditTarget(null)}
-                className="p-2 rounded-full hover:bg-surface-container transition-colors"
-              >
-                <span className="material-symbols-outlined text-on-surface-variant">
-                  close
-                </span>
-              </button>
-            </div>
-            <form onSubmit={handleEditSave} className="space-y-5">
-              <div>
-                <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 block">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  value={editTarget.date}
-                  onChange={(e) =>
-                    setEditTarget({ ...editTarget, date: e.target.value })
-                  }
-                  className={inputClass}
-                  required
-                />
-              </div>
-              <div>
-                <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 block">
-                  Description
-                </label>
-                <input
-                  type="text"
-                  value={editTarget.description}
-                  onChange={(e) =>
-                    setEditTarget({
-                      ...editTarget,
-                      description: e.target.value,
-                    })
-                  }
-                  className={inputClass}
-                  required
-                />
-              </div>
-              <div>
-                <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 block">
-                  Amount ($)
-                </label>
-                <input
-                  type="number"
-                  value={editTarget.amount}
-                  onChange={(e) =>
-                    setEditTarget({ ...editTarget, amount: e.target.value })
-                  }
-                  step="0.01"
-                  min="0.01"
-                  className={inputClass}
-                  required
-                />
-              </div>
-              <div>
-                <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 block">
-                  Category
-                </label>
-                <select
-                  value={editTarget.category}
-                  onChange={(e) =>
-                    setEditTarget({ ...editTarget, category: e.target.value })
-                  }
-                  className={inputClass}
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 block">
-                  Paid By
-                </label>
-                <select
-                  value={editTarget.paid_by}
-                  onChange={(e) =>
-                    setEditTarget({ ...editTarget, paid_by: e.target.value })
-                  }
-                  className={inputClass}
-                >
-                  <option value={config.users.userA}>{config.users.userA}</option>
-                  <option value={config.users.userB}>{config.users.userB}</option>
-                </select>
-              </div>
-              <div>
-                <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 block">
-                  Split Method
-                </label>
-                <select
-                  value={editTarget.split_method}
-                  onChange={(e) =>
-                    setEditTarget({
-                      ...editTarget,
-                      split_method: e.target.value,
-                    })
-                  }
-                  className={inputClass}
-                >
-                  {SPLIT_METHODS.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setEditTarget(null)}
-                  className="flex-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold rounded-full px-4 py-3 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 bg-gradient-to-r from-primary to-primary-dim text-on-primary font-bold rounded-full px-4 py-3 transition-colors disabled:opacity-60"
-                >
-                  {saving ? "Saving..." : "Save Changes"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Delete Confirmation */}
       {deleteTarget && (

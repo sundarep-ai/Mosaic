@@ -15,6 +15,7 @@ import {
   Cell,
 } from "recharts";
 import { getAnalytics } from "../api/expenses";
+import { CATEGORY_ICONS } from "../constants/categories";
 import config from "../config";
 
 const CHART_COLORS = [
@@ -29,19 +30,6 @@ const CHART_COLORS = [
   "#ffa35d",
   "#777b7c",
 ];
-
-const CATEGORY_ICONS = {
-  Groceries: "shopping_cart",
-  Rent: "home_work",
-  Utilities: "bolt",
-  Dining: "restaurant",
-  Transportation: "directions_car",
-  Entertainment: "subscriptions",
-  Healthcare: "health_and_safety",
-  Shopping: "shopping_bag",
-  Travel: "flight_takeoff",
-  Other: "more_horiz",
-};
 
 const CATEGORY_ICON_BG = {
   Groceries: "bg-primary-container text-primary",
@@ -83,17 +71,19 @@ function getDateRange(months) {
 export default function Analytics() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activePreset, setActivePreset] = useState("3M");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
 
   const fetchData = async (params) => {
     setLoading(true);
+    setError(null);
     try {
       const result = await getAnalytics(params);
       setData(result);
     } catch (err) {
-      console.error("Failed to fetch analytics:", err);
+      setError("Could not load analytics. Is the server running?");
     } finally {
       setLoading(false);
     }
@@ -121,6 +111,14 @@ export default function Analytics() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <div className="flex items-center justify-center h-64 text-error text-sm">
+        {error}
       </div>
     );
   }
@@ -248,9 +246,9 @@ export default function Analytics() {
                     }
                     labelLine={{ stroke: "#afb2b3" }}
                   >
-                    {data.distribution.map((_, i) => (
+                    {data.distribution.map((entry, i) => (
                       <Cell
-                        key={i}
+                        key={entry.category}
                         fill={CHART_COLORS[i % CHART_COLORS.length]}
                       />
                     ))}
@@ -440,11 +438,11 @@ export default function Analytics() {
                 <table className="w-full text-left">
                   <thead>
                     <tr className="text-on-surface-variant font-label text-xs uppercase tracking-widest border-b border-surface-container-high">
-                      <th className="pb-4 font-bold">Expense Detail</th>
-                      <th className="pb-4 font-bold">Category</th>
-                      <th className="pb-4 font-bold">Paid By</th>
-                      <th className="pb-4 font-bold">Date</th>
-                      <th className="pb-4 font-bold text-right">Amount</th>
+                      <th scope="col" className="pb-4 font-bold">Expense Detail</th>
+                      <th scope="col" className="pb-4 font-bold">Category</th>
+                      <th scope="col" className="pb-4 font-bold">Paid By</th>
+                      <th scope="col" className="pb-4 font-bold">Date</th>
+                      <th scope="col" className="pb-4 font-bold text-right">Amount</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-container-low">

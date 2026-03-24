@@ -1,23 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { createExpense, suggestCategory } from "../api/expenses";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  createExpense,
+  updateExpense,
+  getExpense,
+  suggestCategory,
+} from "../api/expenses";
+import { CATEGORIES } from "../constants/categories";
 import config from "../config";
 
-const CATEGORIES = [
-  "Groceries",
-  "Rent",
-  "Utilities",
-  "Dining",
-  "Transportation",
-  "Entertainment",
-  "Healthcare",
-  "Shopping",
-  "Travel",
-  "Other",
-];
+const CUSTOM_CATEGORY_VALUE = "__custom__";
 
 export default function AddExpense() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
   const today = new Date().toISOString().split("T")[0];
 
   const [form, setForm] = useState({
@@ -28,10 +25,42 @@ export default function AddExpense() {
     paid_by: config.users.userA,
     split_method: "50/50",
   });
+  const [customCategory, setCustomCategory] = useState("");
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState("");
   const [suggested, setSuggested] = useState(false);
   const debounceRef = useRef(null);
+
+  useEffect(() => {
+    if (!isEdit) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const expense = await getExpense(id);
+        if (cancelled) return;
+        setForm({
+          date: expense.date,
+          description: expense.description,
+          amount: expense.amount,
+          category: expense.category,
+          paid_by: expense.paid_by,
+          split_method: expense.split_method,
+        });
+        // If the loaded category isn't in the default list, treat it as custom
+        if (!CATEGORIES.includes(expense.category)) {
+          setIsCustomCategory(true);
+          setCustomCategory(expense.category);
+        }
+      } catch {
+        setError("Could not load expense. It may have been deleted.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [id, isEdit]);
 
   const handleDescriptionChange = useCallback((value) => {
     clearTimeout(debounceRef.current);
@@ -40,6 +69,13 @@ export default function AddExpense() {
     debounceRef.current = setTimeout(async () => {
       const cat = await suggestCategory(value);
       if (cat) {
+        if (CATEGORIES.includes(cat)) {
+          setIsCustomCategory(false);
+          setCustomCategory("");
+        } else {
+          setIsCustomCategory(true);
+          setCustomCategory(cat);
+        }
         setForm((prev) => ({ ...prev, category: cat }));
         setSuggested(true);
       }
@@ -50,9 +86,29 @@ export default function AddExpense() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "category") {
+      setSuggested(false);
+      if (value === CUSTOM_CATEGORY_VALUE) {
+        setIsCustomCategory(true);
+        setCustomCategory("");
+        setForm({ ...form, category: "" });
+        return;
+      }
+      setIsCustomCategory(false);
+      setCustomCategory("");
+      setForm({ ...form, category: value });
+      return;
+    }
+
     setForm({ ...form, [name]: value });
     if (name === "description") handleDescriptionChange(value);
-    if (name === "category") setSuggested(false);
+  };
+
+  const handleCustomCategoryChange = (e) => {
+    const value = e.target.value;
+    setCustomCategory(value);
+    setForm((prev) => ({ ...prev, category: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -68,12 +124,39 @@ export default function AddExpense() {
       return;
     }
 
+    const effectiveCategory = isCustomCategory
+      ? customCategory.trim()
+      : form.category;
+    if (!effectiveCategory) {
+      setError("Category is required.");
+      return;
+    }
+
+    if (form.date > today) {
+      setError("Date cannot be in the future.");
+      return;
+    }
+
+    const payload = {
+      ...form,
+      category: effectiveCategory,
+      amount: parseFloat(form.amount),
+    };
+
     setSubmitting(true);
     try {
-      await createExpense({ ...form, amount: parseFloat(form.amount) });
-      navigate("/");
+      if (isEdit) {
+        await updateExpense(id, payload);
+      } else {
+        await createExpense(payload);
+      }
+      navigate(isEdit ? "/history" : "/");
     } catch {
-      setError("Failed to log expense. Please try again.");
+      setError(
+        isEdit
+          ? "Failed to update expense. Please try again."
+          : "Failed to log expense. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -87,7 +170,10 @@ export default function AddExpense() {
       filled: true,
     },
     {
-      value: form.paid_by === config.users.userA ? `100% ${config.users.userB}` : `100% ${config.users.userA}`,
+      value:
+        form.paid_by === config.users.userA
+          ? `100% ${config.users.userB}`
+          : `100% ${config.users.userA}`,
       label: (
         <>
           100%
@@ -106,15 +192,25 @@ export default function AddExpense() {
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-4">
       <section className="bg-surface-container-lowest rounded-[2rem] p-8 shadow-[0_4px_32px_rgba(47,51,52,0.04)]">
         <header className="mb-10 text-center">
           <h2 className="font-headline text-3xl font-extrabold text-primary tracking-tight mb-2">
-            New Expense
+            {isEdit ? "Edit Expense" : "New Expense"}
           </h2>
           <p className="text-on-surface-variant font-medium">
-            Keep your shared balance in harmony.
+            {isEdit
+              ? "Update the details below."
+              : "Keep your shared balance in harmony."}
           </p>
         </header>
 
@@ -136,7 +232,7 @@ export default function AddExpense() {
                 $
               </span>
               <input
-                autoFocus
+                autoFocus={!isEdit}
                 type="number"
                 name="amount"
                 value={form.amount}
@@ -166,6 +262,7 @@ export default function AddExpense() {
                   name="date"
                   value={form.date}
                   onChange={handleChange}
+                  max={today}
                   className="bg-transparent border-none focus:ring-0 w-full font-medium text-on-surface"
                   required
                 />
@@ -211,7 +308,9 @@ export default function AddExpense() {
               </span>
               <select
                 name="category"
-                value={form.category}
+                value={
+                  isCustomCategory ? CUSTOM_CATEGORY_VALUE : form.category
+                }
                 onChange={handleChange}
                 className="bg-transparent border-none focus:ring-0 w-full font-medium text-on-surface py-3"
               >
@@ -220,8 +319,25 @@ export default function AddExpense() {
                     {c}
                   </option>
                 ))}
+                <option value={CUSTOM_CATEGORY_VALUE}>+ New Category</option>
               </select>
             </div>
+            {isCustomCategory && (
+              <div className="mt-3 bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-white transition-colors">
+                <span className="material-symbols-outlined text-primary/60 mr-3">
+                  edit
+                </span>
+                <input
+                  type="text"
+                  value={customCategory}
+                  onChange={handleCustomCategoryChange}
+                  placeholder="Enter new category name"
+                  className="bg-transparent border-none focus:ring-0 w-full font-medium text-on-surface"
+                  autoFocus
+                  required
+                />
+              </div>
+            )}
           </div>
 
           {/* Who Paid */}
@@ -237,7 +353,10 @@ export default function AddExpense() {
                   onClick={() => {
                     const newForm = { ...form, paid_by: user };
                     if (form.split_method.startsWith("100%")) {
-                      const other = user === config.users.userA ? config.users.userB : config.users.userA;
+                      const other =
+                        user === config.users.userA
+                          ? config.users.userB
+                          : config.users.userA;
                       newForm.split_method = `100% ${other}`;
                     }
                     setForm(newForm);
@@ -326,30 +445,38 @@ export default function AddExpense() {
               className="w-full h-16 rounded-full bg-gradient-to-r from-primary to-primary-dim text-on-primary font-headline font-bold text-lg shadow-lg hover:shadow-primary/20 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60"
             >
               <span className="material-symbols-outlined">check_circle</span>
-              {submitting ? "Logging..." : "Log Expense"}
+              {submitting
+                ? isEdit
+                  ? "Saving..."
+                  : "Logging..."
+                : isEdit
+                  ? "Save Changes"
+                  : "Log Expense"}
             </button>
           </div>
         </form>
       </section>
 
       {/* Collaborative Tip */}
-      <div className="mt-8 mb-12 bg-secondary-container/20 p-6 rounded-3xl flex items-start gap-4 border border-secondary-container/30">
-        <div className="bg-secondary-container p-3 rounded-2xl">
-          <span className="material-symbols-outlined text-on-secondary-container">
-            info
-          </span>
+      {!isEdit && (
+        <div className="mt-8 mb-12 bg-secondary-container/20 p-6 rounded-3xl flex items-start gap-4 border border-secondary-container/30">
+          <div className="bg-secondary-container p-3 rounded-2xl">
+            <span className="material-symbols-outlined text-on-secondary-container">
+              info
+            </span>
+          </div>
+          <div>
+            <h4 className="font-bold text-on-secondary-container mb-1">
+              Collaborative Tip
+            </h4>
+            <p className="text-sm text-on-secondary-container opacity-80 leading-relaxed">
+              Use &quot;Split 50/50&quot; for shared expenses and
+              &quot;Personal&quot; for individual ones. The balance will
+              automatically update to reflect who owes whom.
+            </p>
+          </div>
         </div>
-        <div>
-          <h4 className="font-bold text-on-secondary-container mb-1">
-            Collaborative Tip
-          </h4>
-          <p className="text-sm text-on-secondary-container opacity-80 leading-relaxed">
-            Use &quot;Split 50/50&quot; for shared expenses and
-            &quot;Personal&quot; for individual ones. The balance will
-            automatically update to reflect who owes whom.
-          </p>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -72,13 +72,13 @@ export default function Navbar() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <button className="p-2 rounded-full hover:bg-surface-container transition-colors active:scale-95 duration-200">
-              <span className="material-symbols-outlined text-primary">
+            <button aria-label="Account" className="p-2 rounded-full hover:bg-surface-container transition-colors active:scale-95 duration-200">
+              <span className="material-symbols-outlined text-primary" aria-hidden="true">
                 account_circle
               </span>
             </button>
-            <button className="p-2 rounded-full hover:bg-surface-container transition-colors active:scale-95 duration-200">
-              <span className="material-symbols-outlined text-primary">
+            <button aria-label="Log out" className="p-2 rounded-full hover:bg-surface-container transition-colors active:scale-95 duration-200">
+              <span className="material-symbols-outlined text-primary" aria-hidden="true">
                 logout
               </span>
             </button>

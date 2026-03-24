@@ -12,7 +12,8 @@ import sys
 from datetime import datetime
 
 import openpyxl
-from sqlmodel import Session
+from sqlalchemy import func
+from sqlmodel import Session, select
 
 from database import engine, create_db_and_tables
 from models import Expense
@@ -54,6 +55,16 @@ def migrate(filepath: str) -> None:
         sys.exit(1)
 
     with Session(engine) as session:
+        existing_count = session.exec(select(func.count(Expense.id))).one()
+        if existing_count > 0:
+            answer = input(
+                f"WARNING: Database already has {existing_count} expenses. "
+                "Continue and add new rows? [y/N]: "
+            )
+            if answer.strip().lower() != "y":
+                print("Aborted.")
+                sys.exit(0)
+
         count = 0
         for row in ws.iter_rows(min_row=2, values_only=True):
             if not row or row[col_map["date"]] is None:

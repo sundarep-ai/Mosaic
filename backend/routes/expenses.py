@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 
 from config import USER_A, USER_B
 from database import get_session
-from models import Expense, ExpenseCreate, ExpenseUpdate
+from models import Expense, ExpenseBase, ExpenseCreate, ExpenseUpdate
 
 router = APIRouter()
 
@@ -15,7 +15,17 @@ VALID_PAID_BY = {USER_A, USER_B}
 VALID_SPLIT_METHODS = {"50/50", f"100% {USER_A}", f"100% {USER_B}", "Personal"}
 
 
-def _validate_expense(data):
+def _validate_expense(data: ExpenseBase) -> None:
+    if data.amount <= 0:
+        raise HTTPException(
+            status_code=422,
+            detail="amount must be greater than 0",
+        )
+    if data.date > date.today():
+        raise HTTPException(
+            status_code=422,
+            detail="date cannot be in the future",
+        )
     if data.paid_by not in VALID_PAID_BY:
         raise HTTPException(
             status_code=422,

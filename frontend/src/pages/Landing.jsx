@@ -1,39 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getBalance, getMonthlySummary, getExpenses } from "../api/expenses";
+import { CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import config from "../config";
-
-const CATEGORY_ICONS = {
-  Groceries: "shopping_cart",
-  Rent: "home_work",
-  Utilities: "bolt",
-  Dining: "restaurant",
-  Transportation: "directions_car",
-  Entertainment: "subscriptions",
-  Healthcare: "health_and_safety",
-  Shopping: "shopping_bag",
-  Travel: "flight_takeoff",
-  Other: "more_horiz",
-};
-
-const CATEGORY_BG = {
-  Groceries: "bg-primary-container text-on-primary-container",
-  Rent: "bg-surface-container-high text-on-surface",
-  Utilities: "bg-secondary-container text-on-secondary-container",
-  Dining: "bg-tertiary-container text-on-tertiary-container",
-  Transportation: "bg-primary-container text-on-primary-container",
-  Entertainment: "bg-surface-container-highest text-on-surface-variant",
-  Healthcare: "bg-primary-container text-on-primary-container",
-  Shopping: "bg-secondary-container text-on-secondary-container",
-  Travel: "bg-tertiary-container text-on-tertiary-container",
-  Other: "bg-surface-container-highest text-on-surface-variant",
-};
 
 export default function Landing() {
   const [balance, setBalance] = useState(null);
   const [monthlySummary, setMonthlySummary] = useState([]);
   const [recentExpenses, setRecentExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -47,7 +23,7 @@ export default function Landing() {
         setMonthlySummary(monthData);
         setRecentExpenses(recentData);
       } catch (err) {
-        console.error("Failed to fetch dashboard data:", err);
+        setError("Could not load dashboard data. Is the server running?");
       } finally {
         setLoading(false);
       }
@@ -59,6 +35,14 @@ export default function Landing() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64 text-error text-sm">
+        {error}
       </div>
     );
   }
@@ -151,10 +135,11 @@ export default function Landing() {
             </p>
           ) : (
             <div className="space-y-5">
-              {monthlySummary.map((item) => {
+              {(() => {
                 const maxAmount = Math.max(
                   ...monthlySummary.map((i) => i.amount),
                 );
+                return monthlySummary.map((item) => {
                 const pct =
                   maxAmount > 0
                     ? Math.round((item.amount / maxAmount) * 100)
@@ -184,7 +169,8 @@ export default function Landing() {
                     </div>
                   </div>
                 );
-              })}
+              });
+              })()}
             </div>
           )}
         </div>
@@ -215,11 +201,11 @@ export default function Landing() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="text-on-surface-variant font-label text-xs uppercase tracking-widest border-b border-surface-container-high">
-                    <th className="pb-4 font-bold">Description</th>
-                    <th className="pb-4 font-bold">Category</th>
-                    <th className="pb-4 font-bold">Paid By</th>
-                    <th className="pb-4 font-bold">Date</th>
-                    <th className="pb-4 font-bold text-right">Amount</th>
+                    <th scope="col" className="pb-4 font-bold">Description</th>
+                    <th scope="col" className="pb-4 font-bold">Category</th>
+                    <th scope="col" className="pb-4 font-bold">Paid By</th>
+                    <th scope="col" className="pb-4 font-bold">Date</th>
+                    <th scope="col" className="pb-4 font-bold text-right">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-container-low">

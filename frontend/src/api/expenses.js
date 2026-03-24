@@ -1,9 +1,15 @@
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
 export async function getExpenses(params = {}) {
   const query = new URLSearchParams(params).toString();
   const res = await fetch(`${API_BASE}/expenses?${query}`);
   if (!res.ok) throw new Error("Failed to fetch expenses");
+  return res.json();
+}
+
+export async function getExpense(id) {
+  const res = await fetch(`${API_BASE}/expenses/${id}`);
+  if (!res.ok) throw new Error("Failed to fetch expense");
   return res.json();
 }
 

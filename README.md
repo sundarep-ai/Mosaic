@@ -22,9 +22,10 @@ TallyUs tracks shared expenses between two people, calculates who owes whom, and
 | Page | What it does |
 |---|---|
 | **Dashboard** | Live balance (e.g. "User A owes User B $50"), this month's spend by category, last 10 expenses |
-| **Add Expense** | Log an expense with date, description, category, amount, payer, and split method |
+| **Add Expense** | Log an expense with date, description, category, amount, payer, and split method. Supports custom categories via "+ New Category" and auto-suggests categories from history. |
+| **Edit Expense** | Full-page edit form at `/edit/:id` — reuses the Add Expense form with all fields pre-filled |
 | **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses |
-| **History** | Full expense table with search, category & payer filters, inline edit, delete with confirmation |
+| **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation |
 | **Export** | Download the current filtered view as an `.xlsx` file |
 
 ### Split Methods
@@ -35,12 +36,19 @@ TallyUs tracks shared expenses between two people, calculates who owes whom, and
 | `100% (Other Owes)` | The non-payer is fully responsible for the expense |
 | `Personal` | No balance impact — a personal expense logged for tracking only |
 
+### Validation
+
+- **Amount** must be greater than zero (enforced on both frontend and backend)
+- **Date** cannot be in the future (enforced on both frontend and backend)
+- **Paid By** and **Split Method** must match the configured user names
+- **Category** is free-form — choose from the default list or create a custom category
+
 ## Tech Stack
 
 | Layer | Technologies |
 |---|---|
 | Backend | Python 3.10+, FastAPI, SQLModel, SQLite, openpyxl |
-| Frontend | React 18 (Vite), Tailwind CSS 3, React Router 6, Recharts, Lucide React |
+| Frontend | React 18 (Vite), Tailwind CSS 3, React Router 6, Recharts |
 
 ## Prerequisites
 
@@ -141,6 +149,7 @@ All endpoints are prefixed with `/api`.
 | `GET` | `/expenses/{id}` | Get a single expense |
 | `PUT` | `/expenses/{id}` | Update an expense |
 | `DELETE` | `/expenses/{id}` | Delete an expense |
+| `GET` | `/suggest-category` | Auto-suggest a category from history (query: `description`) |
 | `GET` | `/balance` | Current balance between the two configured users |
 | `GET` | `/monthly-summary` | Category totals for the current month |
 | `GET` | `/analytics` | Aggregated analytics (query: `start_date`, `end_date`) |
@@ -163,23 +172,26 @@ backend/
 
 frontend/
   package.json           # Node dependencies & scripts
-  vite.config.js         # Vite configuration
-  tailwind.config.js     # Tailwind content paths
+  vite.config.js         # Vite configuration (includes dev API proxy)
+  tailwind.config.js     # Tailwind content paths & custom theme
   index.html             # HTML entry point
   src/
     config.js            # App name & user names — must match backend/config.py
     main.jsx             # React root & router setup
-    App.jsx              # Route definitions & layout shell
+    App.jsx              # Route definitions & layout shell (includes /edit/:id)
+    ErrorBoundary.jsx    # Catches render errors to prevent white-screen crashes
     index.css            # Tailwind directives
     api/
       expenses.js        # Fetch helpers for all endpoints
+    constants/
+      categories.js      # Shared category list, icons, and color mappings
     components/
       Navbar.jsx         # Sticky navigation bar
     pages/
       Landing.jsx        # Dashboard page
-      AddExpense.jsx     # New expense form
+      AddExpense.jsx     # New/edit expense form (also handles /edit/:id)
       Analytics.jsx      # Charts & analytics dashboard
-      History.jsx        # Expense table with edit/delete/export
+      History.jsx        # Expense table with delete/export, edit navigates to /edit/:id
 ```
 
 ## License
