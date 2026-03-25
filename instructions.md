@@ -27,21 +27,58 @@ git --version
 
 ```bash
 git clone <your-repo-url>
-cd ExpenseTracking
+cd TallyUs
 ```
 
 ---
 
-## 3. Backend Setup
+## 3. Configure Users
 
-### 3a. Create a virtual environment
+All personalization lives in two backend files. The frontend fetches user names from the backend automatically — no frontend config needed.
+
+### 3a. Set display names and login usernames
+
+Edit **`backend/config.py`**:
+
+```python
+USER_A = "Alice"          # Display name for user A
+USER_B = "Bob"            # Display name for user B
+
+USER_A_LOGIN = "alice"    # Login username for user A
+USER_B_LOGIN = "bob"      # Login username for user B
+```
+
+### 3b. Set passwords and session secret
+
+Copy the example env file and edit it:
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Then edit **`backend/.env`**:
+
+```env
+USER_A_PASSWORD=your-password-here
+USER_B_PASSWORD=your-password-here
+SECRET_KEY=some-random-secret-key
+```
+
+> **Important:** Never commit `.env` — it's already in `.gitignore`.
+
+---
+
+## 4. Backend Setup
+
+### 4a. Create a virtual environment
 
 ```bash
 cd backend
 python -m venv venv
 ```
 
-### 3b. Activate the virtual environment
+### 4b. Activate the virtual environment
 
 **Windows (Command Prompt):**
 ```cmd
@@ -65,7 +102,7 @@ source venv/bin/activate
 
 You should see `(venv)` in your terminal prompt.
 
-### 3c. Install Python dependencies
+### 4c. Install Python dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -73,7 +110,7 @@ pip install -r requirements.txt
 
 This installs: FastAPI, Uvicorn, SQLModel, openpyxl, python-multipart.
 
-### 3d. Database setup (SQLite)
+### 4d. Database setup (SQLite)
 
 There is **no manual database setup required**. Here's how it works:
 
@@ -84,7 +121,7 @@ There is **no manual database setup required**. Here's how it works:
 
 You do not need to run any migration commands or create the database yourself — just start the server.
 
-### 3e. Start the backend server
+### 4e. Start the backend server
 
 ```bash
 uvicorn main:app --reload
@@ -105,18 +142,18 @@ At this point `backend/tallyus.db` exists and the `Expense` table is ready.
 
 ---
 
-## 4. Frontend Setup
+## 5. Frontend Setup
 
 Open a **second terminal** (keep the backend running in the first).
 
-### 4a. Install Node dependencies
+### 5a. Install Node dependencies
 
 ```bash
 cd frontend
 npm install
 ```
 
-### 4b. Start the dev server
+### 5b. Start the dev server
 
 ```bash
 npm run dev
@@ -126,19 +163,20 @@ The app is now live at **http://localhost:5173**.
 
 ---
 
-## 5. Verify Everything Works
+## 6. Verify Everything Works
 
 1. Open http://localhost:5173 in your browser.
-2. You should see the TallyUs dashboard (empty state — "All settled up!").
-3. Click **Add Expense** and log a test expense.
-4. Return to the dashboard and confirm the balance updates, the expense appears in recent activity, and the monthly summary shows the category.
-5. Visit **Analytics** — charts will populate once you have a few expenses.
-6. Visit **History** — verify the expense appears, try edit and delete.
-7. Click **Export .xlsx** — a file should download.
+2. Log in with one of the usernames and passwords you configured in step 3.
+3. You should see the TallyUs dashboard (empty state — "All settled up!").
+4. Click **Add Expense** and log a test expense.
+5. Return to the dashboard and confirm the balance updates, the expense appears in recent activity, and the monthly summary shows the category.
+6. Visit **Analytics** — charts will populate once you have a few expenses.
+7. Visit **History** — verify the expense appears, try edit and delete.
+8. Click **Export .xlsx** — a file should download.
 
 ---
 
-## 6. Import Existing Data from .xlsx
+## 7. Import Existing Data from .xlsx
 
 If you have an existing spreadsheet of expenses:
 
@@ -157,8 +195,8 @@ The first row must be headers. Column matching is flexible (case-insensitive, to
 | Description | Yes | `Weekly groceries`, `Electric bill` |
 | Amount | Yes | `45.50`, `1200` |
 | Category | Yes | `Groceries`, `Rent`, `Utilities`, `Dining`, `Transportation`, `Entertainment`, `Healthcare`, `Shopping`, `Travel`, `Other` |
-| Paid By | Yes | `User A`, `User B` |
-| Split Method | Yes | `50/50`, `100% User A`, `100% User B`, `Personal` |
+| Paid By | Yes | Must match `USER_A` / `USER_B` in `config.py` |
+| Split Method | Yes | `50/50`, `100% <User A name>`, `100% <User B name>`, `Personal` |
 
 Supported date formats: `YYYY-MM-DD`, `MM/DD/YYYY`, `DD/MM/YYYY`, `MM-DD-YYYY`.
 
@@ -171,7 +209,7 @@ If a column can't be detected, it prints an error listing the missing fields and
 
 ---
 
-## 7. Stopping the Servers
+## 8. Stopping the Servers
 
 - **Backend:** Press `Ctrl+C` in the first terminal.
 - **Frontend:** Press `Ctrl+C` in the second terminal.
@@ -179,7 +217,7 @@ If a column can't be detected, it prints an error listing the missing fields and
 
 ---
 
-## 8. Starting Again Later
+## 9. Starting Again Later
 
 ```bash
 # Terminal 1 — Backend
@@ -196,7 +234,7 @@ No reinstall needed — dependencies persist in `venv/` and `node_modules/`.
 
 ---
 
-## 9. Resetting the Database
+## 10. Resetting the Database
 
 To start fresh, delete the database file and restart the backend:
 
@@ -216,7 +254,7 @@ uvicorn main:app --reload      # recreates an empty database
 | `python` not found | Try `python3` instead, or add Python to your PATH |
 | `npm` not found | Install Node.js from https://nodejs.org/ |
 | PowerShell blocks `activate` | Run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` |
-| Port 8000 already in use | Run `uvicorn main:app --reload --port 8001` and update `API_BASE` in `frontend/src/api/expenses.js` |
+| Port 8000 already in use | Run `uvicorn main:app --reload --port 8001` and update `VITE_API_BASE` in `frontend/.env` |
 | Port 5173 already in use | Vite auto-picks the next available port — check terminal output |
 | CORS errors in browser | Make sure the backend is running on `localhost:8000` before opening the frontend |
 | Migration script fails | Check that your `.xlsx` has a header row and columns match the expected names (see section 6) |

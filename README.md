@@ -64,28 +64,27 @@ git clone <your-repo-url>
 cd TallyUs
 ```
 
-### 2. Configure user names
+### 2. Configure users
 
-Edit **`backend/config.py`** to set the two user names:
+All user configuration lives in **`backend/config.py`** — the frontend fetches names automatically from the backend at runtime.
 
 ```python
-USER_A = "User A"
-USER_B = "User B"
+# Display names shown in the UI
+USER_A = "Alice"
+USER_B = "Bob"
+
+# Login usernames (used for authentication)
+USER_A_LOGIN = "alice"
+USER_B_LOGIN = "bob"
 ```
 
-Edit **`frontend/src/config.js`** to match:
+Then create **`backend/.env`** for passwords and the session secret (see `.env.example`):
 
-```js
-const config = {
-  appName: "TallyUs",
-  users: {
-    userA: "User A",
-    userB: "User B",
-  },
-};
+```env
+USER_A_PASSWORD=your-password-here
+USER_B_PASSWORD=your-password-here
+SECRET_KEY=some-random-secret-key
 ```
-
-Both files must use the same names for balance calculations to work correctly.
 
 ### 3. Start the backend
 
@@ -135,8 +134,8 @@ The script auto-detects columns by header keywords and supports multiple date fo
 | Description | Weekly groceries |
 | Amount | 45.50 |
 | Category | Groceries, Rent, Utilities, Dining, etc. |
-| Paid By | User A, User B (must match names in `config.py`) |
-| Split Method | 50/50, 100% User A, 100% User B, Personal |
+| Paid By | Must match `USER_A` / `USER_B` display names in `backend/config.py` |
+| Split Method | 50/50, 100% \<User A name\>, 100% \<User B name\>, Personal |
 
 ## API Reference
 
@@ -159,7 +158,8 @@ All endpoints are prefixed with `/api`.
 
 ```
 backend/
-  config.py              # User names (USER_A, USER_B) — edit here to rename users
+  config.py              # User names & login usernames — the only file to edit for personalization
+  .env                   # Passwords & session secret (not committed — see .env.example)
   main.py                # FastAPI app & CORS config
   database.py            # SQLite engine & session provider
   models.py              # Expense table & Pydantic schemas
@@ -176,7 +176,7 @@ frontend/
   tailwind.config.js     # Tailwind content paths & custom theme
   index.html             # HTML entry point
   src/
-    config.js            # App name & user names — must match backend/config.py
+    config.js            # API base URL & app name (user names fetched from backend)
     main.jsx             # React root & router setup
     App.jsx              # Route definitions & layout shell (includes /edit/:id)
     ErrorBoundary.jsx    # Catches render errors to prevent white-screen crashes
