@@ -1,11 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   LineChart,
@@ -206,10 +203,24 @@ export default function Analytics() {
               </h3>
             </div>
             {data.distribution?.length > 0 ? (
+              (() => {
+                const top7 = data.distribution.slice(0, 7);
+                const rest = data.distribution.slice(7);
+                const pieData = rest.length > 0
+                  ? [
+                      ...top7,
+                      {
+                        category: "Others (sum)",
+                        amount: rest.reduce((s, e) => s + e.amount, 0),
+                        percentage: Math.round(rest.reduce((s, e) => s + e.percentage, 0) * 10) / 10,
+                      },
+                    ]
+                  : top7;
+                return (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
                   <Pie
-                    data={data.distribution}
+                    data={pieData}
                     dataKey="amount"
                     nameKey="category"
                     cx="50%"
@@ -221,7 +232,7 @@ export default function Analytics() {
                     }
                     labelLine={{ stroke: "#afb2b3" }}
                   >
-                    {data.distribution.map((entry, i) => (
+                    {pieData.map((entry, i) => (
                       <Cell
                         key={entry.category}
                         fill={CHART_COLORS[i % CHART_COLORS.length]}
@@ -239,6 +250,8 @@ export default function Analytics() {
                   />
                 </PieChart>
               </ResponsiveContainer>
+                );
+              })()
             ) : (
               <p className="text-on-surface-variant text-sm text-center py-12">
                 No data available
@@ -332,10 +345,21 @@ export default function Analytics() {
                       tick={{ fontSize: 11, fill: "rgba(224,255,254,0.6)" }}
                       axisLine={false}
                       tickLine={false}
+                      tickFormatter={(val) => {
+                        const [y, m] = val.split("-");
+                        return new Date(y, m - 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+                      }}
                     />
                     <YAxis hide />
                     <Tooltip
-                      formatter={(val) => [`$${val.toFixed(2)}`, "Spend"]}
+                      formatter={(val, name, props) => [
+                        `$${val.toFixed(2)} (${props.payload.count} expense${props.payload.count !== 1 ? "s" : ""})`,
+                        "Spend",
+                      ]}
+                      labelFormatter={(label) => {
+                        const [y, m] = label.split("-");
+                        return new Date(y, m - 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+                      }}
                       contentStyle={{
                         borderRadius: "1rem",
                         border: "none",
@@ -344,6 +368,7 @@ export default function Analytics() {
                         background: "#fff",
                         color: "#2f3334",
                       }}
+                      itemStyle={{ color: "#2f3334" }}
                     />
                     <Line
                       type="monotone"
@@ -362,68 +387,6 @@ export default function Analytics() {
               )}
             </div>
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[80px] rounded-full -mr-20 -mt-20"></div>
-          </div>
-
-          {/* Split Method Breakdown */}
-          <div className="md:col-span-12 bg-surface-container-lowest p-8 rounded-[2rem]">
-            <h3 className="font-headline text-xl font-bold mb-2">
-              Split Method Breakdown
-            </h3>
-            <p className="text-on-surface-variant text-sm font-medium mb-8">
-              How expenses are divided
-            </p>
-            {data.by_split_method?.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={data.by_split_method}
-                  layout="vertical"
-                  margin={{ left: 20 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#e6e8e9"
-                    horizontal={false}
-                  />
-                  <XAxis
-                    type="number"
-                    tick={{ fontSize: 12, fill: "#5c6060" }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(val) => `$${val}`}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="method"
-                    tick={{ fontSize: 13, fill: "#5c6060", fontWeight: 600 }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={100}
-                  />
-                  <Tooltip
-                    formatter={(val, name, props) => [
-                      `$${val.toFixed(2)} (${props.payload.count} expense${props.payload.count !== 1 ? "s" : ""})`,
-                      "Amount",
-                    ]}
-                    contentStyle={{
-                      borderRadius: "1rem",
-                      border: "none",
-                      boxShadow: "0 4px 24px rgba(47,51,52,0.1)",
-                      fontFamily: "Public Sans",
-                    }}
-                  />
-                  <Bar
-                    dataKey="amount"
-                    fill="#7a5a00"
-                    radius={[0, 8, 8, 0]}
-                    barSize={32}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-on-surface-variant text-sm text-center py-12">
-                No data available
-              </p>
-            )}
           </div>
 
           {/* Top Expenses Table */}

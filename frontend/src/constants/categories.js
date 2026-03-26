@@ -21,6 +21,7 @@ export const CATEGORIES = [
   "Subscription",
   "Parking",
   "Tenant Insurance",
+  "Reimbursement",
 ];
 
 export const CATEGORY_ICONS = {
@@ -46,6 +47,7 @@ export const CATEGORY_ICONS = {
   Subscription: "autorenew",
   Parking: "local_parking",
   "Tenant Insurance": "policy",
+  Reimbursement: "currency_exchange",
 };
 
 export const CATEGORY_BG = {
@@ -71,4 +73,5 @@ export const CATEGORY_BG = {
   Subscription: "bg-surface-container-highest text-on-surface-variant",
   Parking: "bg-surface-container-high text-on-surface",
   "Tenant Insurance": "bg-secondary-container text-on-secondary-container",
+  Reimbursement: "bg-primary-container text-on-primary-container",
 };
