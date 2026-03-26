@@ -11,7 +11,9 @@ import { useUsers } from "../ConfigContext";
 function formatDate(dateStr) {
   try {
     const d = new Date(dateStr + "T00:00:00");
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const monthDay = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const year = d.getFullYear();
+    return `${monthDay}\n${year}`;
   } catch {
     return dateStr;
   }
@@ -232,7 +234,7 @@ export default function History() {
                   key={expense.id}
                   className="bg-surface-container-lowest rounded-2xl md:rounded-none md:bg-transparent md:hover:bg-surface-container transition-colors grid grid-cols-1 md:grid-cols-12 gap-4 items-center px-6 py-6 group"
                 >
-                  <div className="col-span-1 text-on-surface-variant font-medium md:text-sm">
+                  <div className="col-span-1 text-on-surface-variant font-medium md:text-sm whitespace-pre-line">
                     {formatDate(expense.date)}
                   </div>
                   <div className="col-span-4 flex items-center gap-4">
