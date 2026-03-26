@@ -88,11 +88,11 @@ def migrate(filepath: str) -> None:
 
             expense = Expense(
                 date=date_val,
-                description=str(row[col_map["description"]]),
+                description=str(row[col_map["description"]]).strip(),
                 amount=Decimal(str(row[col_map["amount"]])),
-                category=str(row[col_map["category"]]),
-                paid_by=str(row[col_map["paid_by"]]),
-                split_method=str(row[col_map["split_method"]]),
+                category=str(row[col_map["category"]]).strip(),
+                paid_by=str(row[col_map["paid_by"]]).strip(),
+                split_method=str(row[col_map["split_method"]]).strip(),
                 user_id=None,
             )
             session.add(expense)

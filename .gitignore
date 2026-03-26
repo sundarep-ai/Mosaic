@@ -8,6 +8,7 @@ build/
 venv/
 .venv/
 *.db
+config.py
 
 # Node
 node_modules/
@@ -29,3 +30,7 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Excel
+.xlsx
+

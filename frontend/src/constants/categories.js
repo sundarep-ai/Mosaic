@@ -10,6 +10,17 @@ export const CATEGORIES = [
   "Travel",
   "Payment",
   "Other",
+  "Gas",
+  "Car Insurance",
+  "Car Maintenance",
+  "Home Care",
+  "Pet Care",
+  "Pet Insurance",
+  "Vet",
+  "Gift",
+  "Subscription",
+  "Parking",
+  "Tenant Insurance",
 ];
 
 export const CATEGORY_ICONS = {
@@ -24,6 +35,17 @@ export const CATEGORY_ICONS = {
   Travel: "flight_takeoff",
   Payment: "payments",
   Other: "more_horiz",
+  Gas: "local_gas_station",
+  "Car Insurance": "shield",
+  "Car Maintenance": "build",
+  "Home Care": "home_repair_service",
+  "Pet Care": "pets",
+  "Pet Insurance": "verified_user",
+  Vet: "vaccines",
+  Gift: "redeem",
+  Subscription: "autorenew",
+  Parking: "local_parking",
+  "Tenant Insurance": "policy",
 };
 
 export const CATEGORY_BG = {
@@ -38,4 +60,15 @@ export const CATEGORY_BG = {
   Travel: "bg-tertiary-container text-on-tertiary-container",
   Payment: "bg-surface-container-high text-on-surface",
   Other: "bg-surface-container-highest text-on-surface-variant",
+  Gas: "bg-tertiary-container text-on-tertiary-container",
+  "Car Insurance": "bg-secondary-container text-on-secondary-container",
+  "Car Maintenance": "bg-surface-container-high text-on-surface",
+  "Home Care": "bg-primary-container text-on-primary-container",
+  "Pet Care": "bg-tertiary-container text-on-tertiary-container",
+  "Pet Insurance": "bg-secondary-container text-on-secondary-container",
+  Vet: "bg-primary-container text-on-primary-container",
+  Gift: "bg-tertiary-container text-on-tertiary-container",
+  Subscription: "bg-surface-container-highest text-on-surface-variant",
+  Parking: "bg-surface-container-high text-on-surface",
+  "Tenant Insurance": "bg-secondary-container text-on-secondary-container",
 };
