@@ -34,3 +34,6 @@ Thumbs.db
 # Excel
 *.xlsx
 
+#reports
+code-review-reports
+
