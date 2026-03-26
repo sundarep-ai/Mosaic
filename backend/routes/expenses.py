@@ -18,10 +18,15 @@ VALID_SPLIT_METHODS = {"50/50", f"100% {USER_A}", f"100% {USER_B}", "Personal"}
 
 
 def _validate_expense(data: ExpenseBase) -> None:
-    if data.amount <= 0:
+    if data.amount == 0:
         raise HTTPException(
             status_code=422,
-            detail="amount must be greater than 0",
+            detail="amount cannot be zero",
+        )
+    if data.amount < 0 and data.category != "Reimbursement":
+        raise HTTPException(
+            status_code=422,
+            detail="negative amounts are only allowed for Reimbursement",
         )
     if data.date > date.today():
         raise HTTPException(

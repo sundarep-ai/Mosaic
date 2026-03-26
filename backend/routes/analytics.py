@@ -83,6 +83,7 @@ def get_analytics(
             select(
                 func.strftime("%Y-%m", Expense.date).label("month"),
                 func.sum(Expense.amount).label("total"),
+                func.count(Expense.id).label("cnt"),
             )
             .group_by(func.strftime("%Y-%m", Expense.date))
             .order_by(func.strftime("%Y-%m", Expense.date)),
@@ -91,8 +92,8 @@ def get_analytics(
         )
     ).all()
     time_data = [
-        {"month": month, "amount": float(round(_dec(total), 2))}
-        for month, total in month_rows
+        {"month": month, "amount": float(round(_dec(total), 2)), "count": cnt}
+        for month, total, cnt in month_rows
     ]
 
     # Spend by payer

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   getExpenses,
@@ -47,7 +47,7 @@ export default function History() {
   const { userA, userB } = useUsers();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const searchRef = useRef(null);
   const [appliedSearch, setAppliedSearch] = useState("");
   const [filterPaidBy, setFilterPaidBy] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
@@ -77,7 +77,7 @@ export default function History() {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    setAppliedSearch(search);
+    setAppliedSearch(searchRef.current?.value || "");
   };
 
   const handleDeleteConfirm = async () => {
@@ -93,7 +93,8 @@ export default function History() {
   const handleExport = async () => {
     try {
       const params = {};
-      if (search) params.search = search;
+      const currentSearch = searchRef.current?.value || "";
+      if (currentSearch) params.search = currentSearch;
       if (filterPaidBy) params.paid_by = filterPaidBy;
       if (filterCategory) params.category = filterCategory;
       await exportExpenses(params);
@@ -150,8 +151,8 @@ export default function History() {
           <input
             id="expense-search"
             type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            ref={searchRef}
+            defaultValue=""
             placeholder="Search transactions..."
             className="bg-transparent border-none focus:ring-0 w-full text-on-surface font-medium placeholder:text-outline"
           />
@@ -162,7 +163,10 @@ export default function History() {
           </span>
           <select
             value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
+            onChange={(e) => {
+              setFilterCategory(e.target.value);
+              setAppliedSearch(searchRef.current?.value || "");
+            }}
             className="bg-transparent border-none focus:ring-0 text-primary font-bold pr-8 cursor-pointer"
           >
             <option value="">All</option>
@@ -179,7 +183,10 @@ export default function History() {
           </span>
           <select
             value={filterPaidBy}
-            onChange={(e) => setFilterPaidBy(e.target.value)}
+            onChange={(e) => {
+              setFilterPaidBy(e.target.value);
+              setAppliedSearch(searchRef.current?.value || "");
+            }}
             className="bg-transparent border-none focus:ring-0 text-primary font-bold pr-8 cursor-pointer"
           >
             <option value="">All</option>

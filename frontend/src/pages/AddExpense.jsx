@@ -120,16 +120,25 @@ export default function AddExpense() {
       setError("Description is required.");
       return;
     }
-    if (!form.amount || parseFloat(form.amount) <= 0) {
-      setError("Amount must be greater than 0.");
-      return;
-    }
-
     const effectiveCategory = isCustomCategory
       ? customCategory.trim()
       : form.category;
     if (!effectiveCategory) {
       setError("Category is required.");
+      return;
+    }
+
+    const amt = parseFloat(form.amount);
+    if (!form.amount || amt === 0) {
+      setError("Amount cannot be zero.");
+      return;
+    }
+    if (amt < 0 && effectiveCategory !== "Reimbursement") {
+      setError("Negative amounts are only allowed for Reimbursement.");
+      return;
+    }
+    if (amt <= 0 && effectiveCategory !== "Reimbursement") {
+      setError("Amount must be greater than 0.");
       return;
     }
 
@@ -244,7 +253,6 @@ export default function AddExpense() {
                 value={form.amount}
                 onChange={handleChange}
                 step="0.01"
-                min="0.01"
                 className="w-48 text-5xl font-headline font-extrabold text-primary bg-transparent border-none focus:ring-0 text-center placeholder:text-primary/20"
                 placeholder="0.00"
                 required
