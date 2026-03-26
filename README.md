@@ -66,7 +66,14 @@ cd TallyUs
 
 ### 2. Configure users
 
-All user configuration lives in **`backend/config.py`** — the frontend fetches names automatically from the backend at runtime.
+Copy the example config and edit it with your own names:
+
+```bash
+cd backend
+cp config.example.py config.py
+```
+
+Edit **`backend/config.py`** — the frontend fetches names automatically from the backend at runtime:
 
 ```python
 # Display names shown in the UI
@@ -77,6 +84,8 @@ USER_B = "Bob"
 USER_A_LOGIN = "alice"
 USER_B_LOGIN = "bob"
 ```
+
+> **Note:** `config.py` is gitignored. Use `config.example.py` as your starting template.
 
 Then create **`backend/.env`** for passwords and the session secret (see `.env.example`):
 
@@ -158,7 +167,8 @@ All endpoints are prefixed with `/api`.
 
 ```
 backend/
-  config.py              # User names & login usernames — the only file to edit for personalization
+  config.example.py      # Template — copy to config.py and edit with your names
+  config.py              # Your local config (gitignored)
   .env                   # Passwords & session secret (not committed — see .env.example)
   main.py                # FastAPI app & CORS config
   database.py            # SQLite engine & session provider

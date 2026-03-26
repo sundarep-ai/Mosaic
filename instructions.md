@@ -38,6 +38,13 @@ All personalization lives in two backend files. The frontend fetches user names 
 
 ### 3a. Set display names and login usernames
 
+Copy the example config file, then edit it with your own names:
+
+```bash
+cd backend
+cp config.example.py config.py
+```
+
 Edit **`backend/config.py`**:
 
 ```python
@@ -47,6 +54,8 @@ USER_B = "Bob"            # Display name for user B
 USER_A_LOGIN = "alice"    # Login username for user A
 USER_B_LOGIN = "bob"      # Login username for user B
 ```
+
+> **Note:** `config.py` is gitignored — it contains your personal settings. Always start from `config.example.py`.
 
 ### 3b. Set passwords and session secret
 
