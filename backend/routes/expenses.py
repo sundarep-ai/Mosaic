@@ -53,6 +53,7 @@ def list_expenses(
     category: Optional[str] = None,
     limit: Optional[int] = None,
     sort: Optional[str] = "desc",
+    sort_by: Optional[str] = "date",
     session: Session = Depends(get_session),
     current_user: str = Depends(get_current_user),
 ):
@@ -71,10 +72,11 @@ def list_expenses(
     if category:
         statement = statement.where(Expense.category == category)
 
+    order_col = Expense.amount if sort_by == "amount" else Expense.date
     if sort == "desc":
-        statement = statement.order_by(Expense.date.desc(), Expense.id.desc())
+        statement = statement.order_by(order_col.desc(), Expense.id.desc())
     else:
-        statement = statement.order_by(Expense.date.asc(), Expense.id.asc())
+        statement = statement.order_by(order_col.asc(), Expense.id.asc())
 
     if limit:
         statement = statement.limit(limit)

@@ -231,6 +231,7 @@ export default function Analytics() {
                       `${category} ${percentage}%`
                     }
                     labelLine={{ stroke: "#afb2b3" }}
+                    style={{ fontWeight: 700 }}
                   >
                     {pieData.map((entry, i) => (
                       <Cell

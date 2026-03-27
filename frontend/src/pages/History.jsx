@@ -53,6 +53,7 @@ export default function History() {
   const [appliedSearch, setAppliedSearch] = useState("");
   const [filterPaidBy, setFilterPaidBy] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
+  const [sortAmount, setSortAmount] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [fetchError, setFetchError] = useState(null);
 
@@ -64,6 +65,10 @@ export default function History() {
       if (appliedSearch) params.search = appliedSearch;
       if (filterPaidBy) params.paid_by = filterPaidBy;
       if (filterCategory) params.category = filterCategory;
+      if (sortAmount) {
+        params.sort_by = "amount";
+        params.sort = sortAmount;
+      }
       const data = await getExpenses(params);
       setExpenses(data);
     } catch (err) {
@@ -71,7 +76,7 @@ export default function History() {
     } finally {
       setLoading(false);
     }
-  }, [appliedSearch, filterPaidBy, filterCategory]);
+  }, [appliedSearch, filterPaidBy, filterCategory, sortAmount]);
 
   useEffect(() => {
     fetchExpenses();
@@ -141,10 +146,10 @@ export default function History() {
       </header>
 
       {/* Search & Filters */}
-      <section className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      <section className="space-y-4">
         <form
           onSubmit={handleSearchSubmit}
-          className="lg:col-span-2 bg-surface-container-high rounded-3xl p-4 flex items-center gap-3"
+          className="bg-surface-container-high rounded-3xl p-4 flex items-center gap-3"
         >
           <label htmlFor="expense-search" className="sr-only">Search transactions</label>
           <span className="material-symbols-outlined text-on-surface-variant">
@@ -159,42 +164,58 @@ export default function History() {
             className="bg-transparent border-none focus:ring-0 w-full text-on-surface font-medium placeholder:text-outline"
           />
         </form>
-        <div className="bg-surface-container rounded-3xl p-2 flex items-center justify-between px-4">
-          <span className="text-on-surface-variant font-label font-semibold uppercase tracking-wider text-xs">
-            Category
-          </span>
-          <select
-            value={filterCategory}
-            onChange={(e) => {
-              setFilterCategory(e.target.value);
-              setAppliedSearch(searchRef.current?.value || "");
-            }}
-            className="bg-transparent border-none focus:ring-0 text-primary font-bold pr-8 cursor-pointer"
-          >
-            <option value="">All</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="bg-surface-container rounded-3xl p-2 flex items-center justify-between px-4">
-          <span className="text-on-surface-variant font-label font-semibold uppercase tracking-wider text-xs">
-            Paid By
-          </span>
-          <select
-            value={filterPaidBy}
-            onChange={(e) => {
-              setFilterPaidBy(e.target.value);
-              setAppliedSearch(searchRef.current?.value || "");
-            }}
-            className="bg-transparent border-none focus:ring-0 text-primary font-bold pr-8 cursor-pointer"
-          >
-            <option value="">All</option>
-            <option value={userA}>{userA}</option>
-            <option value={userB}>{userB}</option>
-          </select>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className="bg-surface-container rounded-3xl p-2 flex items-center justify-between px-4">
+            <span className="text-on-surface-variant font-label font-semibold uppercase tracking-wider text-xs">
+              Category
+            </span>
+            <select
+              value={filterCategory}
+              onChange={(e) => {
+                setFilterCategory(e.target.value);
+                setAppliedSearch(searchRef.current?.value || "");
+              }}
+              className="bg-transparent border-none focus:ring-0 text-primary font-bold pr-8 cursor-pointer"
+            >
+              <option value="">All</option>
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="bg-surface-container rounded-3xl p-2 flex items-center justify-between px-4">
+            <span className="text-on-surface-variant font-label font-semibold uppercase tracking-wider text-xs">
+              Paid By
+            </span>
+            <select
+              value={filterPaidBy}
+              onChange={(e) => {
+                setFilterPaidBy(e.target.value);
+                setAppliedSearch(searchRef.current?.value || "");
+              }}
+              className="bg-transparent border-none focus:ring-0 text-primary font-bold pr-8 cursor-pointer"
+            >
+              <option value="">All</option>
+              <option value={userA}>{userA}</option>
+              <option value={userB}>{userB}</option>
+            </select>
+          </div>
+          <div className="bg-surface-container rounded-3xl p-2 flex items-center justify-between px-4">
+            <span className="text-on-surface-variant font-label font-semibold uppercase tracking-wider text-xs">
+              Amount
+            </span>
+            <select
+              value={sortAmount}
+              onChange={(e) => setSortAmount(e.target.value)}
+              className="bg-transparent border-none focus:ring-0 text-primary font-bold pr-8 cursor-pointer"
+            >
+              <option value="">Default</option>
+              <option value="desc">High to Low</option>
+              <option value="asc">Low to High</option>
+            </select>
+          </div>
         </div>
       </section>
 
