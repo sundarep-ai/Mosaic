@@ -10,8 +10,10 @@ import {
   PieChart,
   Pie,
   Cell,
+  BarChart,
+  Bar,
 } from "recharts";
-import { getAnalytics } from "../api/expenses";
+import { getAnalytics, getExpenses } from "../api/expenses";
 import { CATEGORY_ICONS } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
 
@@ -53,6 +55,10 @@ export default function Analytics() {
   const [activePreset, setActivePreset] = useState("3M");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [dateParams, setDateParams] = useState(getDateRange(3));
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [drillDownData, setDrillDownData] = useState(null);
+  const [drillDownLoading, setDrillDownLoading] = useState(false);
 
   const fetchData = async (params) => {
     setLoading(true);
@@ -75,13 +81,46 @@ export default function Analytics() {
     setActivePreset(preset.label);
     setCustomStart("");
     setCustomEnd("");
-    fetchData(getDateRange(preset.months));
+    const params = getDateRange(preset.months);
+    setDateParams(params);
+    setSelectedCategory(null);
+    setDrillDownData(null);
+    fetchData(params);
   };
 
   const handleCustomRange = () => {
     if (customStart && customEnd) {
       setActivePreset("custom");
-      fetchData({ start_date: customStart, end_date: customEnd });
+      const params = { start_date: customStart, end_date: customEnd };
+      setDateParams(params);
+      setSelectedCategory(null);
+      setDrillDownData(null);
+      fetchData(params);
+    }
+  };
+
+  const fetchDrillDown = async (category) => {
+    setDrillDownLoading(true);
+    setSelectedCategory(category);
+    try {
+      const expenses = await getExpenses({
+        category,
+        ...dateParams,
+      });
+      const grouped = {};
+      for (const e of expenses) {
+        if (!grouped[e.description]) {
+          grouped[e.description] = { description: e.description, amount: 0, count: 0 };
+        }
+        grouped[e.description].amount += e.amount;
+        grouped[e.description].count += 1;
+      }
+      const sorted = Object.values(grouped)
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 7);
+      setDrillDownData(sorted);
+    } finally {
+      setDrillDownLoading(false);
     }
   };
 
@@ -195,14 +234,117 @@ export default function Analytics() {
             </div>
           </div>
 
-          {/* Contribution Split */}
+          {/* Category Distribution / Drill-Down */}
           <div className="md:col-span-8 bg-surface-container p-8 rounded-[2rem]">
             <div className="flex items-center justify-between mb-8">
-              <h3 className="font-headline text-xl font-bold">
-                Category Distribution
-              </h3>
+              {selectedCategory ? (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setSelectedCategory(null);
+                      setDrillDownData(null);
+                    }}
+                    className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center hover:bg-surface-container-highest transition-colors"
+                  >
+                    <span className="material-symbols-outlined">arrow_back</span>
+                  </button>
+                  <div>
+                    <h3 className="font-headline text-xl font-bold">
+                      {selectedCategory}
+                    </h3>
+                    <p className="text-on-surface-variant text-sm font-medium">
+                      Top spending by description
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <h3 className="font-headline text-xl font-bold">
+                  Category Distribution
+                </h3>
+              )}
             </div>
-            {data.distribution?.length > 0 ? (
+            {selectedCategory ? (
+              drillDownLoading ? (
+                <div className="flex items-center justify-center h-[280px]">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                </div>
+              ) : drillDownData && drillDownData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={Math.max(200, drillDownData.length * 44)}>
+                  <BarChart
+                    data={drillDownData.map((e) => ({
+                      name:
+                        e.description.length > 25
+                          ? e.description.substring(0, 22) + "..."
+                          : e.description,
+                      fullName: e.description,
+                      amount: e.amount,
+                      count: e.count,
+                    }))}
+                    layout="vertical"
+                    margin={{ top: 0, right: 20, left: 10, bottom: 0 }}
+                  >
+                    <XAxis type="number" hide />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={140}
+                      tick={{ fontSize: 12, fontWeight: 600 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      formatter={(val, name, props) => {
+                        const d = props.payload;
+                        return [`$${val.toFixed(2)} (${d.count} expense${d.count !== 1 ? "s" : ""})`, "Total"];
+                      }}
+                      labelFormatter={(label, payload) => {
+                        if (payload && payload[0]) {
+                          return payload[0].payload.fullName;
+                        }
+                        return label;
+                      }}
+                      contentStyle={{
+                        borderRadius: "1rem",
+                        border: "none",
+                        boxShadow: "0 4px 24px rgba(47,51,52,0.1)",
+                        fontFamily: "Public Sans",
+                      }}
+                    />
+                    <Bar
+                      dataKey="amount"
+                      fill={CHART_COLORS[0]}
+                      radius={[0, 8, 8, 0]}
+                      barSize={28}
+                      label={({ x, y, width, height, value, index }) => {
+                        const text = `$${value.toFixed(2)}`;
+                        const inside = width > text.length * 7 + 16;
+                        return (
+                          <text
+                            x={inside ? x + width - 8 : x + width + 6}
+                            y={y + height / 2}
+                            fill={inside ? "white" : CHART_COLORS[index % CHART_COLORS.length]}
+                            textAnchor={inside ? "end" : "start"}
+                            dominantBaseline="central"
+                            fontSize={11}
+                            fontWeight={700}
+                          >
+                            {text}
+                          </text>
+                        );
+                      }}
+                    >
+                      {drillDownData.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-on-surface-variant text-sm text-center py-12">
+                  No expenses found in this category
+                </p>
+              )
+            ) : data.distribution?.length > 0 ? (
               (() => {
                 const top7 = data.distribution.slice(0, 7);
                 const rest = data.distribution.slice(7);
@@ -217,40 +359,50 @@ export default function Analytics() {
                     ]
                   : top7;
                 return (
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    dataKey="amount"
-                    nameKey="category"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    innerRadius={50}
-                    label={({ category, percentage }) =>
-                      `${category} ${percentage}%`
-                    }
-                    labelLine={{ stroke: "#afb2b3" }}
-                    style={{ fontWeight: 700 }}
-                  >
-                    {pieData.map((entry, i) => (
-                      <Cell
-                        key={entry.category}
-                        fill={CHART_COLORS[i % CHART_COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(val) => [`$${val.toFixed(2)}`, "Amount"]}
-                    contentStyle={{
-                      borderRadius: "1rem",
-                      border: "none",
-                      boxShadow: "0 4px 24px rgba(47,51,52,0.1)",
-                      fontFamily: "Public Sans",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+                  <>
+                    <ResponsiveContainer width="100%" height={280}>
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          dataKey="amount"
+                          nameKey="category"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          innerRadius={50}
+                          label={({ category, percentage }) =>
+                            `${category} ${percentage}%`
+                          }
+                          labelLine={{ stroke: "#afb2b3" }}
+                          style={{ fontWeight: 700, cursor: "pointer" }}
+                          onClick={(entry) => {
+                            if (entry.category !== "Others (sum)") {
+                              fetchDrillDown(entry.category);
+                            }
+                          }}
+                        >
+                          {pieData.map((entry, i) => (
+                            <Cell
+                              key={entry.category}
+                              fill={CHART_COLORS[i % CHART_COLORS.length]}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(val) => [`$${val.toFixed(2)}`, "Amount"]}
+                          contentStyle={{
+                            borderRadius: "1rem",
+                            border: "none",
+                            boxShadow: "0 4px 24px rgba(47,51,52,0.1)",
+                            fontFamily: "Public Sans",
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <p className="text-center text-xs text-on-surface-variant mt-2">
+                      Click a category to see top expenses
+                    </p>
+                  </>
                 );
               })()
             ) : (
