@@ -7,6 +7,7 @@ import {
 } from "../api/expenses";
 import { CATEGORIES, CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
+import MergeDescriptionsModal from "../components/MergeDescriptionsModal";
 
 function formatDate(dateStr) {
   try {
@@ -56,6 +57,7 @@ export default function History() {
   const [sortAmount, setSortAmount] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [fetchError, setFetchError] = useState(null);
+  const [showMergeModal, setShowMergeModal] = useState(false);
 
   const fetchExpenses = useCallback(async () => {
     setLoading(true);
@@ -124,6 +126,14 @@ export default function History() {
           </p>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={() => setShowMergeModal(true)}
+            className="bg-surface-container-high text-on-surface px-6 py-3 rounded-full font-headline font-bold flex items-center gap-2 hover:bg-surface-container-highest transition-colors active:scale-95"
+            title="Clean up similar descriptions"
+          >
+            <span className="material-symbols-outlined">merge</span>
+            Clean Up
+          </button>
           <button
             onClick={handleExport}
             className="bg-surface-container-high text-on-surface px-6 py-3 rounded-full font-headline font-bold flex items-center gap-2 hover:bg-surface-container-highest transition-colors active:scale-95"
@@ -326,6 +336,14 @@ export default function History() {
           </>
         )}
       </div>
+
+      {/* Merge Descriptions Modal */}
+      {showMergeModal && (
+        <MergeDescriptionsModal
+          onClose={() => setShowMergeModal(false)}
+          onMerged={fetchExpenses}
+        />
+      )}
 
       {/* Delete Confirmation */}
       {deleteTarget && (

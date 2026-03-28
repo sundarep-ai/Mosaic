@@ -4,10 +4,10 @@ import {
   createExpense,
   updateExpense,
   getExpense,
-  suggestCategory,
 } from "../api/expenses";
 import { CATEGORIES } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
+import useDescriptionSuggestions from "../hooks/useDescriptionSuggestions";
 
 const CUSTOM_CATEGORY_VALUE = "__custom__";
 
@@ -32,7 +32,11 @@ export default function AddExpense() {
   const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState("");
   const [suggested, setSuggested] = useState(false);
-  const debounceRef = useRef(null);
+  const [descSuggestions, setDescSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionsRef = useRef(null);
+  const descInputRef = useRef(null);
+  const { suggest, suggestCategory: suggestCategoryLocal, refresh: refreshSuggestions } = useDescriptionSuggestions();
 
   useEffect(() => {
     if (!isEdit) return;
@@ -64,26 +68,48 @@ export default function AddExpense() {
   }, [id, isEdit]);
 
   const handleDescriptionChange = useCallback((value) => {
-    clearTimeout(debounceRef.current);
+    // Show description suggestions (Feature 1A)
+    const matches = suggest(value);
+    setDescSuggestions(matches);
+    setShowSuggestions(matches.length > 0 && value.trim().length >= 2);
+
+    // Auto-suggest category (Feature 2) — instant, no debounce
     setSuggested(false);
-    if (value.trim().length < 3) return;
-    debounceRef.current = setTimeout(async () => {
-      const cat = await suggestCategory(value);
-      if (cat) {
-        if (CATEGORIES.includes(cat)) {
-          setIsCustomCategory(false);
-          setCustomCategory("");
-        } else {
-          setIsCustomCategory(true);
-          setCustomCategory(cat);
-        }
-        setForm((prev) => ({ ...prev, category: cat }));
-        setSuggested(true);
+    const cat = suggestCategoryLocal(value);
+    if (cat) {
+      if (CATEGORIES.includes(cat)) {
+        setIsCustomCategory(false);
+        setCustomCategory("");
+      } else {
+        setIsCustomCategory(true);
+        setCustomCategory(cat);
       }
-    }, 400);
+      setForm((prev) => ({ ...prev, category: cat }));
+      setSuggested(true);
+    }
+  }, [suggest, suggestCategoryLocal]);
+
+  const handleSuggestionClick = useCallback((item) => {
+    setForm((prev) => ({ ...prev, description: item.description }));
+    setShowSuggestions(false);
+    setDescSuggestions([]);
   }, []);
 
-  useEffect(() => () => clearTimeout(debounceRef.current), []);
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(e.target) &&
+        descInputRef.current &&
+        !descInputRef.current.contains(e.target)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -165,6 +191,7 @@ export default function AddExpense() {
       } else {
         await createExpense(payload);
       }
+      refreshSuggestions();
       navigate(isEdit ? "/history" : "/");
     } catch {
       setError(
@@ -282,7 +309,7 @@ export default function AddExpense() {
                 />
               </div>
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col relative">
               <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 ml-1">
                 Description
                 {suggested && (
@@ -299,15 +326,47 @@ export default function AddExpense() {
                   edit_note
                 </span>
                 <input
+                  ref={descInputRef}
                   type="text"
                   name="description"
                   value={form.description}
                   onChange={handleChange}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setShowSuggestions(false);
+                  }}
+                  onFocus={() => {
+                    if (descSuggestions.length > 0) setShowSuggestions(true);
+                  }}
                   placeholder="What was it for?"
                   className="bg-transparent border-none focus:ring-0 w-full font-medium text-on-surface"
                   required
                 />
               </div>
+              {showSuggestions && descSuggestions.length > 0 && (
+                <div
+                  ref={suggestionsRef}
+                  className="absolute top-full left-0 right-0 mt-1 bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant/20 z-50 overflow-hidden"
+                >
+                  <div className="px-3 py-1.5 text-[10px] uppercase tracking-widest text-on-surface-variant/60 font-semibold">
+                    Did you mean?
+                  </div>
+                  {descSuggestions.map((item) => (
+                    <button
+                      key={`${item.description}-${item.category}`}
+                      type="button"
+                      onClick={() => handleSuggestionClick(item)}
+                      className="w-full px-3 py-2.5 text-left hover:bg-surface-container-high transition-colors flex items-center justify-between gap-2"
+                    >
+                      <span className="font-medium text-on-surface text-sm truncate">
+                        {item.description}
+                      </span>
+                      <span className="text-[10px] text-on-surface-variant/60 shrink-0">
+                        {item.category} ({item.count})
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

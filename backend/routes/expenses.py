@@ -200,6 +200,138 @@ def suggest_category(
     return {"category": best}
 
 
+@router.get("/unique-descriptions")
+def unique_descriptions(
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
+    """Return all unique (description, category, count) tuples for client-side fuzzy matching."""
+    rows = session.exec(
+        select(
+            Expense.description,
+            Expense.category,
+            func.count().label("count"),
+        )
+        .group_by(Expense.description, Expense.category)
+        .order_by(func.count().desc())
+    ).all()
+    return [
+        {"description": desc, "category": cat, "count": cnt}
+        for desc, cat, cnt in rows
+    ]
+
+
+@router.get("/similar-descriptions")
+def similar_descriptions(
+    threshold: float = Query(default=0.85, ge=0.5, le=1.0),
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
+    """Find clusters of similar descriptions within each category using embedding similarity."""
+    from fastembed import TextEmbedding
+    import numpy as np
+
+    # Fetch unique (description, category, count)
+    rows = session.exec(
+        select(
+            Expense.description,
+            Expense.category,
+            func.count().label("count"),
+        )
+        .group_by(Expense.description, Expense.category)
+        .order_by(func.count().desc())
+    ).all()
+
+    # Group by category
+    by_category: dict[str, list[tuple[str, int]]] = {}
+    for desc, cat, cnt in rows:
+        by_category.setdefault(cat, []).append((desc, cnt))
+
+    model = TextEmbedding()
+    result = []
+
+    for category, items in by_category.items():
+        if len(items) < 2:
+            continue
+
+        descriptions = [d for d, _ in items]
+        counts = {d: c for d, c in items}
+
+        # Embed all descriptions in this category
+        embeddings = list(model.embed(descriptions))
+        emb_matrix = np.array(embeddings)
+
+        # Compute cosine similarity matrix
+        norms = np.linalg.norm(emb_matrix, axis=1, keepdims=True)
+        norms[norms == 0] = 1
+        normalized = emb_matrix / norms
+        sim_matrix = normalized @ normalized.T
+
+        # Greedy clustering
+        visited = set()
+        groups = []
+        for i in range(len(descriptions)):
+            if i in visited:
+                continue
+            cluster = [i]
+            visited.add(i)
+            for j in range(i + 1, len(descriptions)):
+                if j in visited:
+                    continue
+                if sim_matrix[i][j] >= threshold:
+                    cluster.append(j)
+                    visited.add(j)
+            if len(cluster) >= 2:
+                cluster_descs = [descriptions[k] for k in cluster]
+                # Most frequent variant as canonical
+                canonical = max(cluster_descs, key=lambda d: counts[d])
+                variants = [d for d in cluster_descs if d != canonical]
+                groups.append({
+                    "canonical": canonical,
+                    "variants": variants,
+                    "total_count": sum(counts[d] for d in cluster_descs),
+                })
+
+        if groups:
+            result.append({"category": category, "groups": groups})
+
+    return result
+
+
+@router.post("/merge-descriptions")
+def merge_descriptions(
+    payload: dict,
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
+    """Merge variant descriptions into a canonical form within a category."""
+    merges = payload.get("merges", [])
+    total_updated = 0
+
+    for merge in merges:
+        target = merge.get("target", "").strip()
+        sources = merge.get("sources", [])
+        category = merge.get("category", "")
+
+        if not target or not sources or not category:
+            continue
+
+        # Update all source descriptions to target within the category
+        statement = (
+            select(Expense)
+            .where(Expense.description.in_(sources))
+            .where(Expense.category == category)
+        )
+        expenses = session.exec(statement).all()
+        for expense in expenses:
+            expense.description = target
+            session.add(expense)
+        total_updated += len(expenses)
+
+    session.commit()
+    return {"updated": total_updated}
+
+
 @router.get("/balance")
 def get_balance(
     session: Session = Depends(get_session),

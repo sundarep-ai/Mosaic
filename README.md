@@ -22,10 +22,10 @@ TallyUs tracks shared expenses between two people, calculates who owes whom, and
 | Page | What it does |
 |---|---|
 | **Dashboard** | Live balance (e.g. "User A owes User B $50"), this month's spend by category, last 10 expenses |
-| **Add Expense** | Log an expense with date, description, category, amount, payer, and split method. Supports custom categories via "+ New Category" and auto-suggests categories from history. |
+| **Add Expense** | Log an expense with date, description, category, amount, payer, and split method. Supports custom categories via "+ New Category". As you type a description, fuzzy matching suggests existing descriptions ("Did you mean?") and instantly auto-suggests a category from history — all client-side with zero network latency. |
 | **Edit Expense** | Full-page edit form at `/edit/:id` — reuses the Add Expense form with all fields pre-filled |
 | **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses |
-| **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation |
+| **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics"). |
 | **Export** | Download the current filtered view as an `.xlsx` file |
 
 ### Split Methods
@@ -47,8 +47,8 @@ TallyUs tracks shared expenses between two people, calculates who owes whom, and
 
 | Layer | Technologies |
 |---|---|
-| Backend | Python 3.10+, FastAPI, SQLModel, SQLite, openpyxl |
-| Frontend | React 18 (Vite), Tailwind CSS 3, React Router 6, Recharts |
+| Backend | Python 3.10+, FastAPI, SQLModel, SQLite, openpyxl, fastembed (ONNX-based embeddings) |
+| Frontend | React 18 (Vite), Tailwind CSS 3, React Router 6, Recharts, Fuse.js (fuzzy search) |
 
 ## Prerequisites
 
@@ -158,6 +158,9 @@ All endpoints are prefixed with `/api`.
 | `PUT` | `/expenses/{id}` | Update an expense |
 | `DELETE` | `/expenses/{id}` | Delete an expense |
 | `GET` | `/suggest-category` | Auto-suggest a category from history (query: `description`) |
+| `GET` | `/unique-descriptions` | All unique (description, category, count) tuples for client-side fuzzy matching |
+| `GET` | `/similar-descriptions` | Embedding-based similarity clusters grouped by category (query: `threshold`) |
+| `POST` | `/merge-descriptions` | Merge variant descriptions into a canonical form within a category |
 | `GET` | `/balance` | Current balance between the two configured users |
 | `GET` | `/monthly-summary` | Category totals for the current month |
 | `GET` | `/analytics` | Aggregated analytics (query: `start_date`, `end_date`) |
@@ -176,7 +179,7 @@ backend/
   migrate_xlsx.py        # Bulk import from .xlsx
   requirements.txt       # Python dependencies
   routes/
-    expenses.py          # CRUD, balance, monthly summary
+    expenses.py          # CRUD, balance, monthly summary, description similarity & merge
     analytics.py         # Date-filtered analytics aggregation
     export.py            # .xlsx file generation & download
 
@@ -195,8 +198,11 @@ frontend/
       expenses.js        # Fetch helpers for all endpoints
     constants/
       categories.js      # Shared category list, icons, and color mappings
+    hooks/
+      useDescriptionSuggestions.js  # Fuse.js-powered fuzzy matching for descriptions & categories
     components/
-      Navbar.jsx         # Sticky navigation bar
+      Navbar.jsx                   # Sticky navigation bar
+      MergeDescriptionsModal.jsx   # Bulk description merge review UI
     pages/
       Landing.jsx        # Dashboard page
       AddExpense.jsx     # New/edit expense form (also handles /edit/:id)

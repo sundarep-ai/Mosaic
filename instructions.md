@@ -117,7 +117,7 @@ You should see `(venv)` in your terminal prompt.
 pip install -r requirements.txt
 ```
 
-This installs: FastAPI, Uvicorn, SQLModel, openpyxl, python-multipart.
+This installs: FastAPI, Uvicorn, SQLModel, openpyxl, python-multipart, fastembed (ONNX-based embeddings for description similarity).
 
 ### 4d. Database setup (SQLite)
 
@@ -149,6 +149,8 @@ INFO:     Started reloader process
 
 At this point `backend/tallyus.db` exists and the `Expense` table is ready.
 
+> **Note:** The first time you use the "Clean Up Descriptions" feature (similarity analysis), `fastembed` will download a small embedding model (~45 MB). This is a one-time download that gets cached locally.
+
 ---
 
 ## 5. Frontend Setup
@@ -177,11 +179,14 @@ The app is now live at **http://localhost:5173**.
 1. Open http://localhost:5173 in your browser.
 2. Log in with one of the usernames and passwords you configured in step 3.
 3. You should see the TallyUs dashboard (empty state — "All settled up!").
-4. Click **Add Expense** and log a test expense.
+4. Click **Add Expense** and log a test expense. As you type a description, you should see:
+   - A **"Did you mean?"** dropdown suggesting similar existing descriptions (fuzzy matching).
+   - The **category auto-filling** instantly based on the closest historical match.
 5. Return to the dashboard and confirm the balance updates, the expense appears in recent activity, and the monthly summary shows the category.
 6. Visit **Analytics** — charts will populate once you have a few expenses.
 7. Visit **History** — verify the expense appears, try edit and delete.
-8. Click **Export .xlsx** — a file should download.
+8. Click **Clean Up** on the History page to test the description merge tool. It uses AI embeddings to find groups of similar descriptions (e.g. "Foodbasics" / "Food Basics") and lets you merge them into a canonical form.
+9. Click **Export .xlsx** — a file should download.
 
 ---
 
