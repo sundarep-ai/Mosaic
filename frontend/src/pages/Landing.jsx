@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getBalance, getMonthlySummary, getExpenses } from "../api/expenses";
 import { CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
+import Avatar from "../components/Avatar";
 
 export default function Landing() {
   const { userA, userB } = useUsers();
@@ -118,15 +119,11 @@ export default function Landing() {
           <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500"></div>
           <div className="mt-12 flex items-center gap-4 text-on-surface-variant">
             <div className="flex -space-x-3">
-              <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest bg-primary-container flex items-center justify-center">
-                <span className="material-symbols-outlined text-sm text-on-primary-container">
-                  person
-                </span>
+              <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
+                <Avatar user={userA} size="md" />
               </div>
-              <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest bg-secondary-container flex items-center justify-center">
-                <span className="material-symbols-outlined text-sm text-on-secondary-container">
-                  person
-                </span>
+              <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
+                <Avatar user={userB} size="md" />
               </div>
             </div>
             <p className="text-xs font-medium italic">

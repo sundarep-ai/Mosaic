@@ -1,5 +1,8 @@
+import { useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { uploadAvatar } from "../api/expenses";
+import Avatar from "./Avatar";
 import config from "../config";
 
 const topLinks = [
@@ -18,6 +21,20 @@ const bottomLinks = [
 export default function Navbar() {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const fileInputRef = useRef(null);
+  const [avatarKey, setAvatarKey] = useState(0);
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await uploadAvatar(file);
+      setAvatarKey((k) => k + 1);
+    } catch (err) {
+      alert(err.message);
+    }
+    e.target.value = "";
+  };
 
   return (
     <>
@@ -56,10 +73,24 @@ export default function Navbar() {
           </nav>
 
           <div className="flex items-center gap-3">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarUpload}
+            />
             {user && (
-              <span className="text-sm font-medium text-on-surface-variant hidden sm:inline">
-                {user.displayName}
-              </span>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 cursor-pointer hover:bg-surface-container px-2 py-1.5 rounded-full transition-colors active:scale-95 duration-200 hidden sm:flex"
+                title="Click to change your profile picture"
+              >
+                <Avatar user={user.displayName} size="sm" cacheBust={avatarKey} />
+                <span className="text-sm font-medium text-on-surface-variant">
+                  {user.displayName}
+                </span>
+              </button>
             )}
             <button
               aria-label="Log out"

@@ -99,6 +99,21 @@ export async function getAnalytics(params = {}) {
   return res.json();
 }
 
+export async function uploadAvatar(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`${API_BASE}/auth/avatar`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to upload avatar");
+  }
+  return res.json();
+}
+
 export async function exportExpenses(params = {}) {
   const query = new URLSearchParams(params).toString();
   const res = await fetch(`${API_BASE}/export?${query}`, { credentials: "include" });

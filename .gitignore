@@ -24,6 +24,9 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 
+# Uploads
+backend/uploads/
+
 # Env
 .env
 .env.local

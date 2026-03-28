@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import USER_A, USER_B
+from config import USER_A, USER_B, USER_A_LOGIN, USER_B_LOGIN
 from database import create_db_and_tables
 from routes import expenses, analytics, export
 from auth import router as auth_router
@@ -32,5 +32,10 @@ app.include_router(export.router, prefix="/api")
 
 @app.get("/api/config")
 def get_app_config():
-    """Public endpoint returning app configuration (user display names)."""
-    return {"userA": USER_A, "userB": USER_B}
+    """Public endpoint returning app configuration (user display names and login usernames)."""
+    return {
+        "userA": USER_A,
+        "userB": USER_B,
+        "userALogin": USER_A_LOGIN,
+        "userBLogin": USER_B_LOGIN,
+    }
