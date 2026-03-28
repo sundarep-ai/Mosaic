@@ -7,6 +7,7 @@ import {
 } from "../api/expenses";
 import { CATEGORIES } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
+import { useAuth } from "../auth/AuthContext";
 import useDescriptionSuggestions from "../hooks/useDescriptionSuggestions";
 
 const CUSTOM_CATEGORY_VALUE = "__custom__";
@@ -18,15 +19,18 @@ export default function AddExpense() {
   const isEdit = Boolean(id);
   const today = new Date().toISOString().split("T")[0];
   const { userA, userB } = useUsers();
+  const { user: authUser } = useAuth();
   const prefill = location.state || {};
+  const loggedInDisplay = authUser?.displayName || userA;
+  const otherUser = loggedInDisplay === userA ? userB : userA;
 
   const [form, setForm] = useState({
     date: today,
     description: prefill.description || "",
     amount: "",
     category: prefill.category || "Groceries",
-    paid_by: userA,
-    split_method: "50/50",
+    paid_by: loggedInDisplay,
+    split_method: prefill.split_method === "100% other" ? `100% ${otherUser}` : "50/50",
   });
   const [customCategory, setCustomCategory] = useState("");
   const [isCustomCategory, setIsCustomCategory] = useState(false);

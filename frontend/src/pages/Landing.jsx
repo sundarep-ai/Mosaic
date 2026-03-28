@@ -104,7 +104,7 @@ export default function Landing() {
           </div>
           <Link
             to="/add"
-            state={{ description: "Payment", category: "Payment" }}
+            state={{ description: "Payment", category: "Payment", split_method: "100% other" }}
             className="mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-secondary-container text-on-secondary-container font-headline font-bold text-sm shadow-sm active:scale-95 transition-transform hover:shadow-md"
           >
             <span
