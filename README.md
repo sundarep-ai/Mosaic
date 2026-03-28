@@ -28,6 +28,10 @@ TallyUs tracks shared expenses between two people, calculates who owes whom, and
 | **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics"). |
 | **Export** | Download the current filtered view as an `.xlsx` file |
 
+### Profile Pictures
+
+Each user can upload a profile picture by clicking their name in the top navigation bar. Avatars appear on the Dashboard (balance card) and in the History table's "Paid By" column. Images are stored locally in `backend/uploads/avatars/` (created automatically on first server start, gitignored). Accepted formats: JPG, PNG, GIF, WebP — max 2 MB.
+
 ### Split Methods
 
 | Method | Behaviour |

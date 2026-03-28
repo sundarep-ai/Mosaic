@@ -7,6 +7,7 @@ import {
 } from "../api/expenses";
 import { CATEGORIES, CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
+import Avatar from "../components/Avatar";
 import MergeDescriptionsModal from "../components/MergeDescriptionsModal";
 
 function formatDate(dateStr) {
@@ -293,11 +294,7 @@ export default function History() {
                   </div>
                   <div className="col-span-2 flex justify-center">
                     <div className="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full">
-                      <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                        <span className="material-symbols-outlined text-on-primary text-[10px]">
-                          person
-                        </span>
-                      </div>
+                      <Avatar user={expense.paid_by} size="sm" />
                       <span className="text-xs font-bold text-on-surface">
                         {expense.paid_by}
                       </span>
