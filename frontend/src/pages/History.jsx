@@ -69,6 +69,7 @@ export default function History() {
         params.sort_by = "amount";
         params.sort = sortAmount;
       }
+      params.limit = 100;
       const data = await getExpenses(params);
       setExpenses(data);
     } catch (err) {

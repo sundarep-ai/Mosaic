@@ -137,10 +137,11 @@ export default function Landing() {
           ) : (
             <div className="space-y-5">
               {(() => {
+                const top5 = monthlySummary.slice(0, 5);
                 const maxAmount = Math.max(
-                  ...monthlySummary.map((i) => i.amount),
+                  ...top5.map((i) => i.amount),
                 );
-                return monthlySummary.map((item) => {
+                return top5.map((item) => {
                 const pct =
                   maxAmount > 0
                     ? Math.round((item.amount / maxAmount) * 100)
