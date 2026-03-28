@@ -66,6 +66,32 @@ export async function suggestCategory(description) {
   return data.category;
 }
 
+export async function getUniqueDescriptions() {
+  const res = await fetch(`${API_BASE}/unique-descriptions`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch unique descriptions");
+  return res.json();
+}
+
+export async function getSimilarDescriptions(threshold = 0.85) {
+  const res = await fetch(
+    `${API_BASE}/similar-descriptions?threshold=${threshold}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) throw new Error("Failed to fetch similar descriptions");
+  return res.json();
+}
+
+export async function mergeDescriptions(merges) {
+  const res = await fetch(`${API_BASE}/merge-descriptions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ merges }),
+  });
+  if (!res.ok) throw new Error("Failed to merge descriptions");
+  return res.json();
+}
+
 export async function getAnalytics(params = {}) {
   const query = new URLSearchParams(params).toString();
   const res = await fetch(`${API_BASE}/analytics?${query}`, { credentials: "include" });
