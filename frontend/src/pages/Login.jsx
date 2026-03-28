@@ -27,11 +27,6 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="bg-surface-container-lowest rounded-[2rem] p-8 shadow-[0_4px_32px_rgba(47,51,52,0.08)]">
           <div className="text-center mb-8">
-            <img
-              src="/logo.png"
-              alt={config.appName}
-              className="w-14 h-14 object-contain mx-auto mb-4"
-            />
             <h1 className="font-headline text-2xl font-extrabold text-primary tracking-tight">
               {config.appName}
             </h1>
@@ -61,7 +56,7 @@ export default function Login() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter your name"
-                  className="bg-transparent border-none focus:ring-0 w-full font-medium text-on-surface"
+                  className="bg-transparent border-none focus:ring-0 focus:outline-none w-full font-medium text-on-surface"
                   autoFocus
                   required
                 />
@@ -81,7 +76,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="bg-transparent border-none focus:ring-0 w-full font-medium text-on-surface"
+                  className="bg-transparent border-none focus:ring-0 focus:outline-none w-full font-medium text-on-surface"
                   required
                 />
               </div>

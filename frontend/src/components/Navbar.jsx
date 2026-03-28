@@ -29,11 +29,6 @@ export default function Navbar() {
               to="/"
               className="flex items-center gap-2"
             >
-              <img
-                src="/logo.png"
-                alt={config.appName}
-                className="w-8 h-8 object-contain"
-              />
               <span className="text-xl font-bold text-primary italic font-headline">
                 {config.appName}
               </span>
