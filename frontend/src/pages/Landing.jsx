@@ -102,6 +102,19 @@ export default function Landing() {
               {balanceText}
             </div>
           </div>
+          <Link
+            to="/add"
+            state={{ description: "Payment", category: "Payment" }}
+            className="mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-secondary-container text-on-secondary-container font-headline font-bold text-sm shadow-sm active:scale-95 transition-transform hover:shadow-md"
+          >
+            <span
+              className="material-symbols-outlined text-[20px]"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              handshake
+            </span>
+            Settle
+          </Link>
           <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500"></div>
           <div className="mt-12 flex items-center gap-4 text-on-surface-variant">
             <div className="flex -space-x-3">

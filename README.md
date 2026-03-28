@@ -21,7 +21,7 @@ TallyUs tracks shared expenses between two people, calculates who owes whom, and
 
 | Page | What it does |
 |---|---|
-| **Dashboard** | Live balance (e.g. "User A owes User B $50"), this month's spend by category, last 10 expenses |
+| **Dashboard** | Live balance (e.g. "User A owes User B $50"), this month's spend by category, last 10 expenses. Includes a **Settle** button that opens the Add Expense form pre-filled with "Payment" description and category for quick balance settlements. |
 | **Add Expense** | Log an expense with date, description, category, amount, payer, and split method. Supports custom categories via "+ New Category". As you type a description, fuzzy matching suggests existing descriptions ("Did you mean?") and instantly auto-suggests a category from history — all client-side with zero network latency. |
 | **Edit Expense** | Full-page edit form at `/edit/:id` — reuses the Add Expense form with all fields pre-filled |
 | **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses |
