@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   getExpenses,
   deleteExpense,
@@ -48,13 +48,19 @@ function getSplitBadge(method) {
 
 export default function History() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { userA, userB } = useUsers();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const searchRef = useRef(null);
   const [appliedSearch, setAppliedSearch] = useState("");
+  const prefill = location.state || {};
+  const [monthFilter, setMonthFilter] = useState(prefill.month || null);
+  const [dateRange, setDateRange] = useState(
+    prefill.start_date ? { start_date: prefill.start_date, end_date: prefill.end_date } : null
+  );
   const [filterPaidBy, setFilterPaidBy] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
+  const [filterCategory, setFilterCategory] = useState(prefill.category || "");
   const [sortAmount, setSortAmount] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [fetchError, setFetchError] = useState(null);
@@ -68,6 +74,10 @@ export default function History() {
       if (appliedSearch) params.search = appliedSearch;
       if (filterPaidBy) params.paid_by = filterPaidBy;
       if (filterCategory) params.category = filterCategory;
+      if (dateRange) {
+        params.start_date = dateRange.start_date;
+        params.end_date = dateRange.end_date;
+      }
       if (sortAmount) {
         params.sort_by = "amount";
         params.sort = sortAmount;
@@ -80,7 +90,7 @@ export default function History() {
     } finally {
       setLoading(false);
     }
-  }, [appliedSearch, filterPaidBy, filterCategory, sortAmount]);
+  }, [appliedSearch, filterPaidBy, filterCategory, dateRange, sortAmount]);
 
   useEffect(() => {
     fetchExpenses();
@@ -156,6 +166,29 @@ export default function History() {
           </Link>
         </div>
       </header>
+
+      {/* Analytics drill-down filter pill */}
+      {monthFilter && (
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center gap-2 bg-primary-container text-on-primary-container px-4 py-2 rounded-full text-sm font-bold">
+            <span className="material-symbols-outlined text-[16px]">filter_alt</span>
+            {new Date(monthFilter + "-02").toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+            {filterCategory && <><span className="opacity-50">·</span>{filterCategory}</>}
+            <button
+              onClick={() => {
+                setMonthFilter(null);
+                setDateRange(null);
+                setFilterCategory("");
+              }}
+              className="ml-1 hover:opacity-70 transition-opacity"
+              aria-label="Clear filter"
+            >
+              <span className="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          </div>
+          <span className="text-xs text-on-surface-variant font-medium">from Analytics</span>
+        </div>
+      )}
 
       {/* Search & Filters */}
       <section className="space-y-4">

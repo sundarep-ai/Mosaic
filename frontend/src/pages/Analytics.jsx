@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   XAxis,
   YAxis,
@@ -16,6 +16,7 @@ import {
 import { getAnalytics, getExpenses } from "../api/expenses";
 import { CATEGORY_ICONS } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
+import Avatar from "../components/Avatar";
 
 const CHART_COLORS = [
   "#106a6a",
@@ -49,6 +50,7 @@ function getDateRange(months) {
 
 export default function Analytics() {
   const { userA, userB } = useUsers();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -59,6 +61,7 @@ export default function Analytics() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [drillDownData, setDrillDownData] = useState(null);
   const [drillDownLoading, setDrillDownLoading] = useState(false);
+  const [categoryVelocityData, setCategoryVelocityData] = useState(null);
 
   const fetchData = async (params) => {
     setLoading(true);
@@ -85,6 +88,7 @@ export default function Analytics() {
     setDateParams(params);
     setSelectedCategory(null);
     setDrillDownData(null);
+    setCategoryVelocityData(null);
     fetchData(params);
   };
 
@@ -95,6 +99,7 @@ export default function Analytics() {
       setDateParams(params);
       setSelectedCategory(null);
       setDrillDownData(null);
+      setCategoryVelocityData(null);
       fetchData(params);
     }
   };
@@ -107,6 +112,8 @@ export default function Analytics() {
         category,
         ...dateParams,
       });
+
+      // Group by description for drill-down bar chart
       const grouped = {};
       for (const e of expenses) {
         if (!grouped[e.description]) {
@@ -119,6 +126,17 @@ export default function Analytics() {
         .sort((a, b) => b.amount - a.amount)
         .slice(0, 7);
       setDrillDownData(sorted);
+
+      // Group by month for velocity chart
+      const byMonth = {};
+      for (const e of expenses) {
+        const month = e.date.substring(0, 7); // "YYYY-MM"
+        if (!byMonth[month]) byMonth[month] = { month, amount: 0, count: 0 };
+        byMonth[month].amount += e.amount;
+        byMonth[month].count += 1;
+      }
+      const velocity = Object.values(byMonth).sort((a, b) => a.month.localeCompare(b.month));
+      setCategoryVelocityData(velocity);
     } finally {
       setDrillDownLoading(false);
     }
@@ -217,15 +235,11 @@ export default function Analytics() {
             <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500"></div>
             <div className="mt-12 flex items-center gap-4 text-on-surface-variant">
               <div className="flex -space-x-3">
-                <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest bg-primary-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-sm text-on-primary-container">
-                    person
-                  </span>
+                <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
+                  <Avatar user={userA} size="md" />
                 </div>
-                <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest bg-secondary-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-sm text-on-secondary-container">
-                    person
-                  </span>
+                <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
+                  <Avatar user={userB} size="md" />
                 </div>
               </div>
               <p className="text-xs font-medium italic">
@@ -243,6 +257,7 @@ export default function Analytics() {
                     onClick={() => {
                       setSelectedCategory(null);
                       setDrillDownData(null);
+                      setCategoryVelocityData(null);
                     }}
                     className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center hover:bg-surface-container-highest transition-colors"
                   >
@@ -443,12 +458,8 @@ export default function Analytics() {
                   return (
                     <div key={p.payer}>
                       <div className="flex items-center gap-4 mb-3">
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center ${c.bg} ${c.text}`}
-                        >
-                          <span className="material-symbols-outlined">
-                            person
-                          </span>
+                        <div className="w-10 h-10 rounded-xl overflow-hidden">
+                          <Avatar user={p.payer} size="md" />
                         </div>
                         <div className="flex-1">
                           <div className="flex justify-between text-sm mb-1">
@@ -486,13 +497,29 @@ export default function Analytics() {
                 Spending Velocity
               </h3>
               <p className="text-on-primary/70 text-sm font-medium">
-                Monthly spending trend
+                {selectedCategory ? `${selectedCategory} — monthly trend` : "Monthly spending trend"}
               </p>
             </div>
             <div className="mt-8 relative z-10">
-              {data.over_time?.length > 0 ? (
+              {(categoryVelocityData ?? data.over_time)?.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={data.over_time}>
+                  <LineChart
+                    data={categoryVelocityData ?? data.over_time}
+                    onClick={(chartData) => {
+                      if (!chartData?.activePayload?.[0]) return;
+                      const month = chartData.activePayload[0].payload.month;
+                      const [y, m] = month.split("-");
+                      navigate("/history", {
+                        state: {
+                          month,
+                          start_date: `${y}-${m}-01`,
+                          end_date: new Date(y, m, 0).toISOString().split("T")[0],
+                          ...(selectedCategory ? { category: selectedCategory } : {}),
+                        },
+                      });
+                    }}
+                    style={{ cursor: "pointer" }}
+                  >
                     <XAxis
                       dataKey="month"
                       tick={{ fontSize: 11, fill: "rgba(224,255,254,0.6)" }}
@@ -535,7 +562,7 @@ export default function Analytics() {
                 </ResponsiveContainer>
               ) : (
                 <p className="text-on-primary/60 text-sm text-center py-12">
-                  No trend data available
+                  {selectedCategory ? `No trend data for ${selectedCategory}` : "No trend data available"}
                 </p>
               )}
             </div>
@@ -600,11 +627,7 @@ export default function Analytics() {
                         </td>
                         <td className="py-6">
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                              <span className="material-symbols-outlined text-on-primary text-[10px]">
-                                person
-                              </span>
-                            </div>
+                            <Avatar user={e.paid_by} size="sm" />
                             <span className="text-sm font-medium">
                               {e.paid_by}
                             </span>
