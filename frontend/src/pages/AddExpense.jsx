@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import {
   createExpense,
   updateExpense,
@@ -14,15 +14,17 @@ const CUSTOM_CATEGORY_VALUE = "__custom__";
 export default function AddExpense() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const location = useLocation();
   const isEdit = Boolean(id);
   const today = new Date().toISOString().split("T")[0];
   const { userA, userB } = useUsers();
+  const prefill = location.state || {};
 
   const [form, setForm] = useState({
     date: today,
-    description: "",
+    description: prefill.description || "",
     amount: "",
-    category: "Groceries",
+    category: prefill.category || "Groceries",
     paid_by: userA,
     split_method: "50/50",
   });
