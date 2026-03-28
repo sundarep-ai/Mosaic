@@ -28,7 +28,7 @@ LOGIN_TO_DISPLAY = {
 }
 
 SESSION_COOKIE = "tallyus_session"
-SESSION_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
+SESSION_TTL = 60 * 60 * 8  # 8 hours
 
 
 def _sign(payload: str) -> str:
@@ -53,6 +53,8 @@ def _verify_token(token: str) -> str | None:
     except json.JSONDecodeError:
         return None
     if data.get("user") not in USERS:
+        return None
+    if time.time() - data.get("ts", 0) > SESSION_TTL:
         return None
     return data["user"]
 
@@ -85,7 +87,6 @@ def login(data: LoginRequest, response: Response):
         value=token,
         httponly=True,
         samesite="lax",
-        max_age=SESSION_MAX_AGE,
     )
     return {
         "username": data.username,
