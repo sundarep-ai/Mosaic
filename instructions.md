@@ -72,9 +72,14 @@ Then edit **`backend/.env`**:
 USER_A_PASSWORD=your-password-here
 USER_B_PASSWORD=your-password-here
 SECRET_KEY=some-random-secret-key
+
+# Optional: set to a OneDrive/cloud folder for cloud-synced backups
+# BACKUP_PATH=C:/Users/yourname/OneDrive/TallyUs-Backups
 ```
 
 > **Important:** Never commit `.env` — it's already in `.gitignore`.
+
+**To enable OneDrive backups**, uncomment `BACKUP_PATH` and set it to any folder that is synced to the cloud (OneDrive, Google Drive, Dropbox, etc.). On each startup, TallyUs will copy both the database and the audit log there.
 
 ---
 
@@ -126,6 +131,7 @@ There is **no manual database setup required**. Here's how it works:
 - TallyUs uses **SQLite**, a file-based database that requires no separate server or installation — it ships with Python.
 - The database file `tallyus.db` is created automatically in the `backend/` directory the first time the backend starts.
 - The `Expense` table schema is managed by **SQLModel**. On startup, the app calls `SQLModel.metadata.create_all()` which creates any missing tables.
+- The database runs in **WAL mode** (Write-Ahead Logging) for crash recovery and safe concurrent access.
 - To inspect the database manually, you can use any SQLite browser (e.g., [DB Browser for SQLite](https://sqlitebrowser.org/)) and open `backend/tallyus.db`.
 
 You do not need to run any migration commands or create the database yourself — just start the server.
@@ -143,11 +149,13 @@ The API is now live at **http://localhost:8000**.
 
 On startup you should see output like:
 ```
+INFO:     Database integrity check passed
+INFO:     Backup created at backend/data/backups/2026-03-29T143000
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 INFO:     Started reloader process
 ```
 
-At this point `backend/tallyus.db` exists and the `Expense` table is ready.
+At this point `backend/tallyus.db` exists, the `Expense` table is ready, and a backup snapshot has been created in `backend/data/backups/` (or your configured `BACKUP_PATH`).
 
 > **Note:** The first time you use the "Clean Up Descriptions" feature (similarity analysis), `fastembed` will download a small embedding model (~45 MB). This is a one-time download that gets cached locally.
 
@@ -259,6 +267,28 @@ del tallyus.db                 # Windows
 uvicorn main:app --reload      # recreates an empty database
 ```
 
+> **Note:** Deleting `tallyus.db` does not delete the audit log or backups in `backend/data/`. Those are preserved independently. If you want a full reset, also delete `backend/data/`.
+
+## 11. Restoring from a Backup
+
+Backups are stored in timestamped subdirectories (e.g., `backend/data/backups/2026-03-29T143000/`), each containing a `tallyus.db` snapshot and an `audit.jsonl` snapshot.
+
+To restore:
+
+```bash
+# Stop the backend first (Ctrl+C)
+cd backend
+
+# Replace the database with a backup
+copy data\backups\2026-03-29T143000\tallyus.db tallyus.db   # Windows
+# cp data/backups/2026-03-29T143000/tallyus.db tallyus.db   # macOS / Linux
+
+# Restart the backend
+uvicorn main:app --reload
+```
+
+The audit log at `backend/data/audit/audit.jsonl` is a permanent append-only record of every change ever made and can be used to reconstruct the state of the database at any point in time.
+
 ---
 
 ## Troubleshooting
@@ -272,3 +302,6 @@ uvicorn main:app --reload      # recreates an empty database
 | Port 5173 already in use | Vite auto-picks the next available port — check terminal output |
 | CORS errors in browser | Make sure the backend is running on `localhost:8000` before opening the frontend |
 | Migration script fails | Check that your `.xlsx` has a header row and columns match the expected names (see section 6) |
+| Backup directory not created | The `backend/data/` folder is created automatically on first startup — no manual action needed |
+| `BACKUP_PATH` not working | Make sure the path exists and uses forward slashes or escaped backslashes in `.env` |
+| `.db-shm` / `.db-wal` files appeared | Normal — these are SQLite WAL mode working files, managed automatically. They are gitignored. |

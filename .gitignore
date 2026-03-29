@@ -8,6 +8,8 @@ build/
 venv/
 .venv/
 *.db
+*.db-shm
+*.db-wal
 config.py
 
 # Node
@@ -26,6 +28,9 @@ Thumbs.db
 
 # Uploads
 backend/uploads/
+
+# Audit logs and backups
+backend/data/
 
 # Env
 .env
