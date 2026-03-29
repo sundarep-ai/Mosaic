@@ -33,6 +33,7 @@ async def lifespan(app: FastAPI):
         db_path=DB_PATH,
         audit_log_path=audit_logger.log_path,
         backup_dir=BACKUP_DIR,
+        max_backups=1000,
     )
     backup_mgr.create_backup()
 
