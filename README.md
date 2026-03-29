@@ -47,11 +47,35 @@ Each user can upload a profile picture by clicking their name in the top navigat
 - **Paid By** and **Split Method** must match the configured user names
 - **Category** is free-form — choose from the default list or create a custom category
 
+## Data Protection
+
+TallyUs protects your expense data in two ways:
+
+### Audit Log
+
+Every mutation (create, update, delete, description merge) is appended to `backend/data/audit/audit.jsonl` as a permanent, never-truncated record. Each line captures the timestamp, operation type, user, and full before/after data — giving you a complete reconstruction history even if the database is lost.
+
+### Automatic Backups
+
+On every startup, the app creates a timestamped backup of both the database and the audit log. Backups are stored in `backend/data/backups/` by default and rotated to keep the 10 most recent. For cloud redundancy, set `BACKUP_PATH` in `backend/.env` to a OneDrive (or any synced) folder:
+
+```env
+BACKUP_PATH=C:/Users/yourname/OneDrive/TallyUs-Backups
+```
+
+Backups use the SQLite online backup API — consistent snapshots safe to create while the app is running.
+
+### SQLite Hardening
+
+The database runs in WAL (Write-Ahead Logging) mode for crash recovery, and an integrity check runs on every startup to detect corruption early.
+
+---
+
 ## Tech Stack
 
 | Layer | Technologies |
 |---|---|
-| Backend | Python 3.10+, FastAPI, SQLModel, SQLite, openpyxl, fastembed (ONNX-based embeddings) |
+| Backend | Python 3.10+, FastAPI, SQLModel, SQLite (WAL mode), openpyxl, fastembed (ONNX-based embeddings) |
 | Frontend | React 18 (Vite), Tailwind CSS 3, React Router 6, Recharts, Fuse.js (fuzzy search) |
 
 ## Prerequisites
@@ -97,6 +121,9 @@ Then create **`backend/.env`** for passwords and the session secret (see `.env.e
 USER_A_PASSWORD=your-password-here
 USER_B_PASSWORD=your-password-here
 SECRET_KEY=some-random-secret-key
+
+# Optional: set to a OneDrive/cloud folder for cloud-synced backups
+# BACKUP_PATH=C:/Users/yourname/OneDrive/TallyUs-Backups
 ```
 
 ### 3. Start the backend
@@ -178,14 +205,21 @@ backend/
   config.py              # Your local config (gitignored)
   .env                   # Passwords & session secret (not committed — see .env.example)
   main.py                # FastAPI app & CORS config
-  database.py            # SQLite engine & session provider
+  database.py            # SQLite engine (WAL mode), session provider, integrity check
   models.py              # Expense table & Pydantic schemas
   migrate_xlsx.py        # Bulk import from .xlsx
   requirements.txt       # Python dependencies
+  services/
+    audit.py             # Append-only JSONL audit logger
+    backup.py            # Startup backup manager (SQLite online backup API)
   routes/
     expenses.py          # CRUD, balance, monthly summary, description similarity & merge
     analytics.py         # Date-filtered analytics aggregation
     export.py            # .xlsx file generation & download
+  data/                  # Generated at runtime (gitignored)
+    audit/
+      audit.jsonl        # Permanent append-only audit log of all mutations
+    backups/             # Timestamped DB + audit log snapshots (or see BACKUP_PATH)
 
 frontend/
   package.json           # Node dependencies & scripts

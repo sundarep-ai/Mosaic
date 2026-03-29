@@ -10,6 +10,7 @@ from auth import get_current_user
 from config import USER_A, USER_B
 from database import get_session
 from models import Expense, ExpenseBase, ExpenseCreate, ExpenseUpdate
+from services.audit import audit_logger, expense_to_dict
 
 router = APIRouter()
 
@@ -114,6 +115,7 @@ def create_expense(
     session.add(expense)
     session.commit()
     session.refresh(expense)
+    audit_logger.log("CREATE", current_user, expense_to_dict(expense))
     return expense
 
 
@@ -132,6 +134,7 @@ def update_expense(
         raise HTTPException(status_code=403, detail="Not authorized to modify this expense")
 
     _validate_expense(data)
+    before = expense_to_dict(expense)
     update_data = data.model_dump()
     for key, value in update_data.items():
         setattr(expense, key, value)
@@ -140,6 +143,7 @@ def update_expense(
     session.add(expense)
     session.commit()
     session.refresh(expense)
+    audit_logger.log("UPDATE", current_user, expense_to_dict(expense), before=before)
     return expense
 
 
@@ -154,8 +158,10 @@ def delete_expense(
         raise HTTPException(status_code=404, detail="Expense not found")
     if expense.user_id is not None and expense.user_id != current_user:
         raise HTTPException(status_code=403, detail="Not authorized to delete this expense")
+    deleted_data = expense_to_dict(expense)
     session.delete(expense)
     session.commit()
+    audit_logger.log("DELETE", current_user, deleted_data)
     return {"ok": True}
 
 
@@ -329,6 +335,10 @@ def merge_descriptions(
         total_updated += len(expenses)
 
     session.commit()
+    audit_logger.log("MERGE", current_user, {
+        "merges": merges,
+        "total_updated": total_updated,
+    })
     return {"updated": total_updated}
 
 

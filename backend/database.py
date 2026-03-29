@@ -1,12 +1,41 @@
+import logging
+from pathlib import Path
+
+from sqlalchemy import event, text
 from sqlmodel import create_engine, SQLModel, Session
 
-DATABASE_URL = "sqlite:///./tallyus.db"
+logger = logging.getLogger("tallyus")
+
+DB_DIR = Path(__file__).parent
+DB_PATH = DB_DIR / "tallyus.db"
+DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})
 
 
+@event.listens_for(engine, "connect")
+def _set_sqlite_pragmas(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.close()
+
+
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
+
+
+def check_db_integrity() -> bool:
+    """Run PRAGMA integrity_check on the database. Returns True if healthy."""
+    with engine.connect() as conn:
+        result = conn.execute(text("PRAGMA integrity_check")).scalar()
+        ok = result == "ok"
+        if ok:
+            logger.info("Database integrity check passed")
+        else:
+            logger.error("Database integrity check FAILED: %s", result)
+        return ok
 
 
 def get_session():
