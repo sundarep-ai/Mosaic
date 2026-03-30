@@ -24,7 +24,6 @@ jobs:
         working-directory: backend
         run: |
           pip install -r requirements.txt
-          pip install pytest httpx
 
       - name: Run tests
         working-directory: backend
