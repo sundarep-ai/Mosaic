@@ -32,16 +32,16 @@ const CHART_COLORS = [
 ];
 
 const PRESETS = [
-  { label: "1M", months: 1 },
-  { label: "3M", months: 3 },
-  { label: "6M", months: 6 },
-  { label: "1Y", months: 12 },
+  { label: "1M", days: 30 },
+  { label: "3M", days: 91 },
+  { label: "6M", days: 182 },
+  { label: "1Y", days: 365 },
 ];
 
-function getDateRange(months) {
+function getDateRange(days) {
   const end = new Date();
   const start = new Date();
-  start.setMonth(start.getMonth() - months);
+  start.setDate(start.getDate() - days);
   return {
     start_date: start.toISOString().split("T")[0],
     end_date: end.toISOString().split("T")[0],
@@ -57,7 +57,7 @@ export default function Analytics() {
   const [activePreset, setActivePreset] = useState("3M");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  const [dateParams, setDateParams] = useState(getDateRange(3));
+  const [dateParams, setDateParams] = useState(getDateRange(91));
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [drillDownData, setDrillDownData] = useState(null);
   const [drillDownLoading, setDrillDownLoading] = useState(false);
@@ -77,14 +77,14 @@ export default function Analytics() {
   };
 
   useEffect(() => {
-    fetchData(getDateRange(3));
+    fetchData(getDateRange(91));
   }, []);
 
   const handlePreset = (preset) => {
     setActivePreset(preset.label);
     setCustomStart("");
     setCustomEnd("");
-    const params = getDateRange(preset.months);
+    const params = getDateRange(preset.days);
     setDateParams(params);
     setSelectedCategory(null);
     setDrillDownData(null);
