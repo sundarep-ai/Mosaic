@@ -66,18 +66,41 @@ cd backend
 cp .env.example .env
 ```
 
-Then edit **`backend/.env`**:
+Then edit **`backend/.env`**. Passwords must be **bcrypt hashes** (not plaintext) and a **SECRET_KEY** is required:
 
 ```env
-USER_A_PASSWORD=your-password-here
-USER_B_PASSWORD=your-password-here
-SECRET_KEY=some-random-secret-key
+USER_A_PASSWORD=<bcrypt hash>
+USER_B_PASSWORD=<bcrypt hash>
+SECRET_KEY=<long random string>
 
 # Optional: set to a OneDrive/cloud folder for cloud-synced backups
 # BACKUP_PATH=C:/Users/yourname/OneDrive/TallyUs-Backups
 ```
 
 > **Important:** Never commit `.env` — it's already in `.gitignore`.
+
+#### Generating bcrypt password hashes
+
+> **Note:** This step requires Python dependencies to be installed first (step 4c). You can set placeholder values in `.env` now and come back to generate the real hashes after running `pip install -r requirements.txt`.
+
+Generate hashes for each user's password:
+
+```bash
+cd backend
+python -c "from auth import hash_password; print(hash_password('your-password-here'))"
+```
+
+Copy the output (starts with `$2b$12$...`) into `.env` as the password value.
+
+#### Generating a SECRET_KEY
+
+The `SECRET_KEY` is used to sign session cookies. The app **will not start** without one. Generate a strong random key:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Copy the output into `.env` as the `SECRET_KEY` value.
 
 **To enable OneDrive backups**, uncomment `BACKUP_PATH` and set it to any folder that is synced to the cloud (OneDrive, Google Drive, Dropbox, etc.). On each startup, TallyUs will copy both the database and the audit log there.
 
@@ -122,7 +145,7 @@ You should see `(venv)` in your terminal prompt.
 pip install -r requirements.txt
 ```
 
-This installs: FastAPI, Uvicorn, SQLModel, openpyxl, python-multipart, fastembed (ONNX-based embeddings for description similarity).
+This installs: FastAPI, Uvicorn, SQLModel, openpyxl, python-multipart, fastembed (ONNX-based embeddings for description similarity), and bcrypt (password hashing).
 
 ### 4d. Database setup (SQLite)
 
@@ -132,6 +155,7 @@ There is **no manual database setup required**. Here's how it works:
 - The database file `tallyus.db` is created automatically in the `backend/` directory the first time the backend starts.
 - The `Expense` table schema is managed by **SQLModel**. On startup, the app calls `SQLModel.metadata.create_all()` which creates any missing tables.
 - The database runs in **WAL mode** (Write-Ahead Logging) for crash recovery and safe concurrent access.
+- **Indexes** on `date`, `category`, and `paid_by` are created automatically on startup for faster queries.
 - To inspect the database manually, you can use any SQLite browser (e.g., [DB Browser for SQLite](https://sqlitebrowser.org/)) and open `backend/tallyus.db`.
 
 You do not need to run any migration commands or create the database yourself — just start the server.
@@ -155,7 +179,9 @@ INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 INFO:     Started reloader process
 ```
 
-At this point `backend/tallyus.db` exists, the `Expense` table is ready, and a backup snapshot has been created in `backend/data/backups/` (or your configured `BACKUP_PATH`).
+At this point `backend/tallyus.db` exists, the `Expense` table is ready, database indexes have been created, and a backup snapshot has been created in `backend/data/backups/` (or your configured `BACKUP_PATH`).
+
+> **Note:** If you see `RuntimeError: SECRET_KEY environment variable is not set`, make sure you've created `backend/.env` with a valid `SECRET_KEY` (see step 3b).
 
 > **Note:** The first time you use the "Clean Up Descriptions" feature (similarity analysis), `fastembed` will download a small embedding model (~45 MB). This is a one-time download that gets cached locally.
 
@@ -295,6 +321,8 @@ The audit log at `backend/data/audit/audit.jsonl` is a permanent append-only rec
 
 | Problem | Fix |
 |---|---|
+| `RuntimeError: SECRET_KEY environment variable is not set` | Create `backend/.env` with a `SECRET_KEY` value (see step 3b) |
+| Login fails after upgrading to bcrypt | Passwords in `.env` must be bcrypt hashes, not plaintext. Regenerate them (see step 3b) |
 | `python` not found | Try `python3` instead, or add Python to your PATH |
 | `npm` not found | Install Node.js from https://nodejs.org/ |
 | PowerShell blocks `activate` | Run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` |

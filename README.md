@@ -30,7 +30,7 @@ TallyUs tracks shared expenses between two people, calculates who owes whom, and
 
 ### Profile Pictures
 
-Each user can upload a profile picture by clicking their name in the top navigation bar. Avatars appear on the Dashboard (balance card) and in the History table's "Paid By" column. Images are stored locally in `backend/uploads/avatars/` (created automatically on first server start, gitignored). Accepted formats: JPG, PNG, GIF, WebP — max 2 MB.
+Each user can upload a profile picture by clicking their name in the top navigation bar. Avatars appear on the Dashboard (balance card) and in the History table's "Paid By" column. Images are stored locally in `backend/uploads/avatars/` (created automatically on first server start, gitignored). Accepted formats: JPG, PNG, GIF, WebP — max 2 MB. Uploads are validated against magic bytes to ensure file content matches the declared type.
 
 ### Split Methods
 
@@ -42,7 +42,7 @@ Each user can upload a profile picture by clicking their name in the top navigat
 
 ### Validation
 
-- **Amount** must be greater than zero (enforced on both frontend and backend)
+- **Amount** must be greater than zero (enforced on both frontend and backend) and is automatically rounded to 2 decimal places on input
 - **Date** cannot be in the future (enforced on both frontend and backend)
 - **Paid By** and **Split Method** must match the configured user names
 - **Category** is free-form — choose from the default list or create a custom category
@@ -67,7 +67,14 @@ Backups use the SQLite online backup API — consistent snapshots safe to create
 
 ### SQLite Hardening
 
-The database runs in WAL (Write-Ahead Logging) mode for crash recovery, and an integrity check runs on every startup to detect corruption early.
+The database runs in WAL (Write-Ahead Logging) mode for crash recovery, and an integrity check runs on every startup to detect corruption early. Indexes on `date`, `category`, and `paid_by` are created automatically on startup for faster queries.
+
+### Security
+
+- **Passwords** are stored as bcrypt hashes in `backend/.env` — plaintext passwords are never stored
+- **Session cookies** are HMAC-SHA256 signed with a required `SECRET_KEY` — the app refuses to start without one
+- **Avatar uploads** are validated with magic byte checks and path traversal protection
+- **Search queries** escape SQL LIKE wildcards to prevent injection
 
 ---
 
@@ -75,7 +82,7 @@ The database runs in WAL (Write-Ahead Logging) mode for crash recovery, and an i
 
 | Layer | Technologies |
 |---|---|
-| Backend | Python 3.10+, FastAPI, SQLModel, SQLite (WAL mode), openpyxl, fastembed (ONNX-based embeddings) |
+| Backend | Python 3.10+, FastAPI, SQLModel, SQLite (WAL mode), openpyxl, fastembed (ONNX-based embeddings), bcrypt |
 | Frontend | React 18 (Vite), Tailwind CSS 3, React Router 6, Recharts, Fuse.js (fuzzy search) |
 
 ## Prerequisites
@@ -118,12 +125,25 @@ USER_B_LOGIN = "bob"
 Then create **`backend/.env`** for passwords and the session secret (see `.env.example`):
 
 ```env
-USER_A_PASSWORD=your-password-here
-USER_B_PASSWORD=your-password-here
-SECRET_KEY=some-random-secret-key
+USER_A_PASSWORD=<bcrypt hash>
+USER_B_PASSWORD=<bcrypt hash>
+SECRET_KEY=<long random string>
 
 # Optional: set to a OneDrive/cloud folder for cloud-synced backups
 # BACKUP_PATH=C:/Users/yourname/OneDrive/TallyUs-Backups
+```
+
+**Passwords must be bcrypt hashes**, not plaintext. Generate them after installing dependencies (step 3):
+
+```bash
+cd backend
+python -c "from auth import hash_password; print(hash_password('your-password'))"
+```
+
+**SECRET_KEY** is required — the app will refuse to start without one. Generate a strong key:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
 ### 3. Start the backend
@@ -233,6 +253,7 @@ frontend/
     ErrorBoundary.jsx    # Catches render errors to prevent white-screen crashes
     index.css            # Tailwind directives
     api/
+      fetchWithAuth.js   # Centralized fetch wrapper with automatic 401 → logout handling
       expenses.js        # Fetch helpers for all endpoints
     constants/
       categories.js      # Shared category list, icons, and color mappings

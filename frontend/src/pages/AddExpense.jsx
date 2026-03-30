@@ -96,7 +96,16 @@ export default function AddExpense() {
   }, [suggest, suggestCategoryLocal]);
 
   const handleSuggestionClick = useCallback((item) => {
-    setForm((prev) => ({ ...prev, description: item.description }));
+    const cat = item.category;
+    if (CATEGORIES.includes(cat)) {
+      setIsCustomCategory(false);
+      setCustomCategory("");
+    } else {
+      setIsCustomCategory(true);
+      setCustomCategory(cat);
+    }
+    setForm((prev) => ({ ...prev, description: item.description, category: cat }));
+    setSuggested(true);
     setShowSuggestions(false);
     setDescSuggestions([]);
   }, []);

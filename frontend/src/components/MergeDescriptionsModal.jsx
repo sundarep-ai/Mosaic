@@ -10,6 +10,14 @@ export default function MergeDescriptionsModal({ onClose, onMerged }) {
   const [mergeResult, setMergeResult] = useState(null);
 
   useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
     (async () => {
       try {
         const data = await getSimilarDescriptions();
@@ -100,8 +108,14 @@ export default function MergeDescriptionsModal({ onClose, onMerged }) {
   const totalGroups = results.reduce((sum, c) => sum + c.groups.length, 0);
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface-container-lowest rounded-[2rem] shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col">
+    <div
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface-container-lowest rounded-[2rem] shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-8 pb-4">
           <div className="flex items-start justify-between">

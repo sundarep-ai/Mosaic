@@ -1,12 +1,18 @@
 import { useState } from "react";
-import { useUsers } from "../ConfigContext";
+import { useAuth } from "../auth/AuthContext";
 import { API_BASE } from "../config";
 
 export default function Avatar({ user, size = "md", cacheBust = "" }) {
-  const { userA, userB, userALogin, userBLogin } = useUsers();
+  const { user: authUser } = useAuth();
   const [imgError, setImgError] = useState(false);
 
-  const login = user === userA ? userALogin : user === userB ? userBLogin : null;
+  // Invert the userMap: { displayName -> loginUsername }
+  const userMap = authUser?.userMap || {};
+  const displayToLogin = Object.fromEntries(
+    Object.entries(userMap).map(([login, display]) => [display, login])
+  );
+  const login = displayToLogin[user] || null;
+
   const avatarUrl = login
     ? `${API_BASE}/auth/avatar/${login}${cacheBust ? `?v=${cacheBust}` : ""}`
     : null;

@@ -1,13 +1,12 @@
 import logging
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import USER_A, USER_B, USER_A_LOGIN, USER_B_LOGIN
-from database import create_db_and_tables, check_db_integrity, DB_PATH
+from config import USER_A, USER_B, BACKUP_PATH
+from database import create_db_and_tables, check_db_integrity, ensure_indexes, DB_PATH
 from routes import expenses, analytics, export
 from auth import router as auth_router
 from services.audit import audit_logger
@@ -16,14 +15,14 @@ from services.backup import BackupManager
 logger = logging.getLogger("tallyus")
 logging.basicConfig(level=logging.INFO)
 
-# Backup location: use BACKUP_PATH from .env if set, otherwise default to backend/data/backups/
-_backup_path = os.getenv("BACKUP_PATH")
-BACKUP_DIR = Path(_backup_path) if _backup_path else Path(__file__).parent / "data" / "backups"
+# Backup location: use BACKUP_PATH from config if set, otherwise default to backend/data/backups/
+BACKUP_DIR = Path(BACKUP_PATH) if BACKUP_PATH else Path(__file__).parent / "data" / "backups"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
+    ensure_indexes()
 
     # Integrity check
     check_db_integrity()
@@ -58,10 +57,8 @@ app.include_router(export.router, prefix="/api")
 
 @app.get("/api/config")
 def get_app_config():
-    """Public endpoint returning app configuration (user display names and login usernames)."""
+    """Public endpoint returning display names only. Login usernames are served via authenticated endpoints."""
     return {
         "userA": USER_A,
         "userB": USER_B,
-        "userALogin": USER_A_LOGIN,
-        "userBLogin": USER_B_LOGIN,
     }

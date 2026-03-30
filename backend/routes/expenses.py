@@ -1,3 +1,4 @@
+import threading
 from datetime import date
 from decimal import Decimal
 from typing import Optional
@@ -11,6 +12,21 @@ from config import USER_A, USER_B
 from database import get_session
 from models import Expense, ExpenseBase, ExpenseCreate, ExpenseUpdate
 from services.audit import audit_logger, expense_to_dict
+
+_embedding_model = None
+_embedding_lock = threading.Lock()
+
+
+def _get_embedding_model():
+    """Lazy singleton for TextEmbedding model. Thread-safe initialization."""
+    global _embedding_model
+    if _embedding_model is None:
+        with _embedding_lock:
+            if _embedding_model is None:
+                from fastembed import TextEmbedding
+                _embedding_model = TextEmbedding()
+    return _embedding_model
+
 
 router = APIRouter()
 
@@ -63,11 +79,12 @@ def list_expenses(
     statement = select(Expense)
 
     if search:
+        escaped = _escape_like(search)
         statement = statement.where(
             or_(
-                Expense.description.contains(search),
-                Expense.category.contains(search),
-                Expense.paid_by.contains(search),
+                Expense.description.like(f"%{escaped}%", escape="\\"),
+                Expense.category.like(f"%{escaped}%", escape="\\"),
+                Expense.paid_by.like(f"%{escaped}%", escape="\\"),
             )
         )
     if paid_by:
@@ -185,8 +202,13 @@ def suggest_category(
     if not keywords:
         return {"category": None}
 
-    conditions = [Expense.description.ilike(f"%{_escape_like(kw)}%") for kw in keywords]
-    matches = session.exec(select(Expense).where(or_(*conditions))).all()
+    conditions = [Expense.description.ilike(f"%{_escape_like(kw)}%", escape="\\") for kw in keywords]
+    matches = session.exec(
+        select(Expense)
+        .where(or_(*conditions))
+        .order_by(Expense.date.desc())
+        .limit(500)
+    ).all()
 
     if not matches:
         return {"category": None}
@@ -234,7 +256,6 @@ def similar_descriptions(
     current_user: str = Depends(get_current_user),
 ):
     """Find clusters of similar descriptions within each category using embedding similarity."""
-    from fastembed import TextEmbedding
     import numpy as np
 
     # Fetch unique (description, category, count)
@@ -253,7 +274,7 @@ def similar_descriptions(
     for desc, cat, cnt in rows:
         by_category.setdefault(cat, []).append((desc, cnt))
 
-    model = TextEmbedding()
+    model = _get_embedding_model()
     result = []
 
     for category, items in by_category.items():
@@ -374,10 +395,10 @@ def get_balance(
                     (Expense.split_method == f"100% {USER_B}") & (Expense.paid_by == USER_A),
                     -Expense.amount,
                 ),
-                else_=Decimal("0"),
+                else_=0,
             )
         ),
-        Decimal("0"),
+        0,
     )
 
     result = session.exec(
