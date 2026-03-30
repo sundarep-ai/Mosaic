@@ -2,7 +2,11 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import time
+from pathlib import Path
+
+import bcrypt
 
 from fastapi import APIRouter, HTTPException, Request, Response, UploadFile, File
 from fastapi.responses import FileResponse
@@ -20,6 +24,16 @@ os.makedirs(AVATARS_DIR, exist_ok=True)
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 MAX_FILE_SIZE = 2 * 1024 * 1024  # 2 MB
 
+MAGIC_BYTES = {
+    ".jpg":  [b"\xff\xd8\xff"],
+    ".jpeg": [b"\xff\xd8\xff"],
+    ".png":  [b"\x89PNG"],
+    ".gif":  [b"GIF87a", b"GIF89a"],
+    ".webp": [b"RIFF"],
+}
+
+_SAFE_USERNAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
+
 router = APIRouter()
 
 # Maps login username -> password
@@ -33,6 +47,31 @@ LOGIN_TO_DISPLAY = {
     USER_A_LOGIN: USER_A,
     USER_B_LOGIN: USER_B,
 }
+
+
+def hash_password(plain: str) -> str:
+    """Generate a bcrypt hash for a plaintext password. Use for .env setup."""
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+
+
+def _check_password(plain: str, hashed: str) -> bool:
+    """Verify a plaintext password against a bcrypt hash."""
+    try:
+        return bcrypt.checkpw(plain.encode(), hashed.encode())
+    except (ValueError, TypeError):
+        return False
+
+
+def _validate_magic(data: bytes, ext: str) -> bool:
+    """Verify file content magic bytes match the claimed extension."""
+    signatures = MAGIC_BYTES.get(ext, [])
+    for sig in signatures:
+        if data[: len(sig)] == sig:
+            if ext == ".webp":
+                return len(data) >= 12 and data[8:12] == b"WEBP"
+            return True
+    return False
+
 
 SESSION_COOKIE = "tallyus_session"
 SESSION_TTL = 60 * 60 * 8  # 8 hours
@@ -85,7 +124,7 @@ class LoginRequest(BaseModel):
 @router.post("/auth/login")
 def login(data: LoginRequest, response: Response):
     expected_password = USERS.get(data.username)
-    if not expected_password or data.password != expected_password:
+    if not expected_password or not _check_password(data.password, expected_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     token = _make_token(data.username)
@@ -98,6 +137,7 @@ def login(data: LoginRequest, response: Response):
     return {
         "username": data.username,
         "display_name": LOGIN_TO_DISPLAY.get(data.username, data.username),
+        "user_map": {login: display for login, display in LOGIN_TO_DISPLAY.items()},
     }
 
 
@@ -113,6 +153,7 @@ def get_me(request: Request):
     return {
         "username": username,
         "display_name": LOGIN_TO_DISPLAY.get(username, username),
+        "user_map": {login: display for login, display in LOGIN_TO_DISPLAY.items()},
     }
 
 
@@ -137,12 +178,25 @@ async def upload_avatar(request: Request, file: UploadFile = File(...)):
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 2 MB.")
 
+    if not _validate_magic(contents, ext):
+        raise HTTPException(
+            status_code=400,
+            detail="File content does not match the declared file type.",
+        )
+
+    if not _SAFE_USERNAME_RE.match(username):
+        raise HTTPException(status_code=400, detail="Invalid username format.")
+
+    dest_path = Path(AVATARS_DIR).resolve() / f"{username}{ext}"
+    if dest_path.parent != Path(AVATARS_DIR).resolve():
+        raise HTTPException(status_code=400, detail="Invalid file path.")
+
     # Remove any existing avatar for this user
     existing = _find_avatar(username)
     if existing:
         os.remove(existing)
 
-    dest = os.path.join(AVATARS_DIR, f"{username}{ext}")
+    dest = str(dest_path)
     with open(dest, "wb") as f:
         f.write(contents)
 

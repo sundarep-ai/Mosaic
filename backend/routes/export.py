@@ -15,6 +15,11 @@ from models import Expense
 router = APIRouter()
 
 
+def _escape_like(s: str) -> str:
+    """Escape SQL LIKE wildcard characters."""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 @router.get("/export")
 def export_expenses(
     request: Request,
@@ -27,11 +32,12 @@ def export_expenses(
     statement = select(Expense)
 
     if search:
+        escaped = _escape_like(search)
         statement = statement.where(
             or_(
-                Expense.description.contains(search),
-                Expense.category.contains(search),
-                Expense.paid_by.contains(search),
+                Expense.description.like(f"%{escaped}%", escape="\\"),
+                Expense.category.like(f"%{escaped}%", escape="\\"),
+                Expense.paid_by.like(f"%{escaped}%", escape="\\"),
             )
         )
     if paid_by:

@@ -16,4 +16,9 @@ USER_B_LOGIN = "userb"         # Login username for user B
 # Passwords and secret key are loaded from backend/.env (see .env.example)
 USER_A_PASSWORD = os.getenv("USER_A_PASSWORD", "")
 USER_B_PASSWORD = os.getenv("USER_B_PASSWORD", "")
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+if not SECRET_KEY:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is not set. "
+        "Add a long random string to backend/.env (see .env.example)."
+    )

@@ -1,10 +1,10 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { fetchAppConfig } from "./config";
 
-const ConfigContext = createContext({ userA: "", userB: "", userALogin: "", userBLogin: "" });
+const ConfigContext = createContext({ userA: "", userB: "" });
 
 export function ConfigProvider({ children }) {
-  const [users, setUsers] = useState({ userA: "", userB: "", userALogin: "", userBLogin: "" });
+  const [users, setUsers] = useState({ userA: "", userB: "" });
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -12,8 +12,6 @@ export function ConfigProvider({ children }) {
       setUsers({
         userA: data.userA,
         userB: data.userB,
-        userALogin: data.userALogin || "",
-        userBLogin: data.userBLogin || "",
       });
       setReady(true);
     });

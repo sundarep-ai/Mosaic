@@ -1,23 +1,23 @@
 import { API_BASE } from "../config";
+import { fetchWithAuth } from "./fetchWithAuth";
 
 export async function getExpenses(params = {}) {
   const query = new URLSearchParams(params).toString();
-  const res = await fetch(`${API_BASE}/expenses?${query}`, { credentials: "include" });
+  const res = await fetchWithAuth(`${API_BASE}/expenses?${query}`);
   if (!res.ok) throw new Error("Failed to fetch expenses");
   return res.json();
 }
 
 export async function getExpense(id) {
-  const res = await fetch(`${API_BASE}/expenses/${id}`, { credentials: "include" });
+  const res = await fetchWithAuth(`${API_BASE}/expenses/${id}`);
   if (!res.ok) throw new Error("Failed to fetch expense");
   return res.json();
 }
 
 export async function createExpense(data) {
-  const res = await fetch(`${API_BASE}/expenses`, {
+  const res = await fetchWithAuth(`${API_BASE}/expenses`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error("Failed to create expense");
@@ -25,10 +25,9 @@ export async function createExpense(data) {
 }
 
 export async function updateExpense(id, data) {
-  const res = await fetch(`${API_BASE}/expenses/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/expenses/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error("Failed to update expense");
@@ -36,30 +35,28 @@ export async function updateExpense(id, data) {
 }
 
 export async function deleteExpense(id) {
-  const res = await fetch(`${API_BASE}/expenses/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/expenses/${id}`, {
     method: "DELETE",
-    credentials: "include",
   });
   if (!res.ok) throw new Error("Failed to delete expense");
   return res.json();
 }
 
 export async function getBalance() {
-  const res = await fetch(`${API_BASE}/balance`, { credentials: "include" });
+  const res = await fetchWithAuth(`${API_BASE}/balance`);
   if (!res.ok) throw new Error("Failed to fetch balance");
   return res.json();
 }
 
 export async function getMonthlySummary() {
-  const res = await fetch(`${API_BASE}/monthly-summary`, { credentials: "include" });
+  const res = await fetchWithAuth(`${API_BASE}/monthly-summary`);
   if (!res.ok) throw new Error("Failed to fetch monthly summary");
   return res.json();
 }
 
 export async function suggestCategory(description) {
-  const res = await fetch(
+  const res = await fetchWithAuth(
     `${API_BASE}/suggest-category?description=${encodeURIComponent(description)}`,
-    { credentials: "include" },
   );
   if (!res.ok) return null;
   const data = await res.json();
@@ -67,25 +64,23 @@ export async function suggestCategory(description) {
 }
 
 export async function getUniqueDescriptions() {
-  const res = await fetch(`${API_BASE}/unique-descriptions`, { credentials: "include" });
+  const res = await fetchWithAuth(`${API_BASE}/unique-descriptions`);
   if (!res.ok) throw new Error("Failed to fetch unique descriptions");
   return res.json();
 }
 
 export async function getSimilarDescriptions(threshold = 0.85) {
-  const res = await fetch(
+  const res = await fetchWithAuth(
     `${API_BASE}/similar-descriptions?threshold=${threshold}`,
-    { credentials: "include" },
   );
   if (!res.ok) throw new Error("Failed to fetch similar descriptions");
   return res.json();
 }
 
 export async function mergeDescriptions(merges) {
-  const res = await fetch(`${API_BASE}/merge-descriptions`, {
+  const res = await fetchWithAuth(`${API_BASE}/merge-descriptions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify({ merges }),
   });
   if (!res.ok) throw new Error("Failed to merge descriptions");
@@ -94,7 +89,7 @@ export async function mergeDescriptions(merges) {
 
 export async function getAnalytics(params = {}) {
   const query = new URLSearchParams(params).toString();
-  const res = await fetch(`${API_BASE}/analytics?${query}`, { credentials: "include" });
+  const res = await fetchWithAuth(`${API_BASE}/analytics?${query}`);
   if (!res.ok) throw new Error("Failed to fetch analytics");
   return res.json();
 }
@@ -102,9 +97,8 @@ export async function getAnalytics(params = {}) {
 export async function uploadAvatar(file) {
   const formData = new FormData();
   formData.append("file", file);
-  const res = await fetch(`${API_BASE}/auth/avatar`, {
+  const res = await fetchWithAuth(`${API_BASE}/auth/avatar`, {
     method: "POST",
-    credentials: "include",
     body: formData,
   });
   if (!res.ok) {
@@ -116,13 +110,22 @@ export async function uploadAvatar(file) {
 
 export async function exportExpenses(params = {}) {
   const query = new URLSearchParams(params).toString();
-  const res = await fetch(`${API_BASE}/export?${query}`, { credentials: "include" });
+  const res = await fetchWithAuth(`${API_BASE}/export?${query}`);
   if (!res.ok) throw new Error("Failed to export expenses");
+
+  // Extract filename from Content-Disposition header, fallback to default
+  let filename = "expenses.xlsx";
+  const disposition = res.headers.get("Content-Disposition");
+  if (disposition) {
+    const match = disposition.match(/filename=([^\s;]+)/);
+    if (match) filename = match[1];
+  }
+
   const blob = await res.blob();
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "expenses.xlsx";
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();

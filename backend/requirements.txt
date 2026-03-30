@@ -5,3 +5,4 @@ openpyxl==3.1.5
 python-multipart==0.0.20
 python-dotenv==1.0.1
 fastembed==0.8.0
+bcrypt==4.2.1

@@ -38,6 +38,15 @@ def check_db_integrity() -> bool:
         return ok
 
 
+def ensure_indexes():
+    """Create indexes if they don't already exist (safe for existing databases)."""
+    with engine.connect() as conn:
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_expense_date ON expense (date)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_expense_category ON expense (category)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_expense_paid_by ON expense (paid_by)"))
+        conn.commit()
+
+
 def get_session():
     with Session(engine) as session:
         yield session

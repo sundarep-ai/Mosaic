@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { API_BASE } from "../config";
+import { setOnUnauthorized } from "../api/fetchWithAuth";
 
 const AuthContext = createContext(null);
 
@@ -13,9 +14,18 @@ export function AuthProvider({ children }) {
         if (res.ok) return res.json();
         throw new Error("Not authenticated");
       })
-      .then((data) => setUser({ username: data.username, displayName: data.display_name }))
+      .then((data) => setUser({
+        username: data.username,
+        displayName: data.display_name,
+        userMap: data.user_map || {},
+      }))
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    setOnUnauthorized(() => setUser(null));
+    return () => setOnUnauthorized(null);
   }, []);
 
   const login = async (username, password) => {
@@ -30,7 +40,11 @@ export function AuthProvider({ children }) {
       throw new Error(err.detail || "Login failed");
     }
     const data = await res.json();
-    setUser({ username: data.username, displayName: data.display_name });
+    setUser({
+      username: data.username,
+      displayName: data.display_name,
+      userMap: data.user_map || {},
+    });
   };
 
   const logout = async () => {
