@@ -17,6 +17,7 @@ import { getAnalytics, getExpenses } from "../api/expenses";
 import { CATEGORY_ICONS } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
 import Avatar from "../components/Avatar";
+import { getDateRange, groupByDescription, groupByMonth } from "../utils/analytics";
 
 const CHART_COLORS = [
   "#106a6a",
@@ -37,16 +38,6 @@ const PRESETS = [
   { label: "6M", days: 182 },
   { label: "1Y", days: 365 },
 ];
-
-function getDateRange(days) {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - days);
-  return {
-    start_date: start.toISOString().split("T")[0],
-    end_date: end.toISOString().split("T")[0],
-  };
-}
 
 export default function Analytics() {
   const { userA, userB } = useUsers();
@@ -113,30 +104,8 @@ export default function Analytics() {
         ...dateParams,
       });
 
-      // Group by description for drill-down bar chart
-      const grouped = {};
-      for (const e of expenses) {
-        if (!grouped[e.description]) {
-          grouped[e.description] = { description: e.description, amount: 0, count: 0 };
-        }
-        grouped[e.description].amount += e.amount;
-        grouped[e.description].count += 1;
-      }
-      const sorted = Object.values(grouped)
-        .sort((a, b) => b.amount - a.amount)
-        .slice(0, 7);
-      setDrillDownData(sorted);
-
-      // Group by month for velocity chart
-      const byMonth = {};
-      for (const e of expenses) {
-        const month = e.date.substring(0, 7); // "YYYY-MM"
-        if (!byMonth[month]) byMonth[month] = { month, amount: 0, count: 0 };
-        byMonth[month].amount += e.amount;
-        byMonth[month].count += 1;
-      }
-      const velocity = Object.values(byMonth).sort((a, b) => a.month.localeCompare(b.month));
-      setCategoryVelocityData(velocity);
+      setDrillDownData(groupByDescription(expenses));
+      setCategoryVelocityData(groupByMonth(expenses));
     } finally {
       setDrillDownLoading(false);
     }

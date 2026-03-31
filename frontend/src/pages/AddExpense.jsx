@@ -9,6 +9,7 @@ import { CATEGORIES } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
 import { useAuth } from "../auth/AuthContext";
 import useDescriptionSuggestions from "../hooks/useDescriptionSuggestions";
+import { validateExpense } from "../utils/validation";
 
 const CUSTOM_CATEGORY_VALUE = "__custom__";
 
@@ -157,41 +158,15 @@ export default function AddExpense() {
     e.preventDefault();
     setError("");
 
-    if (!form.description.trim()) {
-      setError("Description is required.");
+    const validationError = validateExpense(form, { isCustomCategory, customCategory, today });
+    if (validationError) {
+      setError(validationError);
       return;
     }
+
     const effectiveCategory = isCustomCategory
       ? customCategory.trim()
       : form.category;
-    if (!effectiveCategory) {
-      setError("Category is required.");
-      return;
-    }
-
-    const amt = parseFloat(form.amount);
-    if (!form.amount || amt === 0) {
-      setError("Amount cannot be zero.");
-      return;
-    }
-    if (amt < 0 && effectiveCategory !== "Reimbursement") {
-      setError("Negative amounts are only allowed for Reimbursement.");
-      return;
-    }
-    if (amt <= 0 && effectiveCategory !== "Reimbursement") {
-      setError("Amount must be greater than 0.");
-      return;
-    }
-
-    if (form.date > today) {
-      setError("Date cannot be in the future.");
-      return;
-    }
-
-    if (form.split_method === `100% ${form.paid_by}`) {
-      setError("Split method cannot assign 100% to the person who paid.");
-      return;
-    }
 
     const payload = {
       ...form,
