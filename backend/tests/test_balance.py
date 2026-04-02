@@ -120,3 +120,16 @@ def test_monthly_summary_excludes_payment(auth_client_a):
     categories = [item["category"] for item in data]
     assert "Payment" not in categories
     assert "Groceries" in categories
+
+
+def test_monthly_summary_excludes_reimbursement(auth_client_a):
+    auth_client_a.post("/api/expenses", json=make_expense(category="Groceries", amount=80))
+    auth_client_a.post(
+        "/api/expenses",
+        json=make_expense(category="Reimbursement", amount=-25),
+    )
+
+    data = auth_client_a.get("/api/monthly-summary").json()
+    categories = [item["category"] for item in data]
+    assert "Reimbursement" not in categories
+    assert "Groceries" in categories

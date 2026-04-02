@@ -429,6 +429,7 @@ def get_monthly_summary(
         select(Expense.category, func.sum(Expense.amount).label("total"))
         .where(Expense.date >= first_of_month)
         .where(Expense.category != "Payment")
+        .where(Expense.category != "Reimbursement")
         .group_by(Expense.category)
         .order_by(func.sum(Expense.amount).desc())
     ).all()

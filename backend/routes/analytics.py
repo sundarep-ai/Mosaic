@@ -18,13 +18,15 @@ def _dec(val) -> Decimal:
     return Decimal(str(val)) if val else Decimal("0")
 
 
-def _date_filters(statement, start_date, end_date):
-    """Apply date range and exclude Payment category."""
+def _date_filters(statement, start_date, end_date, *, exclude_categories=("Payment",)):
+    """Apply date range and exclude given categories (default: Payment)."""
     if start_date:
         statement = statement.where(Expense.date >= start_date)
     if end_date:
         statement = statement.where(Expense.date <= end_date)
-    return statement.where(Expense.category != "Payment")
+    for cat in exclude_categories:
+        statement = statement.where(Expense.category != cat)
+    return statement
 
 
 @router.get("/analytics")
@@ -54,7 +56,7 @@ def get_analytics(
     total_spend = _dec(total_row[0])
     total_shared_spend = _dec(total_row[1])
 
-    # Spend by category
+    # Spend by category (exclude Payment and Reimbursement from distribution)
     cat_rows = session.exec(
         _date_filters(
             select(Expense.category, func.sum(Expense.amount).label("total"))
@@ -62,8 +64,10 @@ def get_analytics(
             .order_by(func.sum(Expense.amount).desc()),
             start_date,
             end_date,
+            exclude_categories=("Payment", "Reimbursement"),
         )
     ).all()
+    cat_total = sum(_dec(total) for _, total in cat_rows)
     category_data = [
         {"category": cat, "amount": float(round(_dec(total), 2))}
         for cat, total in cat_rows
@@ -72,7 +76,7 @@ def get_analytics(
         {
             "category": cat,
             "amount": float(round(_dec(total), 2)),
-            "percentage": float(round(_dec(total) / total_spend * 100, 1)) if total_spend > 0 else 0,
+            "percentage": float(round(_dec(total) / cat_total * 100, 1)) if cat_total > 0 else 0,
         }
         for cat, total in cat_rows
     ]
@@ -96,7 +100,7 @@ def get_analytics(
         for month, total, cnt in month_rows
     ]
 
-    # Spend by payer
+    # Spend by payer (exclude Payment and Reimbursement)
     payer_rows = session.exec(
         _date_filters(
             select(
@@ -108,6 +112,7 @@ def get_analytics(
             .order_by(func.sum(Expense.amount).desc()),
             start_date,
             end_date,
+            exclude_categories=("Payment", "Reimbursement"),
         )
     ).all()
     payer_data = [
@@ -134,9 +139,10 @@ def get_analytics(
         for method, total, cnt in split_rows
     ]
 
-    # Top 5 largest expenses (need full rows, so limited select is fine)
+    # Top 5 largest expenses (exclude Payment and Reimbursement)
     top_stmt = _date_filters(
-        select(Expense), start_date, end_date
+        select(Expense), start_date, end_date,
+        exclude_categories=("Payment", "Reimbursement"),
     ).order_by(Expense.amount.desc()).limit(5)
     top_expenses = session.exec(top_stmt).all()
 
