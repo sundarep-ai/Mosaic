@@ -2,6 +2,117 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    /* ─── Light theme ─── */
+    --color-primary: 16 106 106;
+    --color-on-primary: 224 255 254;
+    --color-primary-container: 158 234 233;
+    --color-on-primary-container: 0 88 88;
+    --color-primary-dim: 0 93 93;
+    --color-primary-fixed: 158 234 233;
+    --color-primary-fixed-dim: 144 220 219;
+    --color-on-primary-fixed: 0 67 67;
+    --color-on-primary-fixed-variant: 0 98 99;
+    --color-secondary: 122 90 0;
+    --color-on-secondary: 255 248 241;
+    --color-secondary-container: 255 223 160;
+    --color-on-secondary-container: 105 77 0;
+    --color-secondary-dim: 107 78 0;
+    --color-secondary-fixed: 255 223 160;
+    --color-secondary-fixed-dim: 255 205 98;
+    --color-on-secondary-fixed: 82 60 0;
+    --color-on-secondary-fixed-variant: 118 86 0;
+    --color-tertiary: 149 75 0;
+    --color-on-tertiary: 255 247 244;
+    --color-tertiary-container: 255 163 93;
+    --color-on-tertiary-container: 89 42 0;
+    --color-tertiary-dim: 131 65 0;
+    --color-tertiary-fixed: 255 163 93;
+    --color-tertiary-fixed-dim: 252 143 52;
+    --color-on-tertiary-fixed: 55 24 0;
+    --color-on-tertiary-fixed-variant: 102 49 0;
+    --color-error: 172 52 52;
+    --color-on-error: 255 247 246;
+    --color-error-container: 245 105 101;
+    --color-on-error-container: 101 0 11;
+    --color-error-dim: 112 3 15;
+    --color-background: 249 249 249;
+    --color-on-background: 47 51 52;
+    --color-surface: 249 249 249;
+    --color-on-surface: 47 51 52;
+    --color-surface-variant: 224 227 228;
+    --color-on-surface-variant: 92 96 96;
+    --color-surface-dim: 215 219 219;
+    --color-surface-bright: 249 249 249;
+    --color-surface-container-lowest: 255 255 255;
+    --color-surface-container-low: 243 244 244;
+    --color-surface-container: 236 238 238;
+    --color-surface-container-high: 230 232 233;
+    --color-surface-container-highest: 224 227 228;
+    --color-surface-tint: 16 106 106;
+    --color-outline: 119 123 124;
+    --color-outline-variant: 175 178 179;
+    --color-inverse-surface: 12 15 15;
+    --color-inverse-on-surface: 156 157 157;
+    --color-inverse-primary: 169 246 245;
+  }
+
+  .dark {
+    --color-primary: 122 212 211;
+    --color-on-primary: 0 55 55;
+    --color-primary-container: 0 100 100;
+    --color-on-primary-container: 170 240 239;
+    --color-primary-dim: 94 197 196;
+    --color-primary-fixed: 158 234 233;
+    --color-primary-fixed-dim: 144 220 219;
+    --color-on-primary-fixed: 0 67 67;
+    --color-on-primary-fixed-variant: 0 98 99;
+    --color-secondary: 229 195 108;
+    --color-on-secondary: 63 46 0;
+    --color-secondary-container: 110 82 0;
+    --color-on-secondary-container: 255 228 170;
+    --color-secondary-dim: 200 170 80;
+    --color-secondary-fixed: 255 223 160;
+    --color-secondary-fixed-dim: 255 205 98;
+    --color-on-secondary-fixed: 82 60 0;
+    --color-on-secondary-fixed-variant: 118 86 0;
+    --color-tertiary: 255 183 124;
+    --color-on-tertiary: 78 38 0;
+    --color-tertiary-container: 135 68 0;
+    --color-on-tertiary-container: 255 225 205;
+    --color-tertiary-dim: 230 155 90;
+    --color-tertiary-fixed: 255 163 93;
+    --color-tertiary-fixed-dim: 252 143 52;
+    --color-on-tertiary-fixed: 55 24 0;
+    --color-on-tertiary-fixed-variant: 102 49 0;
+    --color-error: 255 180 171;
+    --color-on-error: 105 0 5;
+    --color-error-container: 147 0 10;
+    --color-on-error-container: 255 218 214;
+    --color-error-dim: 255 137 125;
+    --color-background: 18 22 22;
+    --color-on-background: 224 227 227;
+    --color-surface: 18 22 22;
+    --color-on-surface: 224 227 227;
+    --color-surface-variant: 63 73 73;
+    --color-on-surface-variant: 190 200 200;
+    --color-surface-dim: 18 22 22;
+    --color-surface-bright: 56 60 60;
+    --color-surface-container-lowest: 13 16 16;
+    --color-surface-container-low: 26 30 30;
+    --color-surface-container: 30 34 34;
+    --color-surface-container-high: 40 44 44;
+    --color-surface-container-highest: 51 55 55;
+    --color-surface-tint: 122 212 211;
+    --color-outline: 136 147 146;
+    --color-outline-variant: 63 73 73;
+    --color-inverse-surface: 224 227 227;
+    --color-inverse-on-surface: 46 49 49;
+    --color-inverse-primary: 16 106 106;
+  }
+}
+
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
@@ -21,6 +132,6 @@
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #eceeee;
+  background: rgb(var(--color-surface-container));
   border-radius: 10px;
 }
