@@ -47,7 +47,7 @@ export default function Login() {
               <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 ml-1">
                 Username
               </label>
-              <div className="bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-white transition-colors">
+              <div className="bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-surface-container-lowest transition-colors">
                 <span className="material-symbols-outlined text-primary/60 mr-3">
                   person
                 </span>
@@ -67,7 +67,7 @@ export default function Login() {
               <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 ml-1">
                 Password
               </label>
-              <div className="bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-white transition-colors">
+              <div className="bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-surface-container-lowest transition-colors">
                 <span className="material-symbols-outlined text-primary/60 mr-3">
                   lock
                 </span>

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useTheme } from "../ThemeContext";
 import { uploadAvatar } from "../api/expenses";
 import Avatar from "./Avatar";
 import config from "../config";
@@ -21,6 +22,7 @@ const bottomLinks = [
 export default function Navbar() {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const fileInputRef = useRef(null);
   const [avatarKey, setAvatarKey] = useState(0);
 
@@ -39,7 +41,7 @@ export default function Navbar() {
   return (
     <>
       {/* Top App Bar */}
-      <header className="fixed top-0 w-full z-50 bg-[#F9F9F9]/90 backdrop-blur-md shadow-sm shadow-[#2F3334]/5">
+      <header className="fixed top-0 w-full z-50 bg-background/90 backdrop-blur-md shadow-sm shadow-on-surface/5">
         <div className="flex justify-between items-center px-6 py-3 w-full">
           <div className="flex items-center gap-2">
             <Link
@@ -93,6 +95,15 @@ export default function Navbar() {
               </button>
             )}
             <button
+              aria-label="Toggle dark mode"
+              onClick={toggleTheme}
+              className="p-2 rounded-full hover:bg-surface-container transition-colors active:scale-95 duration-200"
+            >
+              <span className="material-symbols-outlined text-primary" aria-hidden="true">
+                {theme === "dark" ? "light_mode" : "dark_mode"}
+              </span>
+            </button>
+            <button
               aria-label="Log out"
               onClick={logout}
               className="p-2 rounded-full hover:bg-surface-container transition-colors active:scale-95 duration-200"
@@ -107,7 +118,7 @@ export default function Navbar() {
       </header>
 
       {/* Bottom Nav Bar (Mobile Only) */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-[#F9F9F9]/80 backdrop-blur-xl z-50 rounded-t-3xl shadow-[0_-4px_24px_rgba(47,51,52,0.06)]">
+      <nav className="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-background/80 backdrop-blur-xl z-50 rounded-t-3xl shadow-[0_-4px_24px_rgba(47,51,52,0.06)]">
         {bottomLinks.map((link) => {
           const active = location.pathname === link.to;
           return (

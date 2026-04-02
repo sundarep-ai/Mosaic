@@ -16,10 +16,11 @@ import {
 import { getAnalytics, getExpenses } from "../api/expenses";
 import { CATEGORY_ICONS } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
+import { useTheme } from "../ThemeContext";
 import Avatar from "../components/Avatar";
 import { getDateRange, groupByDescription, groupByMonth } from "../utils/analytics";
 
-const CHART_COLORS = [
+const CHART_COLORS_LIGHT = [
   "#106a6a",
   "#7a5a00",
   "#954b00",
@@ -32,6 +33,19 @@ const CHART_COLORS = [
   "#777b7c",
 ];
 
+const CHART_COLORS_DARK = [
+  "#7ad4d3",
+  "#e5c36c",
+  "#ffb77c",
+  "#5ec5c4",
+  "#c8aa50",
+  "#e69b5a",
+  "#a0f0ef",
+  "#ffd580",
+  "#ffcba4",
+  "#a8b5b4",
+];
+
 const PRESETS = [
   { label: "1M", days: 30 },
   { label: "3M", days: 91 },
@@ -41,7 +55,21 @@ const PRESETS = [
 
 export default function Analytics() {
   const { userA, userB } = useUsers();
+  const { theme } = useTheme();
   const navigate = useNavigate();
+  const isDark = theme === "dark";
+  const CHART_COLORS = isDark ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
+  const tooltipTextColor = isDark ? "#e0e3e3" : "#2f3334";
+  const tooltipStyle = {
+    borderRadius: "1rem",
+    border: "none",
+    boxShadow: isDark ? "0 4px 24px rgba(0,0,0,0.4)" : "0 4px 24px rgba(47,51,52,0.1)",
+    fontFamily: "Public Sans",
+    background: isDark ? "#282c2c" : "#fff",
+    color: tooltipTextColor,
+  };
+  const tooltipItemStyle = { color: tooltipTextColor };
+  const tooltipLabelStyle = { color: tooltipTextColor };
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -272,7 +300,7 @@ export default function Analytics() {
                       type="category"
                       dataKey="name"
                       width={140}
-                      tick={{ fontSize: 12, fontWeight: 600 }}
+                      tick={{ fontSize: 12, fontWeight: 600, fill: isDark ? "#bec8c8" : "#2f3334" }}
                       axisLine={false}
                       tickLine={false}
                     />
@@ -287,12 +315,9 @@ export default function Analytics() {
                         }
                         return label;
                       }}
-                      contentStyle={{
-                        borderRadius: "1rem",
-                        border: "none",
-                        boxShadow: "0 4px 24px rgba(47,51,52,0.1)",
-                        fontFamily: "Public Sans",
-                      }}
+                      contentStyle={tooltipStyle}
+                      itemStyle={tooltipItemStyle}
+                      labelStyle={tooltipLabelStyle}
                     />
                     <Bar
                       dataKey="amount"
@@ -354,11 +379,26 @@ export default function Analytics() {
                           cy="50%"
                           outerRadius={100}
                           innerRadius={50}
-                          label={({ category, percentage }) =>
-                            `${category} ${percentage}%`
-                          }
-                          labelLine={{ stroke: "#afb2b3" }}
-                          style={{ fontWeight: 700, cursor: "pointer" }}
+                          label={({ cx, cy, midAngle, outerRadius, category, percentage }) => {
+                            const RADIAN = Math.PI / 180;
+                            const radius = outerRadius + 20;
+                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                            return (
+                              <text
+                                x={x}
+                                y={y}
+                                textAnchor={x > cx ? "start" : "end"}
+                                dominantBaseline="central"
+                                fill={isDark ? "#e0e3e3" : "#2f3334"}
+                                style={{ fontWeight: 700, fontSize: 12 }}
+                              >
+                                {`${category} ${percentage}%`}
+                              </text>
+                            );
+                          }}
+                          labelLine={{ stroke: isDark ? "#889392" : "#afb2b3" }}
+                          style={{ cursor: "pointer" }}
                           onClick={(entry) => {
                             if (entry.category !== "Others (sum)") {
                               fetchDrillDown(entry.category);
@@ -374,12 +414,9 @@ export default function Analytics() {
                         </Pie>
                         <Tooltip
                           formatter={(val) => [`$${val.toFixed(2)}`, "Amount"]}
-                          contentStyle={{
-                            borderRadius: "1rem",
-                            border: "none",
-                            boxShadow: "0 4px 24px rgba(47,51,52,0.1)",
-                            fontFamily: "Public Sans",
-                          }}
+                          contentStyle={tooltipStyle}
+                          itemStyle={tooltipItemStyle}
+                          labelStyle={tooltipLabelStyle}
                         />
                       </PieChart>
                     </ResponsiveContainer>
@@ -509,15 +546,9 @@ export default function Analytics() {
                         const [y, m] = label.split("-");
                         return new Date(y, m - 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
                       }}
-                      contentStyle={{
-                        borderRadius: "1rem",
-                        border: "none",
-                        boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
-                        fontFamily: "Public Sans",
-                        background: "#fff",
-                        color: "#2f3334",
-                      }}
-                      itemStyle={{ color: "#2f3334" }}
+                      contentStyle={tooltipStyle}
+                      itemStyle={tooltipItemStyle}
+                      labelStyle={tooltipLabelStyle}
                     />
                     <Line
                       type="monotone"
@@ -535,7 +566,7 @@ export default function Analytics() {
                 </p>
               )}
             </div>
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[80px] rounded-full -mr-20 -mt-20"></div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-on-primary/10 blur-[80px] rounded-full -mr-20 -mt-20"></div>
           </div>
 
           {/* Top Expenses Table */}

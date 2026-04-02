@@ -284,7 +284,7 @@ export default function AddExpense() {
               <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 ml-1">
                 Date
               </label>
-              <div className="bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-white transition-colors">
+              <div className="bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-surface-container-lowest transition-colors">
                 <span className="material-symbols-outlined text-primary/60 mr-3">
                   calendar_today
                 </span>
@@ -311,7 +311,7 @@ export default function AddExpense() {
                   </span>
                 )}
               </label>
-              <div className="bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-white transition-colors">
+              <div className="bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-surface-container-lowest transition-colors">
                 <span className="material-symbols-outlined text-primary/60 mr-3">
                   edit_note
                 </span>
@@ -365,7 +365,7 @@ export default function AddExpense() {
             <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2 ml-1">
               Category
             </label>
-            <div className="bg-surface-container-high rounded-xl px-4 py-1 flex items-center focus-within:bg-white transition-colors">
+            <div className="bg-surface-container-high rounded-xl px-4 py-1 flex items-center focus-within:bg-surface-container-lowest transition-colors">
               <span className="material-symbols-outlined text-primary/60 mr-3">
                 category
               </span>
@@ -386,7 +386,7 @@ export default function AddExpense() {
               </select>
             </div>
             {isCustomCategory && (
-              <div className="mt-3 bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-white transition-colors">
+              <div className="mt-3 bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-surface-container-lowest transition-colors">
                 <span className="material-symbols-outlined text-primary/60 mr-3">
                   edit
                 </span>
@@ -426,7 +426,7 @@ export default function AddExpense() {
                   }}
                   className={`flex-1 rounded-xl flex items-center justify-center gap-2 transition-colors ${
                     form.paid_by === user
-                      ? "bg-white shadow-sm font-bold text-primary border-2 border-primary/10"
+                      ? "bg-surface-container-lowest shadow-sm font-bold text-primary border-2 border-primary/10"
                       : "font-semibold text-on-surface-variant hover:bg-surface-container"
                   }`}
                 >
