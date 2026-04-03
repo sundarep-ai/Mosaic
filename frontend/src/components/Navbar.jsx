@@ -10,12 +10,14 @@ const topLinks = [
   { to: "/", label: "Dashboard" },
   { to: "/add", label: "Add New" },
   { to: "/analytics", label: "Analytics" },
+  { to: "/calendar", label: "Calendar" },
   { to: "/history", label: "Expenses" },
 ];
 
 const bottomLinks = [
   { to: "/", label: "Dashboard", icon: "dashboard" },
   { to: "/add", label: "Add New", icon: "add_circle" },
+  { to: "/calendar", label: "Calendar", icon: "calendar_month" },
   { to: "/history", label: "Expenses", icon: "receipt_long" },
 ];
 
