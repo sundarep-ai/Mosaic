@@ -1,4 +1,3 @@
-import threading
 from datetime import date
 from decimal import Decimal
 from typing import Optional
@@ -13,19 +12,7 @@ from database import get_session
 from models import Expense, ExpenseBase, ExpenseCreate, ExpenseUpdate
 from services.audit import audit_logger, expense_to_dict
 
-_embedding_model = None
-_embedding_lock = threading.Lock()
-
-
-def _get_embedding_model():
-    """Lazy singleton for TextEmbedding model. Thread-safe initialization."""
-    global _embedding_model
-    if _embedding_model is None:
-        with _embedding_lock:
-            if _embedding_model is None:
-                from fastembed import TextEmbedding
-                _embedding_model = TextEmbedding()
-    return _embedding_model
+from services.clustering import get_embedding_model, cluster_descriptions
 
 
 router = APIRouter()
@@ -256,8 +243,6 @@ def similar_descriptions(
     current_user: str = Depends(get_current_user),
 ):
     """Find clusters of similar descriptions within each category using embedding similarity."""
-    import numpy as np
-
     # Fetch unique (description, category, count)
     rows = session.exec(
         select(
@@ -274,7 +259,6 @@ def similar_descriptions(
     for desc, cat, cnt in rows:
         by_category.setdefault(cat, []).append((desc, cnt))
 
-    model = _get_embedding_model()
     result = []
 
     for category, items in by_category.items():
@@ -284,40 +268,17 @@ def similar_descriptions(
         descriptions = [d for d, _ in items]
         counts = {d: c for d, c in items}
 
-        # Embed all descriptions in this category
-        embeddings = list(model.embed(descriptions))
-        emb_matrix = np.array(embeddings)
-
-        # Compute cosine similarity matrix
-        norms = np.linalg.norm(emb_matrix, axis=1, keepdims=True)
-        norms[norms == 0] = 1
-        normalized = emb_matrix / norms
-        sim_matrix = normalized @ normalized.T
-
-        # Greedy clustering
-        visited = set()
+        clusters = cluster_descriptions(descriptions, threshold)
         groups = []
-        for i in range(len(descriptions)):
-            if i in visited:
-                continue
-            cluster = [i]
-            visited.add(i)
-            for j in range(i + 1, len(descriptions)):
-                if j in visited:
-                    continue
-                if sim_matrix[i][j] >= threshold:
-                    cluster.append(j)
-                    visited.add(j)
-            if len(cluster) >= 2:
-                cluster_descs = [descriptions[k] for k in cluster]
-                # Most frequent variant as canonical
-                canonical = max(cluster_descs, key=lambda d: counts[d])
-                variants = [d for d in cluster_descs if d != canonical]
-                groups.append({
-                    "canonical": canonical,
-                    "variants": variants,
-                    "total_count": sum(counts[d] for d in cluster_descs),
-                })
+        for cluster_indices in clusters:
+            cluster_descs = [descriptions[k] for k in cluster_indices]
+            canonical = max(cluster_descs, key=lambda d: counts[d])
+            variants = [d for d in cluster_descs if d != canonical]
+            groups.append({
+                "canonical": canonical,
+                "variants": variants,
+                "total_count": sum(counts[d] for d in cluster_descs),
+            })
 
         if groups:
             result.append({"category": category, "groups": groups})

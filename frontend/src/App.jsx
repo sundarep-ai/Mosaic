@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Calendar = lazy(() => import("./pages/Calendar"));
+const Insights = lazy(() => import("./pages/Insights"));
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -51,6 +52,15 @@ export default function App() {
                 </div>
               }>
                 <Calendar />
+              </Suspense>
+            } />
+            <Route path="/insights" element={
+              <Suspense fallback={
+                <div className="flex items-center justify-center h-64">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                </div>
+              }>
+                <Insights />
               </Suspense>
             } />
             <Route path="/history" element={<History />} />

@@ -25,6 +25,7 @@ MosaicTally tracks shared expenses between two people, calculates who owes whom,
 | **Edit Expense** | Full-page edit form at `/edit/:id` — reuses the Add Expense form with all fields pre-filled |
 | **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses. Filter presets: 1M, 3M, 6M, YTD, 1Y, All — plus custom date range. |
 | **Calendar** | Month-view calendar showing daily spend totals with logarithmic heat-map shading (prevents a single outlier like rent from washing out all other days). Navigate months with chevron arrows or jump to any month/year via a dropdown picker. Displays aggregate monthly spend at the top. Click any day to drill down into that day's expenses on the History page. |
+| **Smart Insights** | Automated spending analysis — detects recurring payments (weekly/monthly/quarterly/annual) with change alerts, highlights category trend spikes, flags statistical anomalies, projects next-month spending via weighted moving average, compares weekend vs weekday habits, and ranks fastest-growing categories. All computed server-side using rule-based pattern detection and the existing embedding model for description clustering. |
 | **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics"). |
 | **Export** | Download the current filtered view as an `.xlsx` file |
 
@@ -219,6 +220,7 @@ All endpoints are prefixed with `/api`.
 | `GET` | `/balance` | Current balance between the two configured users |
 | `GET` | `/monthly-summary` | Category totals for the current month |
 | `GET` | `/analytics` | Aggregated analytics (query: `start_date`, `end_date`) |
+| `GET` | `/insights` | Smart insights: recurring payments, trend alerts, anomalies, forecast, weekend vs weekday, top growing categories |
 | `GET` | `/export` | Download filtered expenses as `.xlsx` (query: `search`, `paid_by`, `category`) |
 
 ## Project Structure
@@ -236,9 +238,11 @@ backend/
   services/
     audit.py             # Append-only JSONL audit logger
     backup.py            # Startup backup manager (SQLite online backup API)
+    clustering.py        # Shared embedding model & cosine-similarity clustering
   routes/
     expenses.py          # CRUD, balance, monthly summary, description similarity & merge
     analytics.py         # Date-filtered analytics aggregation
+    insights.py          # Smart insights: recurring detection, trends, anomalies, forecast
     export.py            # .xlsx file generation & download
   data/                  # Generated at runtime (gitignored)
     audit/
@@ -272,6 +276,7 @@ frontend/
       AddExpense.jsx     # New/edit expense form (also handles /edit/:id)
       Analytics.jsx      # Charts & analytics dashboard
       Calendar.jsx       # Month-view calendar with daily spend totals and month/year picker
+      Insights.jsx       # Smart Insights: recurring payments, trends, anomalies, forecast
       History.jsx        # Expense table with delete/export, edit navigates to /edit/:id
 ```
 
