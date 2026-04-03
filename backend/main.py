@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import USER_A, USER_B, BACKUP_PATH
 from database import create_db_and_tables, check_db_integrity, ensure_indexes, DB_PATH
-from routes import expenses, analytics, export
+from routes import expenses, analytics, export, insights
 from auth import router as auth_router
 from services.audit import audit_logger
 from services.backup import BackupManager
@@ -53,6 +53,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(expenses.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
+app.include_router(insights.router, prefix="/api")
 
 
 @app.get("/api/config")

@@ -87,6 +87,12 @@ export async function mergeDescriptions(merges) {
   return res.json();
 }
 
+export async function getInsights() {
+  const res = await fetchWithAuth(`${API_BASE}/insights`);
+  if (!res.ok) throw new Error("Failed to fetch insights");
+  return res.json();
+}
+
 export async function getAnalytics(params = {}) {
   const query = new URLSearchParams(params).toString();
   const res = await fetchWithAuth(`${API_BASE}/analytics?${query}`);
