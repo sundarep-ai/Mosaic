@@ -1,5 +1,5 @@
 """
-TallyUs backend test configuration.
+MosaicTally backend test configuration.
 
 Bootstraps a mock config module and in-memory SQLite database
 so tests run without config.py or .env files.

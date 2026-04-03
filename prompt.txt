@@ -1,6 +1,6 @@
 
 **Objective:**
-Build "TallyUs" — a local-host, two-user expense tracking web application with a Python/FastAPI backend and React frontend, from scratch to fully working.
+Build "MosaicTally" — a local-host, two-user expense tracking web application with a Python/FastAPI backend and React frontend, from scratch to fully working.
 
 **Starting State:**
 Empty project directory. No existing code, no database, no dependencies installed.

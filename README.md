@@ -1,6 +1,6 @@
 <div align="center">
 
-# TallyUs
+# MosaicTally
 
 **A simple, local-first expense tracker for two people.**
 
@@ -14,7 +14,7 @@
 
 ---
 
-TallyUs tracks shared expenses between two people, calculates who owes whom, and provides visual analytics — all running locally with zero cloud dependencies. User names are configured in a single place and flow through both the backend and frontend automatically.
+MosaicTally tracks shared expenses between two people, calculates who owes whom, and provides visual analytics — all running locally with zero cloud dependencies. User names are configured in a single place and flow through both the backend and frontend automatically.
 
 ## Features
 
@@ -48,7 +48,7 @@ Each user can upload a profile picture by clicking their name in the top navigat
 
 ## Data Protection
 
-TallyUs protects your expense data in two ways:
+MosaicTally protects your expense data in two ways:
 
 ### Audit Log
 
@@ -59,7 +59,7 @@ Every mutation (create, update, delete, description merge) is appended to `backe
 On every startup, the app creates a timestamped backup of both the database and the audit log. Backups are stored in `backend/data/backups/` by default and rotated to keep the 10 most recent. For cloud redundancy, set `BACKUP_PATH` in `backend/.env` to a OneDrive (or any synced) folder:
 
 ```env
-BACKUP_PATH=C:/Users/yourname/OneDrive/TallyUs-Backups
+BACKUP_PATH=C:/Users/yourname/OneDrive/MosaicTally-Backups
 ```
 
 Backups use the SQLite online backup API — consistent snapshots safe to create while the app is running.
@@ -95,7 +95,7 @@ The database runs in WAL (Write-Ahead Logging) mode for crash recovery, and an i
 
 ```bash
 git clone <your-repo-url>
-cd TallyUs
+cd MosaicTally
 ```
 
 ### 2. Configure users
@@ -129,7 +129,7 @@ USER_B_PASSWORD=<bcrypt hash>
 SECRET_KEY=<long random string>
 
 # Optional: set to a OneDrive/cloud folder for cloud-synced backups
-# BACKUP_PATH=C:/Users/yourname/OneDrive/TallyUs-Backups
+# BACKUP_PATH=C:/Users/yourname/OneDrive/MosaicTally-Backups
 ```
 
 **Passwords must be bcrypt hashes**, not plaintext. Generate them after installing dependencies (step 3):

@@ -1,5 +1,5 @@
 """
-Migrate expenses from an existing .xlsx file into the TallyUs SQLite database.
+Migrate expenses from an existing .xlsx file into the MosaicTally SQLite database.
 
 Usage:
     python migrate_xlsx.py path/to/your/expenses.xlsx

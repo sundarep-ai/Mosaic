@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="TallyUs API", lifespan=lifespan)
+app = FastAPI(title="MosaicTally API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

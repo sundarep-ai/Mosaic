@@ -1,6 +1,6 @@
-# TallyUs — Setup Instructions
+# MosaicTally — Setup Instructions
 
-Step-by-step guide to get TallyUs running from scratch on a fresh machine.
+Step-by-step guide to get MosaicTally running from scratch on a fresh machine.
 
 ---
 
@@ -27,7 +27,7 @@ git --version
 
 ```bash
 git clone <your-repo-url>
-cd TallyUs
+cd MosaicTally
 ```
 
 ---
@@ -74,7 +74,7 @@ USER_B_PASSWORD=<bcrypt hash>
 SECRET_KEY=<long random string>
 
 # Optional: set to a OneDrive/cloud folder for cloud-synced backups
-# BACKUP_PATH=C:/Users/yourname/OneDrive/TallyUs-Backups
+# BACKUP_PATH=C:/Users/yourname/OneDrive/MosaicTally-Backups
 ```
 
 > **Important:** Never commit `.env` — it's already in `.gitignore`.
@@ -102,7 +102,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 Copy the output into `.env` as the `SECRET_KEY` value.
 
-**To enable OneDrive backups**, uncomment `BACKUP_PATH` and set it to any folder that is synced to the cloud (OneDrive, Google Drive, Dropbox, etc.). On each startup, TallyUs will copy both the database and the audit log there.
+**To enable OneDrive backups**, uncomment `BACKUP_PATH` and set it to any folder that is synced to the cloud (OneDrive, Google Drive, Dropbox, etc.). On each startup, MosaicTally will copy both the database and the audit log there.
 
 ---
 
@@ -151,7 +151,7 @@ This installs: FastAPI, Uvicorn, SQLModel, openpyxl, python-multipart, fastembed
 
 There is **no manual database setup required**. Here's how it works:
 
-- TallyUs uses **SQLite**, a file-based database that requires no separate server or installation — it ships with Python.
+- MosaicTally uses **SQLite**, a file-based database that requires no separate server or installation — it ships with Python.
 - The database file `tallyus.db` is created automatically in the `backend/` directory the first time the backend starts.
 - The `Expense` table schema is managed by **SQLModel**. On startup, the app calls `SQLModel.metadata.create_all()` which creates any missing tables.
 - The database runs in **WAL mode** (Write-Ahead Logging) for crash recovery and safe concurrent access.
@@ -212,7 +212,7 @@ The app is now live at **http://localhost:5173**.
 
 1. Open http://localhost:5173 in your browser.
 2. Log in with one of the usernames and passwords you configured in step 3.
-3. You should see the TallyUs dashboard (empty state — "All settled up!").
+3. You should see the MosaicTally dashboard (empty state — "All settled up!").
 4. Click **Add Expense** and log a test expense. As you type a description, you should see:
    - A **"Did you mean?"** dropdown suggesting similar existing descriptions (fuzzy matching).
    - The **category auto-filling** instantly based on the closest historical match.
