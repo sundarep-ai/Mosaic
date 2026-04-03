@@ -23,7 +23,8 @@ MosaicTally tracks shared expenses between two people, calculates who owes whom,
 | **Dashboard** | Live balance (e.g. "User A owes User B $50"), this month's spend by category, last 10 expenses. Includes a **Settle** button that opens the Add Expense form pre-filled with "Payment" description and category for quick balance settlements. |
 | **Add Expense** | Log an expense with date, description, category, amount, payer, and split method. Supports custom categories via "+ New Category". As you type a description, fuzzy matching suggests existing descriptions ("Did you mean?") and instantly auto-suggests a category from history — all client-side with zero network latency. |
 | **Edit Expense** | Full-page edit form at `/edit/:id` — reuses the Add Expense form with all fields pre-filled |
-| **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses |
+| **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses. Filter presets: 1M, 3M, 6M, YTD, 1Y, All — plus custom date range. |
+| **Calendar** | Month-view calendar showing daily spend totals with logarithmic heat-map shading (prevents a single outlier like rent from washing out all other days). Navigate months with chevron arrows or jump to any month/year via a dropdown picker. Displays aggregate monthly spend at the top. Click any day to drill down into that day's expenses on the History page. |
 | **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics"). |
 | **Export** | Download the current filtered view as an `.xlsx` file |
 
@@ -265,6 +266,7 @@ frontend/
       Landing.jsx        # Dashboard page
       AddExpense.jsx     # New/edit expense form (also handles /edit/:id)
       Analytics.jsx      # Charts & analytics dashboard
+      Calendar.jsx       # Month-view calendar with daily spend totals and month/year picker
       History.jsx        # Expense table with delete/export, edit navigates to /edit/:id
 ```
 

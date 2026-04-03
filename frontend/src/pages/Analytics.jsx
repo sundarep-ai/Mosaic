@@ -50,7 +50,9 @@ const PRESETS = [
   { label: "1M", days: 30 },
   { label: "3M", days: 91 },
   { label: "6M", days: 182 },
+  { label: "YTD", special: "ytd" },
   { label: "1Y", days: 365 },
+  { label: "All", special: "all" },
 ];
 
 export default function Analytics() {
@@ -103,7 +105,18 @@ export default function Analytics() {
     setActivePreset(preset.label);
     setCustomStart("");
     setCustomEnd("");
-    const params = getDateRange(preset.days);
+    let params;
+    if (preset.special === "all") {
+      params = {};
+    } else if (preset.special === "ytd") {
+      const now = new Date();
+      params = {
+        start_date: `${now.getFullYear()}-01-01`,
+        end_date: now.toISOString().split("T")[0],
+      };
+    } else {
+      params = getDateRange(preset.days);
+    }
     setDateParams(params);
     setSelectedCategory(null);
     setDrillDownData(null);

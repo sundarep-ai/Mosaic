@@ -9,6 +9,7 @@ import History from "./pages/History";
 import Login from "./pages/Login";
 
 const Analytics = lazy(() => import("./pages/Analytics"));
+const Calendar = lazy(() => import("./pages/Calendar"));
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -41,6 +42,15 @@ export default function App() {
                 </div>
               }>
                 <Analytics />
+              </Suspense>
+            } />
+            <Route path="/calendar" element={
+              <Suspense fallback={
+                <div className="flex items-center justify-center h-64">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                </div>
+              }>
+                <Calendar />
               </Suspense>
             } />
             <Route path="/history" element={<History />} />
