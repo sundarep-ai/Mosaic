@@ -17,6 +17,7 @@ import { getAnalytics, getExpenses } from "../api/expenses";
 import { CATEGORY_ICONS } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
 import { useTheme } from "../ThemeContext";
+import { useCurrency } from "../CurrencyContext";
 import Avatar from "../components/Avatar";
 import { getDateRange, groupByDescription, groupByMonth } from "../utils/analytics";
 
@@ -58,6 +59,7 @@ const PRESETS = [
 export default function Analytics() {
   const { userA, userB } = useUsers();
   const { theme } = useTheme();
+  const { fmt } = useCurrency();
   const navigate = useNavigate();
   const isDark = theme === "dark";
   const CHART_COLORS = isDark ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
@@ -235,11 +237,11 @@ export default function Analytics() {
               </span>
               <div className="mt-4 flex items-baseline gap-2">
                 <span className="font-headline text-5xl font-extrabold text-primary">
-                  ${totalShared.toFixed(2)}
+                  {fmt(totalShared)}
                 </span>
               </div>
               <div className="mt-3 text-sm text-on-surface-variant font-medium">
-                Total spend: ${totalSpend.toFixed(2)}
+                Total spend: {fmt(totalSpend)}
               </div>
             </div>
             <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500"></div>
@@ -320,7 +322,7 @@ export default function Analytics() {
                     <Tooltip
                       formatter={(val, name, props) => {
                         const d = props.payload;
-                        return [`$${val.toFixed(2)} (${d.count} expense${d.count !== 1 ? "s" : ""})`, "Total"];
+                        return [`${fmt(val)} (${d.count} expense${d.count !== 1 ? "s" : ""})`, "Total"];
                       }}
                       labelFormatter={(label, payload) => {
                         if (payload && payload[0]) {
@@ -338,7 +340,7 @@ export default function Analytics() {
                       radius={[0, 8, 8, 0]}
                       barSize={28}
                       label={({ x, y, width, height, value, index }) => {
-                        const text = `$${value.toFixed(2)}`;
+                        const text = fmt(value);
                         const inside = width > text.length * 7 + 16;
                         return (
                           <text
@@ -426,7 +428,7 @@ export default function Analytics() {
                           ))}
                         </Pie>
                         <Tooltip
-                          formatter={(val) => [`$${val.toFixed(2)}`, "Amount"]}
+                          formatter={(val) => [fmt(val), "Amount"]}
                           contentStyle={tooltipStyle}
                           itemStyle={tooltipItemStyle}
                           labelStyle={tooltipLabelStyle}
@@ -484,7 +486,7 @@ export default function Analytics() {
                           <div className="flex justify-between text-sm mb-1">
                             <span className="font-bold">{p.payer}</span>
                             <span className="text-on-surface-variant font-medium">
-                              ${p.amount.toFixed(2)} · {pct}%
+                              {fmt(p.amount)} · {pct}%
                             </span>
                           </div>
                           <div className="h-2 w-full bg-surface-container-high rounded-full">
@@ -552,7 +554,7 @@ export default function Analytics() {
                     <YAxis hide />
                     <Tooltip
                       formatter={(val, name, props) => [
-                        `$${val.toFixed(2)} (${props.payload.count} expense${props.payload.count !== 1 ? "s" : ""})`,
+                        `${fmt(val)} (${props.payload.count} expense${props.payload.count !== 1 ? "s" : ""})`,
                         "Spend",
                       ]}
                       labelFormatter={(label) => {
@@ -653,7 +655,7 @@ export default function Analytics() {
                         </td>
                         <td className="py-6 text-right">
                           <span className="font-headline font-bold text-lg">
-                            ${e.amount.toFixed(2)}
+                            {fmt(e.amount)}
                           </span>
                         </td>
                       </tr>

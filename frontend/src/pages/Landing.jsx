@@ -3,10 +3,12 @@ import { Link } from "react-router-dom";
 import { getBalance, getMonthlySummary, getExpenses } from "../api/expenses";
 import { CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
+import { useCurrency } from "../CurrencyContext";
 import Avatar from "../components/Avatar";
 
 export default function Landing() {
   const { userA, userB } = useUsers();
+  const { fmt } = useCurrency();
   const [balance, setBalance] = useState(null);
   const [monthlySummary, setMonthlySummary] = useState([]);
   const [recentExpenses, setRecentExpenses] = useState([]);
@@ -88,8 +90,8 @@ export default function Landing() {
             <div className="mt-4 flex items-baseline gap-2">
               <span className="font-headline text-5xl font-extrabold text-primary">
                 {Math.abs(balanceAmount) < 0.01
-                  ? "$0.00"
-                  : `$${Math.abs(balanceAmount).toFixed(2)}`}
+                  ? fmt(0)
+                  : fmt(Math.abs(balanceAmount))}
               </span>
             </div>
             <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-container text-on-primary-container text-sm font-bold">
@@ -169,7 +171,7 @@ export default function Landing() {
                       <div className="flex justify-between text-sm mb-1.5">
                         <span className="font-bold">{item.category}</span>
                         <span className="text-on-surface-variant font-medium">
-                          ${item.amount.toFixed(2)}
+                          {fmt(item.amount)}
                         </span>
                       </div>
                       <div className="h-2 w-full bg-surface-container-high rounded-full">
@@ -257,7 +259,7 @@ export default function Landing() {
                       </td>
                       <td className="py-5 text-right">
                         <span className="font-headline font-bold text-lg">
-                          ${expense.amount.toFixed(2)}
+                          {fmt(expense.amount)}
                         </span>
                       </td>
                     </tr>

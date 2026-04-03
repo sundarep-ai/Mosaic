@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getExpenses } from "../api/expenses";
+import { useCurrency } from "../CurrencyContext";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = [
@@ -19,6 +20,7 @@ const pad = (n) => String(n).padStart(2, "0");
 
 export default function Calendar() {
   const navigate = useNavigate();
+  const { fmt } = useCurrency();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -220,7 +222,7 @@ export default function Calendar() {
           </span>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="font-headline text-5xl font-extrabold text-primary">
-              ${monthTotal.toFixed(2)}
+              {fmt(monthTotal)}
             </span>
           </div>
           <p className="mt-3 text-sm text-on-surface-variant font-medium">
@@ -277,7 +279,7 @@ export default function Calendar() {
                   </span>
                   {amount > 0 && (
                     <span className="relative text-primary font-bold text-[11px] sm:text-sm mt-auto">
-                      ${amount.toFixed(2)}
+                      {fmt(amount)}
                     </span>
                   )}
                 </button>
