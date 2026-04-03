@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../ThemeContext";
+import { useCurrency } from "../CurrencyContext";
 import { uploadAvatar } from "../api/expenses";
 import Avatar from "./Avatar";
 import config from "../config";
@@ -25,6 +26,7 @@ export default function Navbar() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { currency, setCurrency, currencies } = useCurrency();
   const fileInputRef = useRef(null);
   const [avatarKey, setAvatarKey] = useState(0);
 
@@ -96,6 +98,19 @@ export default function Navbar() {
                 </span>
               </button>
             )}
+            <select
+              aria-label="Select currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="bg-surface-container text-on-surface text-sm font-bold rounded-full px-3 py-2 border-none outline-none cursor-pointer hover:bg-surface-container-high transition-colors appearance-none text-center"
+              style={{ minWidth: "4.5rem" }}
+            >
+              {currencies.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.symbol} {c.code}
+                </option>
+              ))}
+            </select>
             <button
               aria-label="Toggle dark mode"
               onClick={toggleTheme}

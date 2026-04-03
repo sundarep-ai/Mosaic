@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useCurrency } from "../CurrencyContext";
 import {
   getExpenses,
   deleteExpense,
@@ -50,6 +51,7 @@ export default function History() {
   const navigate = useNavigate();
   const location = useLocation();
   const { userA, userB } = useUsers();
+  const { fmt } = useCurrency();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const searchRef = useRef(null);
@@ -323,7 +325,7 @@ export default function History() {
                     </div>
                   </div>
                   <div className="col-span-2 text-xl font-headline font-bold text-on-surface">
-                    ${expense.amount.toFixed(2)}
+                    {fmt(expense.amount)}
                   </div>
                   <div className="col-span-2 flex justify-center">
                     <div className="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full">
@@ -391,7 +393,7 @@ export default function History() {
               <p className="text-on-surface-variant text-sm">
                 Are you sure you want to delete &ldquo;
                 <span className="font-medium">{deleteTarget.description}</span>
-                &rdquo; (${deleteTarget.amount.toFixed(2)})? This cannot be
+                &rdquo; ({fmt(deleteTarget.amount)})? This cannot be
                 undone.
               </p>
             </div>

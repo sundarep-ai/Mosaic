@@ -28,6 +28,10 @@ MosaicTally tracks shared expenses between two people, calculates who owes whom,
 | **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics"). |
 | **Export** | Download the current filtered view as an `.xlsx` file |
 
+### Currency Selector
+
+A currency dropdown in the top navigation bar lets you choose your display currency. The selection is persisted in localStorage and applies across all pages instantly. Supported currencies: USD, EUR, GBP, CAD, AUD, INR, JPY, CNY, CHF, SGD.
+
 ### Profile Pictures
 
 Each user can upload a profile picture by clicking their name in the top navigation bar. Avatars appear on the Dashboard (balance card) and in the History table's "Paid By" column. Images are stored locally in `backend/uploads/avatars/` (created automatically on first server start, gitignored). Accepted formats: JPG, PNG, GIF, WebP — max 2 MB. Uploads are validated against magic bytes to ensure file content matches the declared type.
@@ -250,6 +254,7 @@ frontend/
     config.js            # API base URL & app name (user names fetched from backend)
     main.jsx             # React root & router setup
     App.jsx              # Route definitions & layout shell (includes /edit/:id)
+    CurrencyContext.jsx  # Currency selection context with localStorage persistence
     ErrorBoundary.jsx    # Catches render errors to prevent white-screen crashes
     index.css            # Tailwind directives
     api/
