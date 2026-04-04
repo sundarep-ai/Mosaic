@@ -43,6 +43,18 @@ _config.USER_A_PASSWORD = _hash_a
 _config.USER_B_PASSWORD = _hash_b
 _config.SECRET_KEY = SECRET_KEY
 _config.BACKUP_PATH = ""
+_config.VALID_MODES = {"solo", "duo", "hybrid"}
+
+def _get_app_mode(session=None):
+    if session is None:
+        return "duo"
+    from models import Settings
+    row = session.get(Settings, 1)
+    if row and row.app_mode in _config.VALID_MODES:
+        return row.app_mode
+    return "duo"
+
+_config.get_app_mode = _get_app_mode
 sys.modules["config"] = _config
 
 os.environ["SECRET_KEY"] = SECRET_KEY
@@ -96,6 +108,7 @@ def _clean_db():
     yield
     with Session(_test_engine) as s:
         s.execute(text("DELETE FROM expense"))
+        s.execute(text("DELETE FROM settings"))
         s.commit()
 
 
