@@ -8,7 +8,7 @@ import Avatar from "./Avatar";
 import config from "../config";
 
 const topLinks = [
-  { to: "/", label: "Dashboard" },
+  { to: "/", label: "Home" },
   { to: "/add", label: "Add New" },
   { to: "/analytics", label: "Analytics" },
   { to: "/calendar", label: "Calendar" },
@@ -17,7 +17,7 @@ const topLinks = [
 ];
 
 const bottomLinks = [
-  { to: "/", label: "Dashboard", icon: "dashboard" },
+  { to: "/", label: "Home", icon: "home" },
   { to: "/add", label: "Add New", icon: "add_circle" },
   { to: "/calendar", label: "Calendar", icon: "calendar_month" },
   { to: "/insights", label: "Insights", icon: "lightbulb" },

@@ -60,7 +60,7 @@ export default function Landing() {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <h1 className="font-headline text-3xl font-extrabold text-on-surface tracking-tight mb-2">
-            Dashboard
+            Home
           </h1>
           <p className="text-on-surface-variant font-medium">
             Your shared financial overview at a glance.
