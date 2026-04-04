@@ -24,16 +24,32 @@ MosaicTally tracks expenses — personal, shared between two people, or both —
 
 Switch modes anytime from the Settings page (gear icon in the top bar). Mode changes only affect validation and UI — your data is never deleted or migrated.
 
+### How "Your Expense" Is Calculated
+
+Across Home, Analytics, and Calendar, MosaicTally shows each user their personal expense burden — not the raw total of all expenses. The calculation depends on the split method:
+
+| Split Method | Your Portion |
+|---|---|
+| **Personal** (paid by you) | 100% of the amount |
+| **Personal** (paid by partner) | 0% |
+| **50/50** | 50% of the amount (regardless of who paid) |
+| **100% You** | 100% of the amount (you owe it all) |
+| **100% Partner** | 0% (they owe it all) |
+
+In **Solo** mode, all expenses are Personal, so your expense equals the total. In **Shared** mode, your expense is your portion of all shared expenses. In **Hybrid** mode, it combines your personal expenses plus your portion of shared ones.
+
+Reimbursements (stored as negative amounts) reduce your net expense on Home and Analytics but are excluded from Calendar day totals to avoid confusion when a reimbursement arrives in a different month than the original expense.
+
 ## Features
 
 | Page | What it does |
 |---|---|
-| **Home** | Mode-aware overview: **Solo** shows total monthly spend; **Shared** shows live balance with a Settle button; **Hybrid** adds a personal spend card alongside the shared balance. All modes show this month's spend by category and recent activity. |
+| **Home** | Mode-aware overview with "Your Expense This Month" — your personal portion of all spending. **Solo** shows your total; **Shared** / **Hybrid** add a balance card and settle button alongside your expense card. All modes show this month's spend by category and recent activity. |
 | **Add Expense** | Log an expense with date, description, category, amount, payer, and split method. In Solo mode, the "Who Paid" and "Split Method" fields are hidden (defaults to the single user and "Personal"). Supports custom categories via "+ New Category". Fuzzy matching suggests existing descriptions and auto-suggests categories — all client-side. |
 | **Settings** | Choose your app mode (Solo / Shared / Personal + Shared) and upload a profile picture. Accessible via the gear icon in the top bar. |
 | **Edit Expense** | Full-page edit form at `/edit/:id` — reuses the Add Expense form with all fields pre-filled |
-| **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses. Filter presets: 1M, 3M, 6M, YTD, 1Y, All — plus custom date range. In Solo mode, payer breakdown is hidden. In Hybrid mode, an extra Personal vs Shared chart is shown. |
-| **Calendar** | Month-view calendar showing daily spend totals with logarithmic heat-map shading (prevents a single outlier like rent from washing out all other days). Navigate months with chevron arrows or jump to any month/year via a dropdown picker. Displays aggregate monthly spend at the top. Click any day to drill down into that day's expenses on the History page. |
+| **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses. Filter presets: 1M, 3M, 6M, YTD, 1Y, All — plus custom date range. **Solo** shows your total expense; **Shared** / **Hybrid** show total shared spend, your share, and total spend. Payer breakdown hidden in Solo; Personal vs Shared chart shown in Hybrid. |
+| **Calendar** | Month-view calendar showing your daily expense portion with logarithmic heat-map shading (prevents a single outlier like rent from washing out all other days). Navigate months with chevron arrows or jump to any month/year via a dropdown picker. Displays your monthly expense at the top alongside total shared spend (in Shared/Hybrid modes). Day cells show only your portion. Click any day to drill down into that day's expenses on the History page. Payment and Reimbursement categories are excluded from calendar totals. |
 | **Smart Insights** | Automated spending analysis — detects recurring payments (weekly/monthly/quarterly/annual) with change alerts, highlights category trend spikes, flags statistical anomalies, projects next-month spending via weighted moving average, compares weekend vs weekday habits, and ranks fastest-growing categories. All computed server-side using rule-based pattern detection and the existing embedding model for description clustering. |
 | **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. In Solo mode, the "Paid By" column and filter are hidden. In Hybrid mode, an extra "Type" filter lets you toggle between All, Personal, and Shared expenses. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics"). |
 | **Export** | Download the current filtered view as an `.xlsx` file |
@@ -229,9 +245,10 @@ All endpoints are prefixed with `/api`.
 | `POST` | `/merge-descriptions` | Merge variant descriptions into a canonical form within a category |
 | `GET` | `/balance` | Current balance between the two configured users |
 | `GET` | `/monthly-summary` | Category totals for the current month |
-| `GET` | `/analytics` | Aggregated analytics (query: `start_date`, `end_date`) |
+| `GET` | `/analytics` | Aggregated analytics including `my_share` (query: `start_date`, `end_date`) |
 | `GET` | `/insights` | Smart insights: recurring payments, trend alerts, anomalies, forecast, weekend vs weekday, top growing categories |
 | `GET` | `/personal-summary` | Current user's personal spend for this month (Hybrid mode) |
+| `GET` | `/my-expense-summary` | Current user's total expense portion and total shared spend for this month |
 | `GET` | `/settings` | Current app mode |
 | `PUT` | `/settings` | Update app mode (`solo`, `duo`, `hybrid`) |
 | `GET` | `/export` | Download filtered expenses as `.xlsx` (query: `search`, `paid_by`, `category`) |

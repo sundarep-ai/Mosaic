@@ -18,6 +18,7 @@ import { CATEGORY_ICONS } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
 import { useTheme } from "../ThemeContext";
 import { useCurrency } from "../CurrencyContext";
+import { useAuth } from "../auth/AuthContext";
 import Avatar from "../components/Avatar";
 import { getDateRange, groupByDescription, groupByMonth } from "../utils/analytics";
 
@@ -58,6 +59,9 @@ const PRESETS = [
 
 export default function Analytics() {
   const { userA, userB, mode } = useUsers();
+  const { user } = useAuth();
+  const me = user?.displayName || userA;
+  const other = me === userA ? userB : userA;
   const isSolo = mode === "solo";
   const isHybrid = mode === "hybrid";
   const { theme } = useTheme();
@@ -174,6 +178,7 @@ export default function Analytics() {
 
   const totalSpend = data?.total_spend ?? 0;
   const totalShared = data?.total_shared_spend ?? 0;
+  const myShare = data?.my_share ?? 0;
 
   return (
     <div className="space-y-10">
@@ -235,16 +240,18 @@ export default function Analytics() {
           <div className="md:col-span-4 bg-surface-container-lowest p-8 rounded-[2rem] flex flex-col justify-between relative overflow-hidden group">
             <div className="relative z-10">
               <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
-                {isSolo ? "Total Spend" : "Total Shared Spend"}
+                Your Expense
               </span>
               <div className="mt-4 flex items-baseline gap-2">
                 <span className="font-headline text-5xl font-extrabold text-primary">
-                  {fmt(isSolo ? totalSpend : totalShared)}
+                  {fmt(myShare)}
                 </span>
               </div>
               {!isSolo && (
-                <div className="mt-3 text-sm text-on-surface-variant font-medium">
-                  Total spend: {fmt(totalSpend)}
+                <div className="mt-3">
+                  <div className="text-sm text-on-surface-variant font-medium">
+                    Total shared spend: {fmt(totalShared)}
+                  </div>
                 </div>
               )}
             </div>
@@ -253,21 +260,21 @@ export default function Analytics() {
               <div className="mt-12 flex items-center gap-4 text-on-surface-variant">
                 <div className="flex -space-x-3">
                   <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
-                    <Avatar user={userA} size="md" />
+                    <Avatar user={me} size="md" />
                   </div>
                   <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
-                    <Avatar user={userB} size="md" />
+                    <Avatar user={other} size="md" />
                   </div>
                 </div>
                 <p className="text-xs font-medium italic">
-                  {isHybrid ? `Personal + Shared with ${userB}` : `Shared between ${userA} & ${userB}`}
+                  {isHybrid ? `Personal + Shared with ${other}` : `Shared between ${me} & ${other}`}
                 </p>
               </div>
             )}
             {isSolo && (
               <div className="mt-12 flex items-center gap-4 text-on-surface-variant">
                 <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
-                  <Avatar user={userA} size="md" />
+                  <Avatar user={me} size="md" />
                 </div>
                 <p className="text-xs font-medium italic">Personal expense tracker</p>
               </div>

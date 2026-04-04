@@ -114,6 +114,12 @@ export async function uploadAvatar(file) {
   return res.json();
 }
 
+export async function getMyExpenseSummary() {
+  const res = await fetchWithAuth(`${API_BASE}/my-expense-summary`);
+  if (!res.ok) throw new Error("Failed to fetch my expense summary");
+  return res.json();
+}
+
 export async function getPersonalSummary() {
   const res = await fetchWithAuth(`${API_BASE}/personal-summary`);
   if (!res.ok) throw new Error("Failed to fetch personal summary");

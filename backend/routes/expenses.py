@@ -17,6 +17,33 @@ from services.clustering import get_embedding_model, cluster_descriptions
 
 router = APIRouter()
 
+
+def _resolve_names(current_user: str) -> tuple:
+    """Return (my_display_name, other_display_name) for the logged-in user."""
+    from auth import LOGIN_TO_DISPLAY
+    me = LOGIN_TO_DISPLAY.get(current_user, current_user)
+    other = USER_B if me == USER_A else USER_A
+    return me, other
+
+
+def _my_portion_expr(me: str, other: str):
+    """SQL CASE expression returning the current user's portion of each expense."""
+    return case(
+        (
+            (Expense.split_method == "Personal") & (Expense.paid_by == me),
+            Expense.amount,
+        ),
+        (Expense.split_method == "50/50", Expense.amount / 2),
+        (Expense.split_method == f"100% {me}", Expense.amount),
+        (Expense.split_method == f"100% {other}", 0),
+        (
+            (Expense.split_method == "Personal") & (Expense.paid_by == other),
+            0,
+        ),
+        else_=0,
+    )
+
+
 def _get_valid_sets(session: Session):
     """Return (valid_paid_by, valid_split_methods) based on current app mode."""
     from config import get_app_mode
@@ -417,3 +444,50 @@ def get_personal_summary(
     ).one()
 
     return {"amount": float(round(Decimal(str(result)), 2))}
+
+
+@router.get("/my-expense-summary")
+def get_my_expense_summary(
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
+    """Return the current user's total expense and total shared spend for the current month.
+
+    Includes Reimbursements (negative amounts reduce the net total).
+    Excludes Payment category.
+    """
+    from config import get_app_mode
+
+    today = date.today()
+    first_of_month = today.replace(day=1)
+    me, other = _resolve_names(current_user)
+
+    base_filters = (
+        select(func.coalesce(func.sum(_my_portion_expr(me, other)), 0))
+        .where(Expense.date >= first_of_month)
+        .where(Expense.category != "Payment")
+    )
+
+    mode = get_app_mode(session)
+    if mode == "solo":
+        # In solo mode all expenses are Personal paid by me, so my_total = total
+        my_total = Decimal(str(session.exec(base_filters).one()))
+        return {
+            "my_total": float(round(my_total, 2)),
+            "total_shared_spend": 0.0,
+        }
+
+    my_total = Decimal(str(session.exec(base_filters).one()))
+
+    shared_result = session.exec(
+        select(func.coalesce(func.sum(Expense.amount), 0))
+        .where(Expense.date >= first_of_month)
+        .where(Expense.category != "Payment")
+        .where(Expense.split_method != "Personal")
+    ).one()
+    total_shared = Decimal(str(shared_result))
+
+    return {
+        "my_total": float(round(my_total, 2)),
+        "total_shared_spend": float(round(total_shared, 2)),
+    }
