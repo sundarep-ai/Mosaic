@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getExpenses } from "../api/expenses";
 import { useCurrency } from "../CurrencyContext";
+import { useUsers } from "../ConfigContext";
+import { useAuth } from "../auth/AuthContext";
+import { calcMyPortion } from "../utils/portion";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = [
@@ -21,6 +24,11 @@ const pad = (n) => String(n).padStart(2, "0");
 export default function Calendar() {
   const navigate = useNavigate();
   const { fmt } = useCurrency();
+  const { userA, userB, mode } = useUsers();
+  const { user } = useAuth();
+  const me = user?.displayName || userA;
+  const other = me === userA ? userB : userA;
+  const isSolo = mode === "solo";
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -52,13 +60,18 @@ export default function Calendar() {
     return () => { cancelled = true; };
   }, [year, month]);
 
-  // Aggregate daily totals and counts
+  // Aggregate daily portions (user's share) and shared totals
+  // Exclude Payment and Reimbursement from calendar display
   const dailyTotals = {};
   let monthTotal = 0;
+  let monthSharedTotal = 0;
   let monthCount = 0;
   for (const e of expenses) {
-    dailyTotals[e.date] = (dailyTotals[e.date] || 0) + e.amount;
-    monthTotal += e.amount;
+    if (e.category === "Payment" || e.category === "Reimbursement") continue;
+    const portion = calcMyPortion(e, me, other);
+    dailyTotals[e.date] = (dailyTotals[e.date] || 0) + portion;
+    monthTotal += portion;
+    if (e.split_method !== "Personal") monthSharedTotal += e.amount;
     monthCount++;
   }
 
@@ -218,14 +231,20 @@ export default function Calendar() {
       <div className="bg-surface-container-lowest p-8 rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden group">
         <div className="relative z-10">
           <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
-            Total Spend
+            Your Expense
           </span>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="font-headline text-5xl font-extrabold text-primary">
               {fmt(monthTotal)}
             </span>
           </div>
-          <p className="mt-3 text-sm text-on-surface-variant font-medium">
+          {!isSolo && monthSharedTotal > 0 && (
+            <p className="mt-2 text-sm font-medium">
+              <span className="text-on-surface-variant">Total shared spend: </span>
+              <span className="text-secondary font-bold">{fmt(monthSharedTotal)}</span>
+            </p>
+          )}
+          <p className="mt-2 text-sm text-on-surface-variant font-medium">
             {monthCount} expense{monthCount !== 1 ? "s" : ""} in {MONTH_NAMES[month]}
           </p>
         </div>

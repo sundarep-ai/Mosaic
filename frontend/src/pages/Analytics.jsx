@@ -174,6 +174,7 @@ export default function Analytics() {
 
   const totalSpend = data?.total_spend ?? 0;
   const totalShared = data?.total_shared_spend ?? 0;
+  const myShare = data?.my_share ?? 0;
 
   return (
     <div className="space-y-10">
@@ -235,16 +236,18 @@ export default function Analytics() {
           <div className="md:col-span-4 bg-surface-container-lowest p-8 rounded-[2rem] flex flex-col justify-between relative overflow-hidden group">
             <div className="relative z-10">
               <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
-                {isSolo ? "Total Spend" : "Total Shared Spend"}
+                Your Expense
               </span>
               <div className="mt-4 flex items-baseline gap-2">
                 <span className="font-headline text-5xl font-extrabold text-primary">
-                  {fmt(isSolo ? totalSpend : totalShared)}
+                  {fmt(myShare)}
                 </span>
               </div>
               {!isSolo && (
-                <div className="mt-3 text-sm text-on-surface-variant font-medium">
-                  Total spend: {fmt(totalSpend)}
+                <div className="mt-3">
+                  <div className="text-sm text-on-surface-variant font-medium">
+                    Total shared spend: {fmt(totalShared)}
+                  </div>
                 </div>
               )}
             </div>

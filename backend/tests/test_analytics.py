@@ -189,3 +189,68 @@ def test_analytics_distribution_percentages_exclude_reimbursement(auth_client_a)
     # Percentages should still sum to 100 based on Groceries + Dining only
     assert dist["Groceries"] == 75.0
     assert dist["Dining"] == 25.0
+
+
+# ── my_share ───────────────────────────────────────────────────────
+
+
+def test_analytics_my_share_empty(auth_client_a):
+    """my_share is 0 when no expenses."""
+    data = auth_client_a.get("/api/analytics").json()
+    assert data["my_share"] == 0
+
+
+def test_analytics_my_share_50_50(auth_client_a):
+    """50/50 expense: my_share is half for User A."""
+    auth_client_a.post("/api/expenses", json=make_expense(
+        amount=200, split_method="50/50", paid_by=USER_A,
+    ))
+    data = auth_client_a.get("/api/analytics").json()
+    assert data["my_share"] == 100.0
+
+
+def test_analytics_my_share_100_percent(auth_client_a, auth_client_b):
+    """100% Alice: A's share is full, B's share is 0."""
+    auth_client_a.post("/api/expenses", json=make_expense(
+        amount=80, split_method=f"100% {USER_A}", paid_by=USER_B,
+    ))
+    data_a = auth_client_a.get("/api/analytics").json()
+    data_b = auth_client_b.get("/api/analytics").json()
+    assert data_a["my_share"] == 80.0
+    assert data_b["my_share"] == 0.0
+
+
+def test_analytics_my_share_excludes_payment(auth_client_a):
+    """Payment is excluded from my_share."""
+    auth_client_a.post("/api/expenses", json=make_expense(
+        amount=100, split_method="50/50",
+    ))
+    auth_client_a.post("/api/expenses", json=make_expense(
+        amount=50, category="Payment", split_method=f"100% {USER_B}",
+    ))
+    data = auth_client_a.get("/api/analytics").json()
+    assert data["my_share"] == 50.0
+
+
+def test_analytics_my_share_includes_reimbursement(auth_client_a):
+    """Reimbursement reduces my_share."""
+    auth_client_a.post("/api/expenses", json=make_expense(
+        amount=100, split_method="50/50",
+    ))
+    auth_client_a.post("/api/expenses", json=make_expense(
+        amount=-30, category="Reimbursement", split_method="50/50",
+    ))
+    data = auth_client_a.get("/api/analytics").json()
+    # 50 (half of 100) + (-15) (half of -30) = 35
+    assert data["my_share"] == 35.0
+
+
+def test_analytics_my_share_solo(auth_client_a):
+    """In solo mode, my_share equals total_spend."""
+    auth_client_a.put("/api/settings", json={"app_mode": "solo"})
+    auth_client_a.post("/api/expenses", json=make_expense(
+        amount=120, split_method="Personal", paid_by=USER_A,
+    ))
+    data = auth_client_a.get("/api/analytics").json()
+    assert data["my_share"] == data["total_spend"]
+    assert data["my_share"] == 120.0

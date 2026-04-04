@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 from auth import get_current_user
 from database import get_session
 from models import Expense
+from routes.expenses import _resolve_names, _my_portion_expr
 
 router = APIRouter()
 
@@ -146,6 +147,17 @@ def get_analytics(
         {"type": "Personal", "amount": personal_spend},
     ]
 
+    # User's share (exclude Payment only — Reimbursements reduce net share)
+    me, other = _resolve_names(current_user)
+    my_share_result = session.exec(
+        _date_filters(
+            select(func.coalesce(func.sum(_my_portion_expr(me, other)), 0)),
+            start_date,
+            end_date,
+        )
+    ).one()
+    my_share = _dec(my_share_result)
+
     # Top 5 largest expenses (exclude Payment and Reimbursement)
     top_stmt = _date_filters(
         select(Expense), start_date, end_date,
@@ -163,4 +175,5 @@ def get_analytics(
         "by_split_method": split_data,
         "top_expenses": top_expenses,
         "by_split_type": by_split_type,
+        "my_share": float(round(my_share, 2)),
     }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { getBalance, getMonthlySummary, getExpenses, getPersonalSummary } from "../api/expenses";
+import { getBalance, getMonthlySummary, getExpenses, getPersonalSummary, getMyExpenseSummary } from "../api/expenses";
 import { CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
 import { useCurrency } from "../CurrencyContext";
@@ -15,6 +15,7 @@ export default function Landing() {
   const [monthlySummary, setMonthlySummary] = useState([]);
   const [recentExpenses, setRecentExpenses] = useState([]);
   const [personalSpend, setPersonalSpend] = useState(null);
+  const [myExpense, setMyExpense] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -25,6 +26,7 @@ export default function Landing() {
           isSolo ? Promise.resolve({ amount: 0, description: "Solo mode" }) : getBalance(),
           getMonthlySummary(),
           getExpenses({ limit: 5, sort: "desc" }),
+          getMyExpenseSummary(),
         ];
         if (isHybrid) promises.push(getPersonalSummary());
 
@@ -32,7 +34,8 @@ export default function Landing() {
         setBalance(results[0]);
         setMonthlySummary(results[1]);
         setRecentExpenses(results[2]);
-        if (isHybrid && results[3]) setPersonalSpend(results[3]);
+        setMyExpense(results[3]);
+        if (isHybrid && results[4]) setPersonalSpend(results[4]);
       } catch (err) {
         setError("Could not load dashboard data. Is the server running?");
       } finally {
@@ -94,11 +97,11 @@ export default function Landing() {
             {isSolo ? (
               <>
                 <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
-                  Total Spend This Month
+                  Your Expense This Month
                 </span>
                 <div className="mt-4 flex items-baseline gap-2">
                   <span className="font-headline text-5xl font-extrabold text-primary">
-                    {fmt(monthlySummary.reduce((sum, item) => sum + item.amount, 0))}
+                    {fmt(myExpense?.my_total ?? 0)}
                   </span>
                 </div>
                 <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-container text-on-primary-container text-sm font-bold">
@@ -169,26 +172,26 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Personal Spend Card (hybrid only) */}
-        {isHybrid && personalSpend !== null && (
+        {/* Your Expense Card (duo/hybrid) */}
+        {!isSolo && myExpense && (
           <div className="md:col-span-4 bg-surface-container p-8 rounded-[2rem]">
             <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
-              Your Personal Spend This Month
+              Your Expense This Month
             </span>
             <div className="mt-4">
               <span className="font-headline text-4xl font-extrabold text-secondary">
-                {fmt(personalSpend.amount)}
+                {fmt(myExpense.my_total)}
               </span>
             </div>
             <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary-container text-on-secondary-container text-sm font-bold">
               <span className="material-symbols-outlined text-[16px]">person</span>
-              Personal only
+              {isHybrid ? "Personal + your share of shared" : "Your share of shared expenses"}
             </div>
           </div>
         )}
 
         {/* Quick Actions & Monthly Summary */}
-        <div className={`${isHybrid ? "md:col-span-4" : "md:col-span-8"} bg-surface-container p-8 rounded-[2rem]`}>
+        <div className={`${isSolo ? "md:col-span-8" : "md:col-span-4"} bg-surface-container p-8 rounded-[2rem]`}>
           <div className="flex items-center justify-between mb-8">
             <h3 className="font-headline text-xl font-bold">
               This Month&apos;s Spend by Category
