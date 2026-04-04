@@ -50,7 +50,9 @@ function getSplitBadge(method) {
 export default function History() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userA, userB } = useUsers();
+  const { userA, userB, mode } = useUsers();
+  const isSolo = mode === "solo";
+  const isHybrid = mode === "hybrid";
   const { fmt } = useCurrency();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +69,7 @@ export default function History() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [fetchError, setFetchError] = useState(null);
   const [showMergeModal, setShowMergeModal] = useState(false);
+  const [filterType, setFilterType] = useState("");  // "" | "Personal" | "Shared"
 
   const fetchExpenses = useCallback(async () => {
     setLoading(true);
@@ -135,7 +138,7 @@ export default function History() {
             Detailed Expenses
           </h1>
           <p className="text-on-surface-variant font-medium">
-            Review and manage your shared financial journey.
+            {isSolo ? "Review and manage your expenses." : "Review and manage your shared financial journey."}
           </p>
         </div>
         <div className="flex gap-3">
@@ -211,7 +214,7 @@ export default function History() {
             className="bg-transparent border-none focus:ring-0 w-full text-on-surface font-medium placeholder:text-outline"
           />
         </form>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className={`grid grid-cols-1 ${isHybrid ? "lg:grid-cols-4" : isSolo ? "lg:grid-cols-2" : "lg:grid-cols-3"} gap-3`}>
           <div className="bg-surface-container rounded-3xl p-2 flex items-center justify-between px-4">
             <span className="text-on-surface-variant font-label font-semibold uppercase tracking-wider text-xs">
               Category
@@ -232,23 +235,41 @@ export default function History() {
               ))}
             </select>
           </div>
-          <div className="bg-surface-container rounded-3xl p-2 flex items-center justify-between px-4">
-            <span className="text-on-surface-variant font-label font-semibold uppercase tracking-wider text-xs">
-              Paid By
-            </span>
-            <select
-              value={filterPaidBy}
-              onChange={(e) => {
-                setFilterPaidBy(e.target.value);
-                setAppliedSearch(searchRef.current?.value || "");
-              }}
-              className="bg-transparent border-none focus:ring-0 text-primary font-bold pr-8 cursor-pointer"
-            >
-              <option value="">All</option>
-              <option value={userA}>{userA}</option>
-              <option value={userB}>{userB}</option>
-            </select>
-          </div>
+          {!isSolo && (
+            <div className="bg-surface-container rounded-3xl p-2 flex items-center justify-between px-4">
+              <span className="text-on-surface-variant font-label font-semibold uppercase tracking-wider text-xs">
+                Paid By
+              </span>
+              <select
+                value={filterPaidBy}
+                onChange={(e) => {
+                  setFilterPaidBy(e.target.value);
+                  setAppliedSearch(searchRef.current?.value || "");
+                }}
+                className="bg-transparent border-none focus:ring-0 text-primary font-bold pr-8 cursor-pointer"
+              >
+                <option value="">All</option>
+                <option value={userA}>{userA}</option>
+                <option value={userB}>{userB}</option>
+              </select>
+            </div>
+          )}
+          {isHybrid && (
+            <div className="bg-surface-container rounded-3xl p-2 flex items-center justify-between px-4">
+              <span className="text-on-surface-variant font-label font-semibold uppercase tracking-wider text-xs">
+                Type
+              </span>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="bg-transparent border-none focus:ring-0 text-primary font-bold pr-8 cursor-pointer"
+              >
+                <option value="">All</option>
+                <option value="Personal">Personal</option>
+                <option value="Shared">Shared</option>
+              </select>
+            </div>
+          )}
           <div className="bg-surface-container rounded-3xl p-2 flex items-center justify-between px-4">
             <span className="text-on-surface-variant font-label font-semibold uppercase tracking-wider text-xs">
               Amount
@@ -284,88 +305,103 @@ export default function History() {
             No expenses found.
           </div>
         ) : (
-          <>
-            {/* Table Header (Desktop) */}
-            <div className="hidden md:grid md:grid-cols-12 gap-4 px-8 py-5 bg-surface-container-highest border-b border-outline-variant/10 text-on-surface-variant font-label font-bold uppercase tracking-widest text-[11px]">
-              <div className="col-span-1">Date</div>
-              <div className="col-span-4">Description</div>
-              <div className="col-span-2">Amount</div>
-              <div className="col-span-2 text-center">Paid By</div>
-              <div className="col-span-2 text-center">Type</div>
-              <div className="col-span-1 text-right">Actions</div>
-            </div>
-
-            {/* Rows */}
-            <div className="flex flex-col gap-3 p-3 md:p-4">
-              {expenses.map((expense) => (
-                <div
-                  key={expense.id}
-                  className="bg-surface-container-lowest rounded-2xl md:rounded-none md:bg-transparent md:hover:bg-surface-container transition-colors grid grid-cols-1 md:grid-cols-12 gap-4 items-center px-6 py-6 group"
-                >
-                  <div className="col-span-1 text-on-surface-variant font-medium md:text-sm whitespace-pre-line">
-                    {formatDate(expense.date)}
-                  </div>
-                  <div className="col-span-4 flex items-center gap-4">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center ${CATEGORY_BG[expense.category] || CATEGORY_BG.Other}`}
-                    >
-                      <span className="material-symbols-outlined">
-                        {CATEGORY_ICONS[expense.category] || "more_horiz"}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-bold text-on-surface">
-                        {expense.description}
-                      </p>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-label font-bold uppercase tracking-tighter ${CATEGORY_BG[expense.category] || CATEGORY_BG.Other}`}
-                      >
-                        {expense.category}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="col-span-2 text-xl font-headline font-bold text-on-surface">
-                    {fmt(expense.amount)}
-                  </div>
-                  <div className="col-span-2 flex justify-center">
-                    <div className="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full">
-                      <Avatar user={expense.paid_by} size="sm" />
-                      <span className="text-xs font-bold text-on-surface">
-                        {expense.paid_by}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="col-span-2 flex justify-center">
-                    {getSplitBadge(expense.split_method)}
-                  </div>
-                  <div className="col-span-1 flex justify-end gap-2">
-                    <button
-                      onClick={() => navigate(`/edit/${expense.id}`)}
-                      className="p-2 rounded-lg hover:bg-surface-container-high text-outline transition-colors"
-                      aria-label="Edit expense"
-                    >
-                      <span className="material-symbols-outlined" aria-hidden="true">edit</span>
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(expense)}
-                      className="p-2 rounded-lg hover:bg-error-container/20 text-outline hover:text-error transition-colors"
-                      aria-label="Delete expense"
-                    >
-                      <span className="material-symbols-outlined" aria-hidden="true">delete</span>
-                    </button>
-                  </div>
+          (() => {
+            const filteredExpenses = filterType
+              ? expenses.filter((e) =>
+                  filterType === "Personal"
+                    ? e.split_method === "Personal"
+                    : e.split_method !== "Personal"
+                )
+              : expenses;
+            return (
+              <>
+                {/* Table Header (Desktop) */}
+                <div className={`hidden md:grid ${isSolo ? "md:grid-cols-8" : "md:grid-cols-12"} gap-4 px-8 py-5 bg-surface-container-highest border-b border-outline-variant/10 text-on-surface-variant font-label font-bold uppercase tracking-widest text-[11px]`}>
+                  <div className="col-span-1">Date</div>
+                  <div className={isSolo ? "col-span-3" : "col-span-4"}>Description</div>
+                  <div className="col-span-2">Amount</div>
+                  {!isSolo && <div className="col-span-2 text-center">Paid By</div>}
+                  {!isSolo && <div className="col-span-2 text-center">Type</div>}
+                  <div className="col-span-1 text-right">Actions</div>
                 </div>
-              ))}
-            </div>
 
-            {/* Footer */}
-            <div className="p-6 bg-surface-container border-t border-outline-variant/10 flex items-center justify-between">
-              <p className="text-xs font-medium text-on-surface-variant">
-                Showing {expenses.length} expense
-                {expenses.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-          </>
+                {/* Rows */}
+                <div className="flex flex-col gap-3 p-3 md:p-4">
+                  {filteredExpenses.map((expense) => (
+                    <div
+                      key={expense.id}
+                      className={`bg-surface-container-lowest rounded-2xl md:rounded-none md:bg-transparent md:hover:bg-surface-container transition-colors grid grid-cols-1 ${isSolo ? "md:grid-cols-8" : "md:grid-cols-12"} gap-4 items-center px-6 py-6 group`}
+                    >
+                      <div className="col-span-1 text-on-surface-variant font-medium md:text-sm whitespace-pre-line">
+                        {formatDate(expense.date)}
+                      </div>
+                      <div className={`${isSolo ? "col-span-3" : "col-span-4"} flex items-center gap-4`}>
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${CATEGORY_BG[expense.category] || CATEGORY_BG.Other}`}
+                        >
+                          <span className="material-symbols-outlined">
+                            {CATEGORY_ICONS[expense.category] || "more_horiz"}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-bold text-on-surface">
+                            {expense.description}
+                          </p>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full font-label font-bold uppercase tracking-tighter ${CATEGORY_BG[expense.category] || CATEGORY_BG.Other}`}
+                          >
+                            {expense.category}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="col-span-2 text-xl font-headline font-bold text-on-surface">
+                        {fmt(expense.amount)}
+                      </div>
+                      {!isSolo && (
+                        <div className="col-span-2 flex justify-center">
+                          <div className="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full">
+                            <Avatar user={expense.paid_by} size="sm" />
+                            <span className="text-xs font-bold text-on-surface">
+                              {expense.paid_by}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {!isSolo && (
+                        <div className="col-span-2 flex justify-center">
+                          {getSplitBadge(expense.split_method)}
+                        </div>
+                      )}
+                      <div className="col-span-1 flex justify-end gap-2">
+                        <button
+                          onClick={() => navigate(`/edit/${expense.id}`)}
+                          className="p-2 rounded-lg hover:bg-surface-container-high text-outline transition-colors"
+                          aria-label="Edit expense"
+                        >
+                          <span className="material-symbols-outlined" aria-hidden="true">edit</span>
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(expense)}
+                          className="p-2 rounded-lg hover:bg-error-container/20 text-outline hover:text-error transition-colors"
+                          aria-label="Delete expense"
+                        >
+                          <span className="material-symbols-outlined" aria-hidden="true">delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Footer */}
+                <div className="p-6 bg-surface-container border-t border-outline-variant/10 flex items-center justify-between">
+                  <p className="text-xs font-medium text-on-surface-variant">
+                    Showing {filteredExpenses.length} expense
+                    {filteredExpenses.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
+              </>
+            );
+          })()
         )}
       </div>
 

@@ -2,7 +2,7 @@
 
 # MosaicTally
 
-**A simple, local-first expense tracker for two people.**
+**A flexible, local-first expense tracker — solo, shared, or both.**
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
@@ -14,19 +14,28 @@
 
 ---
 
-MosaicTally tracks shared expenses between two people, calculates who owes whom, and provides visual analytics — all running locally with zero cloud dependencies. User names are configured in a single place and flow through both the backend and frontend automatically.
+MosaicTally tracks expenses — personal, shared between two people, or both — calculates who owes whom, and provides visual analytics. Everything runs locally with zero cloud dependencies. Choose from three modes to match how you want to track spending:
+
+| Mode | Description |
+|---|---|
+| **Solo** | Single-user personal expense tracking. No balance, no split options, simplified UI. |
+| **Shared** (default) | Two-person shared expenses with balance tracking, split methods, and settle-up. |
+| **Personal + Shared** (Hybrid) | Both personal and shared expenses — see your own spending alongside what you split. |
+
+Switch modes anytime from the Settings page (gear icon in the top bar). Mode changes only affect validation and UI — your data is never deleted or migrated.
 
 ## Features
 
 | Page | What it does |
 |---|---|
-| **Dashboard** | Live balance (e.g. "User A owes User B $50"), this month's spend by category, last 10 expenses. Includes a **Settle** button that opens the Add Expense form pre-filled with "Payment" description and category for quick balance settlements. |
-| **Add Expense** | Log an expense with date, description, category, amount, payer, and split method. Supports custom categories via "+ New Category". As you type a description, fuzzy matching suggests existing descriptions ("Did you mean?") and instantly auto-suggests a category from history — all client-side with zero network latency. |
+| **Home** | Mode-aware overview: **Solo** shows total monthly spend; **Shared** shows live balance with a Settle button; **Hybrid** adds a personal spend card alongside the shared balance. All modes show this month's spend by category and recent activity. |
+| **Add Expense** | Log an expense with date, description, category, amount, payer, and split method. In Solo mode, the "Who Paid" and "Split Method" fields are hidden (defaults to the single user and "Personal"). Supports custom categories via "+ New Category". Fuzzy matching suggests existing descriptions and auto-suggests categories — all client-side. |
+| **Settings** | Choose your app mode (Solo / Shared / Personal + Shared) and upload a profile picture. Accessible via the gear icon in the top bar. |
 | **Edit Expense** | Full-page edit form at `/edit/:id` — reuses the Add Expense form with all fields pre-filled |
-| **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses. Filter presets: 1M, 3M, 6M, YTD, 1Y, All — plus custom date range. |
+| **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses. Filter presets: 1M, 3M, 6M, YTD, 1Y, All — plus custom date range. In Solo mode, payer breakdown is hidden. In Hybrid mode, an extra Personal vs Shared chart is shown. |
 | **Calendar** | Month-view calendar showing daily spend totals with logarithmic heat-map shading (prevents a single outlier like rent from washing out all other days). Navigate months with chevron arrows or jump to any month/year via a dropdown picker. Displays aggregate monthly spend at the top. Click any day to drill down into that day's expenses on the History page. |
 | **Smart Insights** | Automated spending analysis — detects recurring payments (weekly/monthly/quarterly/annual) with change alerts, highlights category trend spikes, flags statistical anomalies, projects next-month spending via weighted moving average, compares weekend vs weekday habits, and ranks fastest-growing categories. All computed server-side using rule-based pattern detection and the existing embedding model for description clustering. |
-| **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics"). |
+| **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. In Solo mode, the "Paid By" column and filter are hidden. In Hybrid mode, an extra "Type" filter lets you toggle between All, Personal, and Shared expenses. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics"). |
 | **Export** | Download the current filtered view as an `.xlsx` file |
 
 ### Currency Selector
@@ -35,21 +44,21 @@ A currency dropdown in the top navigation bar lets you choose your display curre
 
 ### Profile Pictures
 
-Each user can upload a profile picture by clicking their name in the top navigation bar. Avatars appear on the Dashboard (balance card) and in the History table's "Paid By" column. Images are stored locally in `backend/uploads/avatars/` (created automatically on first server start, gitignored). Accepted formats: JPG, PNG, GIF, WebP — max 2 MB. Uploads are validated against magic bytes to ensure file content matches the declared type.
+Each user can upload a profile picture from the Settings page (gear icon → Profile Picture → Change Photo). Avatars appear on the Home page (balance card) and in the History table's "Paid By" column. Images are stored locally in `backend/uploads/avatars/` (created automatically on first server start, gitignored). Accepted formats: JPG, PNG, GIF, WebP — max 2 MB. Uploads are validated against magic bytes to ensure file content matches the declared type.
 
 ### Split Methods
 
-| Method | Behaviour |
-|---|---|
-| `50/50` | Cost is shared equally — the non-payer owes half |
-| `100% (Other Owes)` | The non-payer is fully responsible for the expense |
-| `Personal` | No balance impact — a personal expense logged for tracking only |
+| Method | Availability | Behaviour |
+|---|---|---|
+| `50/50` | Shared, Hybrid | Cost is shared equally — the non-payer owes half |
+| `100% (Other Owes)` | Shared, Hybrid | The non-payer is fully responsible for the expense |
+| `Personal` | All modes | No balance impact — a personal expense logged for tracking only. In Solo mode, this is the only option (applied automatically). |
 
 ### Validation
 
 - **Amount** must be greater than zero (enforced on both frontend and backend) and is automatically rounded to 2 decimal places on input
 - **Date** cannot be in the future (enforced on both frontend and backend)
-- **Paid By** and **Split Method** must match the configured user names
+- **Paid By** and **Split Method** are validated dynamically based on the current app mode — Solo restricts to a single user and "Personal" split only
 - **Category** is free-form — choose from the default list or create a custom category
 
 ## Data Protection
@@ -79,6 +88,7 @@ The database runs in WAL (Write-Ahead Logging) mode for crash recovery, and an i
 - **Passwords** are stored as bcrypt hashes in `backend/.env` — plaintext passwords are never stored
 - **Session cookies** are HMAC-SHA256 signed with a required `SECRET_KEY` — the app refuses to start without one
 - **Avatar uploads** are validated with magic byte checks and path traversal protection
+- **Solo mode** blocks login for the second user at the auth layer — not just hidden in UI
 - **Search queries** escape SQL LIKE wildcards to prevent injection
 
 ---
@@ -221,6 +231,9 @@ All endpoints are prefixed with `/api`.
 | `GET` | `/monthly-summary` | Category totals for the current month |
 | `GET` | `/analytics` | Aggregated analytics (query: `start_date`, `end_date`) |
 | `GET` | `/insights` | Smart insights: recurring payments, trend alerts, anomalies, forecast, weekend vs weekday, top growing categories |
+| `GET` | `/personal-summary` | Current user's personal spend for this month (Hybrid mode) |
+| `GET` | `/settings` | Current app mode |
+| `PUT` | `/settings` | Update app mode (`solo`, `duo`, `hybrid`) |
 | `GET` | `/export` | Download filtered expenses as `.xlsx` (query: `search`, `paid_by`, `category`) |
 
 ## Project Structure
@@ -232,7 +245,7 @@ backend/
   .env                   # Passwords & session secret (not committed — see .env.example)
   main.py                # FastAPI app & CORS config
   database.py            # SQLite engine (WAL mode), session provider, integrity check
-  models.py              # Expense table & Pydantic schemas
+  models.py              # Expense & Settings tables, Pydantic schemas
   migrate_xlsx.py        # Bulk import from .xlsx
   requirements.txt       # Python dependencies
   services/
@@ -257,7 +270,8 @@ frontend/
   src/
     config.js            # API base URL & app name (user names fetched from backend)
     main.jsx             # React root & router setup
-    App.jsx              # Route definitions & layout shell (includes /edit/:id)
+    App.jsx              # Route definitions & layout shell (includes /edit/:id, /settings)
+    ConfigContext.jsx     # User names, app mode, and setMode — fetched from backend
     CurrencyContext.jsx  # Currency selection context with localStorage persistence
     ErrorBoundary.jsx    # Catches render errors to prevent white-screen crashes
     index.css            # Tailwind directives
@@ -277,6 +291,7 @@ frontend/
       Analytics.jsx      # Charts & analytics dashboard
       Calendar.jsx       # Month-view calendar with daily spend totals and month/year picker
       Insights.jsx       # Smart Insights: recurring payments, trends, anomalies, forecast
+      Settings.jsx       # App mode selector & profile picture upload
       History.jsx        # Expense table with delete/export, edit navigates to /edit/:id
 ```
 

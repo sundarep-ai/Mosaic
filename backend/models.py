@@ -44,3 +44,8 @@ class ExpenseCreate(ExpenseBase):
 
 class ExpenseUpdate(ExpenseBase):
     pass
+
+
+class Settings(SQLModel, table=True):
+    id: int = Field(default=1, primary_key=True)
+    app_mode: str = Field(default="duo")  # "solo" | "duo" | "hybrid"

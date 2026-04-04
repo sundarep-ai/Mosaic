@@ -57,7 +57,9 @@ const PRESETS = [
 ];
 
 export default function Analytics() {
-  const { userA, userB } = useUsers();
+  const { userA, userB, mode } = useUsers();
+  const isSolo = mode === "solo";
+  const isHybrid = mode === "hybrid";
   const { theme } = useTheme();
   const { fmt } = useCurrency();
   const navigate = useNavigate();
@@ -233,31 +235,43 @@ export default function Analytics() {
           <div className="md:col-span-4 bg-surface-container-lowest p-8 rounded-[2rem] flex flex-col justify-between relative overflow-hidden group">
             <div className="relative z-10">
               <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
-                Total Shared Spend
+                {isSolo ? "Total Spend" : "Total Shared Spend"}
               </span>
               <div className="mt-4 flex items-baseline gap-2">
                 <span className="font-headline text-5xl font-extrabold text-primary">
-                  {fmt(totalShared)}
+                  {fmt(isSolo ? totalSpend : totalShared)}
                 </span>
               </div>
-              <div className="mt-3 text-sm text-on-surface-variant font-medium">
-                Total spend: {fmt(totalSpend)}
-              </div>
+              {!isSolo && (
+                <div className="mt-3 text-sm text-on-surface-variant font-medium">
+                  Total spend: {fmt(totalSpend)}
+                </div>
+              )}
             </div>
             <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500"></div>
-            <div className="mt-12 flex items-center gap-4 text-on-surface-variant">
-              <div className="flex -space-x-3">
+            {!isSolo && (
+              <div className="mt-12 flex items-center gap-4 text-on-surface-variant">
+                <div className="flex -space-x-3">
+                  <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
+                    <Avatar user={userA} size="md" />
+                  </div>
+                  <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
+                    <Avatar user={userB} size="md" />
+                  </div>
+                </div>
+                <p className="text-xs font-medium italic">
+                  {isHybrid ? `Personal + Shared with ${userB}` : `Shared between ${userA} & ${userB}`}
+                </p>
+              </div>
+            )}
+            {isSolo && (
+              <div className="mt-12 flex items-center gap-4 text-on-surface-variant">
                 <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
                   <Avatar user={userA} size="md" />
                 </div>
-                <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
-                  <Avatar user={userB} size="md" />
-                </div>
+                <p className="text-xs font-medium italic">Personal expense tracker</p>
               </div>
-              <p className="text-xs font-medium italic">
-                Shared between {userA} & {userB}
-              </p>
-            </div>
+            )}
           </div>
 
           {/* Category Distribution / Drill-Down */}
@@ -449,70 +463,107 @@ export default function Analytics() {
           </div>
 
           {/* Payer Breakdown */}
-          <div className="md:col-span-5 bg-surface-container-lowest p-8 rounded-[2rem]">
-            <h3 className="font-headline text-xl font-bold mb-2">
-              Payer Breakdown
-            </h3>
-            <p className="text-on-surface-variant text-sm font-medium mb-8">
-              Who's picking up the tab
-            </p>
-            {data.by_payer?.length > 0 ? (
-              <div className="space-y-6">
-                {data.by_payer.map((p, i) => {
-                  const pct =
-                    totalSpend > 0
-                      ? Math.round((p.amount / totalSpend) * 100)
-                      : 0;
-                  const colors = [
-                    {
-                      bar: "bg-primary",
-                      bg: "bg-primary-container",
-                      text: "text-primary",
-                    },
-                    {
-                      bar: "bg-secondary",
-                      bg: "bg-secondary-container",
-                      text: "text-secondary",
-                    },
-                  ];
-                  const c = colors[i % colors.length];
-                  return (
-                    <div key={p.payer}>
-                      <div className="flex items-center gap-4 mb-3">
-                        <div className="w-10 h-10 rounded-xl overflow-hidden">
-                          <Avatar user={p.payer} size="md" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="font-bold">{p.payer}</span>
-                            <span className="text-on-surface-variant font-medium">
-                              {fmt(p.amount)} · {pct}%
-                            </span>
+          {!isSolo && (
+            <div className="md:col-span-5 bg-surface-container-lowest p-8 rounded-[2rem]">
+              <h3 className="font-headline text-xl font-bold mb-2">
+                Payer Breakdown
+              </h3>
+              <p className="text-on-surface-variant text-sm font-medium mb-8">
+                Who's picking up the tab
+              </p>
+              {data.by_payer?.length > 0 ? (
+                <div className="space-y-6">
+                  {data.by_payer.map((p, i) => {
+                    const pct =
+                      totalSpend > 0
+                        ? Math.round((p.amount / totalSpend) * 100)
+                        : 0;
+                    const colors = [
+                      {
+                        bar: "bg-primary",
+                        bg: "bg-primary-container",
+                        text: "text-primary",
+                      },
+                      {
+                        bar: "bg-secondary",
+                        bg: "bg-secondary-container",
+                        text: "text-secondary",
+                      },
+                    ];
+                    const c = colors[i % colors.length];
+                    return (
+                      <div key={p.payer}>
+                        <div className="flex items-center gap-4 mb-3">
+                          <div className="w-10 h-10 rounded-xl overflow-hidden">
+                            <Avatar user={p.payer} size="md" />
                           </div>
-                          <div className="h-2 w-full bg-surface-container-high rounded-full">
-                            <div
-                              className={`h-full ${c.bar} rounded-full transition-all duration-500`}
-                              style={{ width: `${pct}%` }}
-                            ></div>
+                          <div className="flex-1">
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="font-bold">{p.payer}</span>
+                              <span className="text-on-surface-variant font-medium">
+                                {fmt(p.amount)} · {pct}%
+                              </span>
+                            </div>
+                            <div className="h-2 w-full bg-surface-container-high rounded-full">
+                              <div
+                                className={`h-full ${c.bar} rounded-full transition-all duration-500`}
+                                style={{ width: `${pct}%` }}
+                              ></div>
+                            </div>
                           </div>
                         </div>
+                        <p className="text-xs text-on-surface-variant ml-14">
+                          {p.count} expense{p.count !== 1 ? "s" : ""}
+                        </p>
                       </div>
-                      <p className="text-xs text-on-surface-variant ml-14">
-                        {p.count} expense{p.count !== 1 ? "s" : ""}
-                      </p>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-on-surface-variant text-sm text-center py-12">
+                  No data available
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Personal vs Shared (hybrid only) */}
+          {isHybrid && data.by_split_type && (
+            <div className={`${isSolo ? "md:col-span-12" : "md:col-span-5"} bg-surface-container-lowest p-8 rounded-[2rem]`}>
+              <h3 className="font-headline text-xl font-bold mb-2">Personal vs Shared</h3>
+              <p className="text-on-surface-variant text-sm font-medium mb-8">How your spending breaks down</p>
+              <div className="space-y-6">
+                {data.by_split_type.map((item) => {
+                  const pct = totalSpend > 0 ? Math.round((item.amount / totalSpend) * 100) : 0;
+                  const isShared = item.type === "Shared";
+                  return (
+                    <div key={item.type}>
+                      <div className="flex justify-between text-sm mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[18px]">
+                            {isShared ? "group" : "person"}
+                          </span>
+                          <span className="font-bold">{item.type}</span>
+                        </div>
+                        <span className="text-on-surface-variant font-medium">
+                          {fmt(item.amount)} · {pct}%
+                        </span>
+                      </div>
+                      <div className="h-2 w-full bg-surface-container-high rounded-full">
+                        <div
+                          className={`h-full ${isShared ? "bg-primary" : "bg-secondary"} rounded-full transition-all duration-500`}
+                          style={{ width: `${pct}%` }}
+                        ></div>
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            ) : (
-              <p className="text-on-surface-variant text-sm text-center py-12">
-                No data available
-              </p>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Spending Velocity Chart */}
-          <div className="md:col-span-7 bg-primary text-on-primary p-8 rounded-[2rem] overflow-hidden relative">
+          <div className={`${isSolo ? "md:col-span-12" : "md:col-span-7"} bg-primary text-on-primary p-8 rounded-[2rem] overflow-hidden relative`}>
             <div className="relative z-10">
               <h3 className="font-headline text-xl font-bold mb-2">
                 Spending Velocity

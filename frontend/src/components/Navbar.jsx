@@ -1,11 +1,10 @@
-import { useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../ThemeContext";
 import { useCurrency } from "../CurrencyContext";
-import { uploadAvatar } from "../api/expenses";
 import Avatar from "./Avatar";
 import config from "../config";
+import { useUsers } from "../ConfigContext";
 
 const topLinks = [
   { to: "/", label: "Home" },
@@ -29,20 +28,8 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { currency, setCurrency, currencies } = useCurrency();
-  const fileInputRef = useRef(null);
-  const [avatarKey, setAvatarKey] = useState(0);
-
-  const handleAvatarUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      await uploadAvatar(file);
-      setAvatarKey((k) => k + 1);
-    } catch (err) {
-      alert(err.message);
-    }
-    e.target.value = "";
-  };
+  const { mode } = useUsers();
+  const modeLabel = mode === "solo" ? "Solo" : mode === "hybrid" ? "Personal + Shared" : "Shared";
 
   return (
     <>
@@ -56,6 +43,9 @@ export default function Navbar() {
             >
               <span className="text-xl font-bold text-primary italic font-headline">
                 {config.appName}
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full ml-2">
+                {modeLabel}
               </span>
             </Link>
           </div>
@@ -81,24 +71,22 @@ export default function Navbar() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="image/*"
-              className="hidden"
-              onChange={handleAvatarUpload}
-            />
+            <Link
+              to="/settings"
+              className="p-2 rounded-full hover:bg-surface-container transition-colors active:scale-95 duration-200"
+              aria-label="Settings"
+            >
+              <span className="material-symbols-outlined text-primary" aria-hidden="true">
+                settings
+              </span>
+            </Link>
             {user && (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 cursor-pointer hover:bg-surface-container px-2 py-1.5 rounded-full transition-colors active:scale-95 duration-200 hidden sm:flex"
-                title="Click to change your profile picture"
-              >
-                <Avatar user={user.displayName} size="sm" cacheBust={avatarKey} />
+              <div className="flex items-center gap-2 px-2 py-1.5 hidden sm:flex">
+                <Avatar user={user.displayName} size="sm" />
                 <span className="text-sm font-medium text-on-surface-variant">
                   {user.displayName}
                 </span>
-              </button>
+              </div>
             )}
             <select
               aria-label="Select currency"

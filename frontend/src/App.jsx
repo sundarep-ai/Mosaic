@@ -7,6 +7,7 @@ import Landing from "./pages/Landing";
 import AddExpense from "./pages/AddExpense";
 import History from "./pages/History";
 import Login from "./pages/Login";
+import Settings from "./pages/Settings";
 
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Calendar = lazy(() => import("./pages/Calendar"));
@@ -64,6 +65,7 @@ export default function App() {
               </Suspense>
             } />
             <Route path="/history" element={<History />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </ErrorBoundary>
       </main>

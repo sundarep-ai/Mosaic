@@ -19,11 +19,12 @@ export default function AddExpense() {
   const location = useLocation();
   const isEdit = Boolean(id);
   const today = new Date().toISOString().split("T")[0];
-  const { userA, userB } = useUsers();
+  const { userA, userB, mode } = useUsers();
+  const isSolo = mode === "solo";
   const { user: authUser } = useAuth();
   const prefill = location.state || {};
   const loggedInDisplay = authUser?.displayName || userA;
-  const otherUser = loggedInDisplay === userA ? userB : userA;
+  const otherUser = isSolo ? "" : (loggedInDisplay === userA ? userB : userA);
 
   const [form, setForm] = useState({
     date: today,
@@ -31,7 +32,11 @@ export default function AddExpense() {
     amount: "",
     category: prefill.category || "Groceries",
     paid_by: loggedInDisplay,
-    split_method: prefill.split_method === "100% other" ? `100% ${otherUser}` : "50/50",
+    split_method: isSolo
+      ? "Personal"
+      : prefill.split_method === "100% other"
+        ? `100% ${otherUser}`
+        : "50/50",
   });
   const [customCategory, setCustomCategory] = useState("");
   const [isCustomCategory, setIsCustomCategory] = useState(false);
@@ -242,7 +247,9 @@ export default function AddExpense() {
           <p className="text-on-surface-variant font-medium">
             {isEdit
               ? "Update the details below."
-              : "Keep your shared balance in harmony."}
+              : isSolo
+                ? "Track your spending."
+                : "Keep your shared balance in harmony."}
           </p>
         </header>
 
@@ -404,101 +411,105 @@ export default function AddExpense() {
           </div>
 
           {/* Who Paid */}
-          <div className="flex flex-col">
-            <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-3 ml-1">
-              Who Paid?
-            </label>
-            <div className="bg-surface-container-high p-1.5 rounded-2xl flex gap-1.5 h-16">
-              {[userA, userB].map((user) => (
-                <button
-                  key={user}
-                  type="button"
-                  onClick={() => {
-                    const newForm = { ...form, paid_by: user };
-                    if (form.split_method.startsWith("100%")) {
-                      const other =
-                        user === userA
-                          ? userB
-                          : userA;
-                      newForm.split_method = `100% ${other}`;
-                    }
-                    setForm(newForm);
-                  }}
-                  className={`flex-1 rounded-xl flex items-center justify-center gap-2 transition-colors ${
-                    form.paid_by === user
-                      ? "bg-surface-container-lowest shadow-sm font-bold text-primary border-2 border-primary/10"
-                      : "font-semibold text-on-surface-variant hover:bg-surface-container"
-                  }`}
-                >
-                  <span
-                    className="material-symbols-outlined"
-                    style={
-                      form.paid_by === user
-                        ? { fontVariationSettings: "'FILL' 1" }
-                        : undefined
-                    }
-                  >
-                    person
-                  </span>
-                  {user}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Split Method */}
-          <div className="flex flex-col">
-            <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-3 ml-1">
-              Split Method
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {splitMethods.map((method) => {
-                const isActive = form.split_method === method.value;
-                return (
+          {!isSolo && (
+            <div className="flex flex-col">
+              <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-3 ml-1">
+                Who Paid?
+              </label>
+              <div className="bg-surface-container-high p-1.5 rounded-2xl flex gap-1.5 h-16">
+                {[userA, userB].map((user) => (
                   <button
-                    key={method.value}
+                    key={user}
                     type="button"
-                    onClick={() =>
-                      setForm({ ...form, split_method: method.value })
-                    }
-                    className={`flex flex-col items-center justify-center py-4 px-1 rounded-2xl border-2 transition-colors group ${
-                      isActive
-                        ? "bg-secondary-container/30 border-secondary/20 hover:bg-secondary-container/50"
-                        : "bg-surface-container-high border-transparent hover:border-outline-variant/20"
+                    onClick={() => {
+                      const newForm = { ...form, paid_by: user };
+                      if (form.split_method.startsWith("100%")) {
+                        const other =
+                          user === userA
+                            ? userB
+                            : userA;
+                        newForm.split_method = `100% ${other}`;
+                      }
+                      setForm(newForm);
+                    }}
+                    className={`flex-1 rounded-xl flex items-center justify-center gap-2 transition-colors ${
+                      form.paid_by === user
+                        ? "bg-surface-container-lowest shadow-sm font-bold text-primary border-2 border-primary/10"
+                        : "font-semibold text-on-surface-variant hover:bg-surface-container"
                     }`}
                   >
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 group-active:scale-90 transition-transform ${
-                        isActive
-                          ? "bg-secondary-container"
-                          : "bg-surface-variant"
-                      }`}
-                    >
-                      <span
-                        className={`material-symbols-outlined ${isActive ? "text-on-secondary-container" : "text-on-surface-variant"}`}
-                        style={
-                          isActive
-                            ? { fontVariationSettings: "'FILL' 1" }
-                            : undefined
-                        }
-                      >
-                        {method.icon}
-                      </span>
-                    </div>
                     <span
-                      className={`text-[11px] text-center leading-tight ${
+                      className="material-symbols-outlined"
+                      style={
+                        form.paid_by === user
+                          ? { fontVariationSettings: "'FILL' 1" }
+                          : undefined
+                      }
+                    >
+                      person
+                    </span>
+                    {user}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Split Method */}
+          {!isSolo && (
+            <div className="flex flex-col">
+              <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-3 ml-1">
+                Split Method
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {splitMethods.map((method) => {
+                  const isActive = form.split_method === method.value;
+                  return (
+                    <button
+                      key={method.value}
+                      type="button"
+                      onClick={() =>
+                        setForm({ ...form, split_method: method.value })
+                      }
+                      className={`flex flex-col items-center justify-center py-4 px-1 rounded-2xl border-2 transition-colors group ${
                         isActive
-                          ? "font-bold text-on-secondary-container"
-                          : "font-semibold text-on-surface-variant"
+                          ? "bg-secondary-container/30 border-secondary/20 hover:bg-secondary-container/50"
+                          : "bg-surface-container-high border-transparent hover:border-outline-variant/20"
                       }`}
                     >
-                      {method.label}
-                    </span>
-                  </button>
-                );
-              })}
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 group-active:scale-90 transition-transform ${
+                          isActive
+                            ? "bg-secondary-container"
+                            : "bg-surface-variant"
+                        }`}
+                      >
+                        <span
+                          className={`material-symbols-outlined ${isActive ? "text-on-secondary-container" : "text-on-surface-variant"}`}
+                          style={
+                            isActive
+                              ? { fontVariationSettings: "'FILL' 1" }
+                              : undefined
+                          }
+                        >
+                          {method.icon}
+                        </span>
+                      </div>
+                      <span
+                        className={`text-[11px] text-center leading-tight ${
+                          isActive
+                            ? "font-bold text-on-secondary-container"
+                            : "font-semibold text-on-surface-variant"
+                        }`}
+                      >
+                        {method.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Submit */}
           <div className="pt-6">
@@ -521,7 +532,7 @@ export default function AddExpense() {
       </section>
 
       {/* Collaborative Tip */}
-      {!isEdit && (
+      {!isEdit && !isSolo && (
         <div className="mt-8 mb-12 bg-secondary-container/20 p-6 rounded-3xl flex items-start gap-4 border border-secondary-container/30">
           <div className="bg-secondary-container p-3 rounded-2xl">
             <span className="material-symbols-outlined text-on-secondary-container">

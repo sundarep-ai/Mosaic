@@ -123,6 +123,15 @@ class LoginRequest(BaseModel):
 
 @router.post("/auth/login")
 def login(data: LoginRequest, response: Response):
+    # In solo mode, reject USER_B
+    from database import engine
+    from config import get_app_mode, USER_A_LOGIN
+    from sqlmodel import Session as SqlSession
+    with SqlSession(engine) as sess:
+        mode = get_app_mode(sess)
+    if mode == "solo" and data.username != USER_A_LOGIN:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
     expected_password = USERS.get(data.username)
     if not expected_password or not _check_password(data.password, expected_password):
         raise HTTPException(status_code=401, detail="Invalid username or password")

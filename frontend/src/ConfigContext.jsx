@@ -1,20 +1,32 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import { fetchAppConfig } from "./config";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { fetchAppConfig, API_BASE } from "./config";
+import { fetchWithAuth } from "./api/fetchWithAuth";
 
-const ConfigContext = createContext({ userA: "", userB: "" });
+const ConfigContext = createContext({ userA: "", userB: "", mode: "duo", setMode: () => {} });
 
 export function ConfigProvider({ children }) {
-  const [users, setUsers] = useState({ userA: "", userB: "" });
+  const [config, setConfig] = useState({ userA: "", userB: "", mode: "duo" });
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     fetchAppConfig().then((data) => {
-      setUsers({
+      setConfig({
         userA: data.userA,
         userB: data.userB,
+        mode: data.mode || "duo",
       });
       setReady(true);
     });
+  }, []);
+
+  const setMode = useCallback(async (newMode) => {
+    const res = await fetchWithAuth(`${API_BASE}/settings`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ app_mode: newMode }),
+    });
+    if (!res.ok) throw new Error("Failed to update mode");
+    setConfig((prev) => ({ ...prev, mode: newMode }));
   }, []);
 
   if (!ready) {
@@ -26,7 +38,9 @@ export function ConfigProvider({ children }) {
   }
 
   return (
-    <ConfigContext.Provider value={users}>{children}</ConfigContext.Provider>
+    <ConfigContext.Provider value={{ ...config, setMode }}>
+      {children}
+    </ConfigContext.Provider>
   );
 }
 
