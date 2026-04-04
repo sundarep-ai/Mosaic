@@ -17,36 +17,27 @@ from services.clustering import get_embedding_model, cluster_descriptions
 
 router = APIRouter()
 
-VALID_PAID_BY = {USER_A, USER_B}
-VALID_SPLIT_METHODS = {"50/50", f"100% {USER_A}", f"100% {USER_B}", "Personal"}
+def _get_valid_sets(session: Session):
+    """Return (valid_paid_by, valid_split_methods) based on current app mode."""
+    from config import get_app_mode
+    mode = get_app_mode(session)
+    if mode == "solo":
+        return {USER_A}, {"Personal"}
+    return {USER_A, USER_B}, {"50/50", f"100% {USER_A}", f"100% {USER_B}", "Personal"}
 
 
-def _validate_expense(data: ExpenseBase) -> None:
+def _validate_expense(data: ExpenseBase, session: Session) -> None:
+    valid_paid_by, valid_split_methods = _get_valid_sets(session)
     if data.amount == 0:
-        raise HTTPException(
-            status_code=422,
-            detail="amount cannot be zero",
-        )
+        raise HTTPException(status_code=422, detail="amount cannot be zero")
     if data.amount < 0 and data.category != "Reimbursement":
-        raise HTTPException(
-            status_code=422,
-            detail="negative amounts are only allowed for Reimbursement",
-        )
+        raise HTTPException(status_code=422, detail="negative amounts are only allowed for Reimbursement")
     if data.date > date.today():
-        raise HTTPException(
-            status_code=422,
-            detail="date cannot be in the future",
-        )
-    if data.paid_by not in VALID_PAID_BY:
-        raise HTTPException(
-            status_code=422,
-            detail=f"paid_by must be one of: {', '.join(VALID_PAID_BY)}",
-        )
-    if data.split_method not in VALID_SPLIT_METHODS:
-        raise HTTPException(
-            status_code=422,
-            detail=f"split_method must be one of: {', '.join(VALID_SPLIT_METHODS)}",
-        )
+        raise HTTPException(status_code=422, detail="date cannot be in the future")
+    if data.paid_by not in valid_paid_by:
+        raise HTTPException(status_code=422, detail=f"paid_by must be one of: {', '.join(valid_paid_by)}")
+    if data.split_method not in valid_split_methods:
+        raise HTTPException(status_code=422, detail=f"split_method must be one of: {', '.join(valid_split_methods)}")
 
 
 @router.get("/expenses")
@@ -113,7 +104,7 @@ def create_expense(
     session: Session = Depends(get_session),
     current_user: str = Depends(get_current_user),
 ):
-    _validate_expense(data)
+    _validate_expense(data, session)
     expense = Expense.model_validate(data)
     expense.user_id = current_user
     session.add(expense)
@@ -137,7 +128,7 @@ def update_expense(
     if expense.user_id is not None and expense.user_id != current_user:
         raise HTTPException(status_code=403, detail="Not authorized to modify this expense")
 
-    _validate_expense(data)
+    _validate_expense(data, session)
     before = expense_to_dict(expense)
     update_data = data.model_dump()
     for key, value in update_data.items():
@@ -334,6 +325,10 @@ def get_balance(
     Positive amount = User A owes User B.
     Negative amount = User B owes User A.
     """
+    from config import get_app_mode
+    if get_app_mode(session) == "solo":
+        return {"amount": 0, "description": "Solo mode"}
+
     balance_expr = func.coalesce(
         func.sum(
             case(
@@ -399,3 +394,26 @@ def get_monthly_summary(
         {"category": cat, "amount": float(round(Decimal(str(total)), 2))}
         for cat, total in rows
     ]
+
+
+@router.get("/personal-summary")
+def get_personal_summary(
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
+    """Return total personal spend this month for the current user."""
+    from auth import LOGIN_TO_DISPLAY
+    display_name = LOGIN_TO_DISPLAY.get(current_user, current_user)
+    today = date.today()
+    first_of_month = today.replace(day=1)
+
+    result = session.exec(
+        select(func.coalesce(func.sum(Expense.amount), 0))
+        .where(Expense.split_method == "Personal")
+        .where(Expense.paid_by == display_name)
+        .where(Expense.date >= first_of_month)
+        .where(Expense.category != "Payment")
+        .where(Expense.category != "Reimbursement")
+    ).one()
+
+    return {"amount": float(round(Decimal(str(result)), 2))}

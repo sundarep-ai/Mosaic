@@ -1,31 +1,38 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { getBalance, getMonthlySummary, getExpenses } from "../api/expenses";
+import { getBalance, getMonthlySummary, getExpenses, getPersonalSummary } from "../api/expenses";
 import { CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
 import { useCurrency } from "../CurrencyContext";
 import Avatar from "../components/Avatar";
 
 export default function Landing() {
-  const { userA, userB } = useUsers();
+  const { userA, userB, mode } = useUsers();
+  const isSolo = mode === "solo";
+  const isHybrid = mode === "hybrid";
   const { fmt } = useCurrency();
   const [balance, setBalance] = useState(null);
   const [monthlySummary, setMonthlySummary] = useState([]);
   const [recentExpenses, setRecentExpenses] = useState([]);
+  const [personalSpend, setPersonalSpend] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [balData, monthData, recentData] = await Promise.all([
-          getBalance(),
+        const promises = [
+          isSolo ? Promise.resolve({ amount: 0, description: "Solo mode" }) : getBalance(),
           getMonthlySummary(),
           getExpenses({ limit: 5, sort: "desc" }),
-        ]);
-        setBalance(balData);
-        setMonthlySummary(monthData);
-        setRecentExpenses(recentData);
+        ];
+        if (isHybrid) promises.push(getPersonalSummary());
+
+        const results = await Promise.all(promises);
+        setBalance(results[0]);
+        setMonthlySummary(results[1]);
+        setRecentExpenses(results[2]);
+        if (isHybrid && results[3]) setPersonalSpend(results[3]);
       } catch (err) {
         setError("Could not load dashboard data. Is the server running?");
       } finally {
@@ -63,7 +70,7 @@ export default function Landing() {
             Home
           </h1>
           <p className="text-on-surface-variant font-medium">
-            Your shared financial overview at a glance.
+            {isSolo ? "Your personal financial overview at a glance." : "Your shared financial overview at a glance."}
           </p>
         </div>
         <Link
@@ -81,61 +88,107 @@ export default function Landing() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-        {/* Balance Card */}
+        {/* Balance / Total Spend Card */}
         <div className="md:col-span-4 bg-surface-container-lowest p-8 rounded-[2rem] flex flex-col justify-between relative overflow-hidden group">
           <div className="relative z-10">
-            <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
-              Current Balance
-            </span>
-            <div className="mt-4 flex items-baseline gap-2">
-              <span className="font-headline text-5xl font-extrabold text-primary">
-                {Math.abs(balanceAmount) < 0.01
-                  ? fmt(0)
-                  : fmt(Math.abs(balanceAmount))}
-              </span>
-            </div>
-            <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-container text-on-primary-container text-sm font-bold">
-              <span className="material-symbols-outlined text-[16px]">
-                {balanceAmount > 0.01
-                  ? "trending_up"
-                  : balanceAmount < -0.01
-                    ? "trending_down"
-                    : "check_circle"}
-              </span>
-              {balanceText}
-            </div>
+            {isSolo ? (
+              <>
+                <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
+                  Total Spend This Month
+                </span>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="font-headline text-5xl font-extrabold text-primary">
+                    {fmt(monthlySummary.reduce((sum, item) => sum + item.amount, 0))}
+                  </span>
+                </div>
+                <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-container text-on-primary-container text-sm font-bold">
+                  <span className="material-symbols-outlined text-[16px]">account_balance_wallet</span>
+                  {monthlySummary.length} {monthlySummary.length === 1 ? "category" : "categories"}
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
+                  Current Balance
+                </span>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="font-headline text-5xl font-extrabold text-primary">
+                    {Math.abs(balanceAmount) < 0.01 ? fmt(0) : fmt(Math.abs(balanceAmount))}
+                  </span>
+                </div>
+                <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-container text-on-primary-container text-sm font-bold">
+                  <span className="material-symbols-outlined text-[16px]">
+                    {balanceAmount > 0.01 ? "trending_up" : balanceAmount < -0.01 ? "trending_down" : "check_circle"}
+                  </span>
+                  {balanceText}
+                </div>
+              </>
+            )}
           </div>
-          <Link
-            to="/add"
-            state={{ description: "Payment", category: "Payment", split_method: "100% other" }}
-            className="mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-secondary-container text-on-secondary-container font-headline font-bold text-sm shadow-sm active:scale-95 transition-transform hover:shadow-md"
-          >
-            <span
-              className="material-symbols-outlined text-[20px]"
-              style={{ fontVariationSettings: "'FILL' 1" }}
+
+          {/* Settle button — hide in solo */}
+          {!isSolo && (
+            <Link
+              to="/add"
+              state={{ description: "Payment", category: "Payment", split_method: "100% other" }}
+              className="mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-secondary-container text-on-secondary-container font-headline font-bold text-sm shadow-sm active:scale-95 transition-transform hover:shadow-md"
             >
-              handshake
-            </span>
-            Settle
-          </Link>
+              <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                handshake
+              </span>
+              Settle
+            </Link>
+          )}
+
           <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500"></div>
+
+          {/* Footer — avatars and subtitle */}
           <div className="mt-12 flex items-center gap-4 text-on-surface-variant">
-            <div className="flex -space-x-3">
-              <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
-                <Avatar user={userA} size="md" />
-              </div>
-              <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
-                <Avatar user={userB} size="md" />
-              </div>
-            </div>
-            <p className="text-xs font-medium italic">
-              Shared between {userA} & {userB}
-            </p>
+            {isSolo ? (
+              <>
+                <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
+                  <Avatar user={userA} size="md" />
+                </div>
+                <p className="text-xs font-medium italic">Personal expense tracker</p>
+              </>
+            ) : (
+              <>
+                <div className="flex -space-x-3">
+                  <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
+                    <Avatar user={userA} size="md" />
+                  </div>
+                  <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
+                    <Avatar user={userB} size="md" />
+                  </div>
+                </div>
+                <p className="text-xs font-medium italic">
+                  {isHybrid ? `Personal + Shared with ${userB}` : `Shared between ${userA} & ${userB}`}
+                </p>
+              </>
+            )}
           </div>
         </div>
 
+        {/* Personal Spend Card (hybrid only) */}
+        {isHybrid && personalSpend !== null && (
+          <div className="md:col-span-4 bg-surface-container p-8 rounded-[2rem]">
+            <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
+              Your Personal Spend This Month
+            </span>
+            <div className="mt-4">
+              <span className="font-headline text-4xl font-extrabold text-secondary">
+                {fmt(personalSpend.amount)}
+              </span>
+            </div>
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary-container text-on-secondary-container text-sm font-bold">
+              <span className="material-symbols-outlined text-[16px]">person</span>
+              Personal only
+            </div>
+          </div>
+        )}
+
         {/* Quick Actions & Monthly Summary */}
-        <div className="md:col-span-8 bg-surface-container p-8 rounded-[2rem]">
+        <div className={`${isHybrid ? "md:col-span-4" : "md:col-span-8"} bg-surface-container p-8 rounded-[2rem]`}>
           <div className="flex items-center justify-between mb-8">
             <h3 className="font-headline text-xl font-bold">
               This Month&apos;s Spend by Category
@@ -217,7 +270,7 @@ export default function Landing() {
                   <tr className="text-on-surface-variant font-label text-xs uppercase tracking-widest border-b border-surface-container-high">
                     <th scope="col" className="pb-4 font-bold">Description</th>
                     <th scope="col" className="pb-4 font-bold">Category</th>
-                    <th scope="col" className="pb-4 font-bold">Paid By</th>
+                    {!isSolo && <th scope="col" className="pb-4 font-bold">Paid By</th>}
                     <th scope="col" className="pb-4 font-bold">Date</th>
                     <th scope="col" className="pb-4 font-bold text-right">Amount</th>
                   </tr>
@@ -247,11 +300,13 @@ export default function Landing() {
                           {expense.category}
                         </span>
                       </td>
-                      <td className="py-5">
-                        <span className="text-sm font-medium">
-                          {expense.paid_by}
-                        </span>
-                      </td>
+                      {!isSolo && (
+                        <td className="py-5">
+                          <span className="text-sm font-medium">
+                            {expense.paid_by}
+                          </span>
+                        </td>
+                      )}
                       <td className="py-5">
                         <span className="text-sm text-on-surface-variant font-medium">
                           {expense.date}

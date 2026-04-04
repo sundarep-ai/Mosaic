@@ -139,6 +139,13 @@ def get_analytics(
         for method, total, cnt in split_rows
     ]
 
+    # Personal vs Shared breakdown
+    personal_spend = float(round(total_spend - total_shared_spend, 2))
+    by_split_type = [
+        {"type": "Shared", "amount": float(round(total_shared_spend, 2))},
+        {"type": "Personal", "amount": personal_spend},
+    ]
+
     # Top 5 largest expenses (exclude Payment and Reimbursement)
     top_stmt = _date_filters(
         select(Expense), start_date, end_date,
@@ -155,4 +162,5 @@ def get_analytics(
         "by_payer": payer_data,
         "by_split_method": split_data,
         "top_expenses": top_expenses,
+        "by_split_type": by_split_type,
     }

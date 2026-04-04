@@ -2,11 +2,14 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import USER_A, USER_B, BACKUP_PATH
-from database import create_db_and_tables, check_db_integrity, ensure_indexes, DB_PATH
+from sqlmodel import Session
+
+from auth import get_current_user
+from config import USER_A, USER_B, BACKUP_PATH, VALID_MODES, get_app_mode
+from database import create_db_and_tables, check_db_integrity, ensure_indexes, DB_PATH, get_session
 from routes import expenses, analytics, export, insights
 from auth import router as auth_router
 from services.audit import audit_logger
@@ -57,9 +60,33 @@ app.include_router(insights.router, prefix="/api")
 
 
 @app.get("/api/config")
-def get_app_config():
-    """Public endpoint returning display names only. Login usernames are served via authenticated endpoints."""
-    return {
-        "userA": USER_A,
-        "userB": USER_B,
-    }
+def get_app_config(session: Session = Depends(get_session)):
+    """Public endpoint returning display names and app mode."""
+    mode = get_app_mode(session)
+    return {"userA": USER_A, "userB": USER_B, "mode": mode}
+
+
+@app.get("/api/settings")
+def get_settings(session: Session = Depends(get_session)):
+    mode = get_app_mode(session)
+    return {"app_mode": mode}
+
+
+@app.put("/api/settings")
+def update_settings(
+    payload: dict,
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
+    from models import Settings
+    new_mode = payload.get("app_mode", "")
+    if new_mode not in VALID_MODES:
+        raise HTTPException(status_code=422, detail=f"app_mode must be one of: {', '.join(VALID_MODES)}")
+    row = session.get(Settings, 1)
+    if row:
+        row.app_mode = new_mode
+    else:
+        row = Settings(id=1, app_mode=new_mode)
+    session.add(row)
+    session.commit()
+    return {"app_mode": new_mode}

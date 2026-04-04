@@ -114,6 +114,28 @@ export async function uploadAvatar(file) {
   return res.json();
 }
 
+export async function getPersonalSummary() {
+  const res = await fetchWithAuth(`${API_BASE}/personal-summary`);
+  if (!res.ok) throw new Error("Failed to fetch personal summary");
+  return res.json();
+}
+
+export async function getSettings() {
+  const res = await fetchWithAuth(`${API_BASE}/settings`);
+  if (!res.ok) throw new Error("Failed to fetch settings");
+  return res.json();
+}
+
+export async function updateSettings(data) {
+  const res = await fetchWithAuth(`${API_BASE}/settings`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update settings");
+  return res.json();
+}
+
 export async function exportExpenses(params = {}) {
   const query = new URLSearchParams(params).toString();
   const res = await fetchWithAuth(`${API_BASE}/export?${query}`);
