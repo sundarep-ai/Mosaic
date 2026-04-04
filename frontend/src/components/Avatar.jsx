@@ -20,6 +20,7 @@ export default function Avatar({ user, size = "md", cacheBust = "" }) {
   const sizes = {
     sm: "w-5 h-5 text-[10px]",
     md: "w-10 h-10 text-sm",
+    lg: "w-20 h-20 text-2xl",
   };
   const cls = sizes[size] || sizes.md;
 
