@@ -4,10 +4,14 @@ import { getBalance, getMonthlySummary, getExpenses, getPersonalSummary, getMyEx
 import { CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
 import { useCurrency } from "../CurrencyContext";
+import { useAuth } from "../auth/AuthContext";
 import Avatar from "../components/Avatar";
 
 export default function Landing() {
   const { userA, userB, mode } = useUsers();
+  const { user } = useAuth();
+  const me = user?.displayName || userA;
+  const other = me === userA ? userB : userA;
   const isSolo = mode === "solo";
   const isHybrid = mode === "hybrid";
   const { fmt } = useCurrency();
@@ -150,7 +154,7 @@ export default function Landing() {
             {isSolo ? (
               <>
                 <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
-                  <Avatar user={userA} size="md" />
+                  <Avatar user={me} size="md" />
                 </div>
                 <p className="text-xs font-medium italic">Personal expense tracker</p>
               </>
@@ -158,14 +162,14 @@ export default function Landing() {
               <>
                 <div className="flex -space-x-3">
                   <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
-                    <Avatar user={userA} size="md" />
+                    <Avatar user={me} size="md" />
                   </div>
                   <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
-                    <Avatar user={userB} size="md" />
+                    <Avatar user={other} size="md" />
                   </div>
                 </div>
                 <p className="text-xs font-medium italic">
-                  {isHybrid ? `Personal + Shared with ${userB}` : `Shared between ${userA} & ${userB}`}
+                  {isHybrid ? `Personal + Shared with ${other}` : `Shared between ${me} & ${other}`}
                 </p>
               </>
             )}
