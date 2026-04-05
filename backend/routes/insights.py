@@ -6,6 +6,7 @@ anomalies, forecasts, and growth rankings — all from expense history.
 """
 
 import statistics
+from calendar import monthrange
 from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
@@ -31,6 +32,13 @@ def _dec(val) -> Decimal:
 
 def _month_key(d: date) -> str:
     return d.strftime("%Y-%m")
+
+
+def _months_back(d: date, n: int) -> date:
+    """Return the date exactly n calendar months before d, clamping to month-end."""
+    total = d.year * 12 + (d.month - 1) - n
+    year, month = total // 12, total % 12 + 1
+    return date(year, month, min(d.day, monthrange(year, month)[1]))
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
@@ -321,58 +329,60 @@ def _forecast(
 ) -> dict[str, Any]:
     """Project next month spending using recurring expenses + weighted moving average.
 
-    Weights: 50% last month, 30% two months ago, 20% three months ago.
+    Anchors to the last expense date and uses 3 rolling ~monthly windows working
+    backward from there, so partially-entered recent months don't distort weights.
+    Weights: 50% period-1 (most recent), 30% period-2, 20% period-3.
     """
-    today = date.today()
-    current_month = _month_key(today)
+    _empty: dict[str, Any] = {
+        "recurring_total": 0,
+        "variable_total": 0,
+        "total_forecast": 0,
+        "last_month_total": 0,
+        "change_vs_last_month_pct": 0,
+        "by_category": [],
+    }
 
-    # Get last 3 complete months
-    three_months_ago = (today.replace(day=1) - timedelta(days=92)).replace(day=1)
-    recent = [e for e in expenses if e.date >= three_months_ago]
+    if not expenses:
+        return _empty
 
-    cat_months: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
-    for e in recent:
-        cat_months[e.category][_month_key(e.date)] += float(e.amount)
+    # Anchor rolling windows to the last entered expense date.
+    # bounds[k] < date <= bounds[k-1]  →  period k  (k = 1, 2, 3)
+    anchor = max(e.date for e in expenses)
+    bounds = [anchor] + [_months_back(anchor, i) for i in range(1, 4)]
 
-    months_set: set[str] = set()
-    for cats in cat_months.values():
-        months_set.update(cats.keys())
-    past_months = sorted(m for m in months_set if m < current_month)[-3:]
+    cat_periods: dict[str, dict[int, float]] = defaultdict(lambda: defaultdict(float))
+    for e in expenses:
+        for k in range(1, 4):
+            if bounds[k] < e.date <= bounds[k - 1]:
+                cat_periods[e.category][k] += float(e.amount)
+                break
 
-    if not past_months:
-        return {
-            "recurring_total": 0,
-            "variable_total": 0,
-            "total_forecast": 0,
-            "last_month_total": 0,
-            "change_vs_last_month_pct": 0,
-            "by_category": [],
-        }
+    periods_with_data = sorted(
+        {p for cats in cat_periods.values() for p in cats},
+        reverse=True,
+    )[:3]  # [1, 2, 3] or fewer, most-recent first
 
-    # Identify recurring description names
-    recurring_descs = {r["description"].lower() for r in recurring}
+    if not periods_with_data:
+        return _empty
 
-    # Weights for the available months (most recent gets highest weight)
+    # Weights for the available periods (most recent gets highest weight)
     weights_map = {1: [1.0], 2: [0.6, 0.4], 3: [0.5, 0.3, 0.2]}
-    weights = weights_map.get(len(past_months), [0.5, 0.3, 0.2])
-
-    # Reverse so index 0 = most recent month
-    ordered_months = list(reversed(past_months))
+    weights = weights_map.get(len(periods_with_data), [0.5, 0.3, 0.2])
+    ordered_periods = periods_with_data  # already most-recent first
 
     recurring_total = 0.0
     variable_total = 0.0
     by_category = []
 
-    last_month = ordered_months[0] if ordered_months else None
+    most_recent_period = ordered_periods[0]
     last_month_total = 0.0
 
-    for category, monthly in cat_months.items():
-        if last_month:
-            last_month_total += monthly.get(last_month, 0)
+    for category, period_amounts in cat_periods.items():
+        last_month_total += period_amounts.get(most_recent_period, 0)
 
-        # Weighted average of past months
-        month_amounts = [monthly.get(m, 0) for m in ordered_months]
-        forecast_amount = sum(a * w for a, w in zip(month_amounts, weights))
+        # Weighted average across rolling periods
+        amounts = [period_amounts.get(p, 0) for p in ordered_periods]
+        forecast_amount = sum(a * w for a, w in zip(amounts, weights))
 
         # Determine if category is primarily recurring
         is_recurring = category.lower() in [r["category"].lower() for r in recurring]
@@ -385,7 +395,7 @@ def _forecast(
         by_category.append({
             "category": category,
             "forecast": round(forecast_amount, 2),
-            "last_month": round(monthly.get(last_month, 0) if last_month else 0, 2),
+            "last_month": round(period_amounts.get(most_recent_period, 0), 2),
             "type": "recurring" if is_recurring else "variable",
         })
 

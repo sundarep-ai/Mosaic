@@ -330,6 +330,54 @@ def test_forecast_empty_db(auth_client_a):
     assert forecast["by_category"] == []
 
 
+def test_forecast_lazy_period(auth_client_a):
+    """Partially-entered most-recent month must not suppress the forecast.
+
+    Scenario: user entered $1000 in each of two older months but only $200 in
+    the most recent past month (stopped logging early). The rolling-window logic
+    should include those older expenses in the same window as the partial recent
+    entry, producing a forecast well above the artificially-low $700 the old
+    calendar-month approach would give (50%×$200 + 30%×$1000 + 20%×$1000).
+    """
+    today = date.today()
+
+    def month_ago_date(months: int, day: int) -> date:
+        y, m = today.year, today.month - months
+        while m <= 0:
+            m += 12
+            y -= 1
+        return date(y, m, day)
+
+    # Two full historical months represented by a single $1000 expense on the 15th
+    for offset in [2, 3]:
+        auth_client_a.post(
+            "/api/expenses",
+            json=make_expense(
+                date=str(month_ago_date(offset, 15)),
+                description="Groceries",
+                category="Groceries",
+                amount=1000.0,
+            ),
+        )
+
+    # Lazy partial month: only $200 entered, on the 5th (last expense overall)
+    auth_client_a.post(
+        "/api/expenses",
+        json=make_expense(
+            date=str(month_ago_date(1, 5)),
+            description="Groceries",
+            category="Groceries",
+            amount=200.0,
+        ),
+    )
+
+    data = auth_client_a.get("/api/insights").json()
+    # Old calendar-month logic would yield: 0.5×200 + 0.3×1000 + 0.2×1000 = $700
+    # New rolling-window logic anchors to the 5th of last month; the 15th of 2M
+    # ago falls inside period 1 alongside the $200, giving a much higher forecast.
+    assert data["forecast"]["total_forecast"] > 900
+
+
 # ── Top growing categories ─────────────────────────────────────────────
 
 
