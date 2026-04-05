@@ -1,8 +1,11 @@
 import logging
+import re
 import shutil
 import sqlite3
 from datetime import datetime
 from pathlib import Path
+
+_TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{6}$")
 
 logger = logging.getLogger("tallyus")
 
@@ -54,7 +57,7 @@ class BackupManager:
         if not self.backup_dir.exists():
             return
         backups = sorted(
-            [d for d in self.backup_dir.iterdir() if d.is_dir()],
+            [d for d in self.backup_dir.iterdir() if d.is_dir() and _TIMESTAMP_RE.match(d.name)],
             reverse=True,
         )
         for old in backups[self.max_backups :]:

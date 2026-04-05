@@ -89,7 +89,8 @@ export default function Navbar() {
               </div>
             )}
             <select
-              aria-label="Select currency"
+              aria-label="Select display currency (symbol only, no conversion)"
+              title="Display currency only — no conversion"
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
               className="bg-surface-container text-on-surface text-sm font-bold rounded-full px-3 py-2 border-none outline-none cursor-pointer hover:bg-surface-container-high transition-colors appearance-none text-center"

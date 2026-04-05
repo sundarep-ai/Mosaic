@@ -67,3 +67,17 @@ def test_config_endpoint_no_auth_required(client):
     data = resp.json()
     assert data["userA"] == "Alice"
     assert data["userB"] == "Bob"
+
+
+# ── Cookie Flags (CR-3) ──────────────────────────────────────────────
+
+
+def test_login_sets_cookie_with_httponly_and_max_age(client):
+    """Session cookie must have httponly and max_age set."""
+    resp = client.post("/api/auth/login", json={
+        "username": USER_A_LOGIN, "password": PASSWORD_A,
+    })
+    assert resp.status_code == 200
+    cookie = resp.headers.get("set-cookie", "")
+    assert "httponly" in cookie.lower()
+    assert "max-age" in cookie.lower()

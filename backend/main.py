@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
+from pydantic import BaseModel
 from sqlmodel import Session
 
 from auth import get_current_user
@@ -73,14 +73,18 @@ def get_settings(session: Session = Depends(get_session)):
     return {"app_mode": mode}
 
 
+class SettingsUpdate(BaseModel):
+    app_mode: str
+
+
 @app.put("/api/settings")
 def update_settings(
-    payload: dict,
+    payload: SettingsUpdate,
     session: Session = Depends(get_session),
     current_user: str = Depends(get_current_user),
 ):
     from models import Settings
-    new_mode = payload.get("app_mode", "")
+    new_mode = payload.app_mode
     if new_mode not in VALID_MODES:
         raise HTTPException(status_code=422, detail=f"app_mode must be one of: {', '.join(VALID_MODES)}")
     row = session.get(Settings, 1)

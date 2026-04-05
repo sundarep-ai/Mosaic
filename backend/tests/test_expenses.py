@@ -209,3 +209,81 @@ def test_search(auth_client_a):
     data = resp.json()
     assert len(data) == 1
     assert data[0]["description"] == "Walmart groceries"
+
+
+# ── Category Validation (WR-3) ───────────────────────────────────────
+
+
+def test_reject_invalid_category(auth_client_a):
+    """Backend must reject categories not in VALID_CATEGORIES."""
+    resp = auth_client_a.post("/api/expenses", json=make_expense(category="InvalidCategory"))
+    assert resp.status_code == 422
+    assert "category" in resp.json()["detail"]
+
+
+def test_reject_empty_category(auth_client_a):
+    resp = auth_client_a.post("/api/expenses", json=make_expense(category=""))
+    assert resp.status_code == 422
+
+
+def test_accept_all_standard_categories(auth_client_a):
+    """All standard categories must be accepted."""
+    from routes.expenses import VALID_CATEGORIES
+    for cat in ["Groceries", "Rent", "Dining", "Reimbursement", "Payment"]:
+        resp = auth_client_a.post("/api/expenses", json=make_expense(
+            category=cat,
+            amount=-10 if cat == "Reimbursement" else 10,
+        ))
+        assert resp.status_code == 201, f"Failed for category={cat}"
+
+
+# ── Field Length Validation (WR-4) ────────────────────────────────────
+
+
+def test_reject_too_long_description(auth_client_a):
+    """Description exceeding 500 characters must be rejected."""
+    long_desc = "x" * 501
+    resp = auth_client_a.post("/api/expenses", json=make_expense(description=long_desc))
+    assert resp.status_code == 422
+
+
+def test_accept_max_length_description(auth_client_a):
+    """Description of exactly 500 characters must be accepted."""
+    desc = "x" * 500
+    resp = auth_client_a.post("/api/expenses", json=make_expense(description=desc))
+    assert resp.status_code == 201
+
+
+def test_reject_too_long_category(auth_client_a):
+    """Category exceeding 100 characters must be rejected."""
+    long_cat = "x" * 101
+    resp = auth_client_a.post("/api/expenses", json=make_expense(category=long_cat))
+    assert resp.status_code == 422
+
+
+# ── Merge Descriptions Pydantic Validation (CR-5 / SG-2) ─────────────
+
+
+def test_merge_descriptions_valid(auth_client_a):
+    """Valid merge payload with Pydantic model."""
+    auth_client_a.post("/api/expenses", json=make_expense(description="Costco run"))
+    auth_client_a.post("/api/expenses", json=make_expense(description="Costco trip"))
+    resp = auth_client_a.post("/api/merge-descriptions", json={
+        "merges": [{"target": "Costco", "sources": ["Costco run", "Costco trip"], "category": "Groceries"}]
+    })
+    assert resp.status_code == 200
+    assert resp.json()["updated"] >= 0
+
+
+def test_merge_descriptions_missing_fields(auth_client_a):
+    """Missing required fields should return 422 (Pydantic validation)."""
+    resp = auth_client_a.post("/api/merge-descriptions", json={})
+    assert resp.status_code == 422
+
+
+def test_merge_descriptions_bad_type(auth_client_a):
+    """Sources must be a list of strings."""
+    resp = auth_client_a.post("/api/merge-descriptions", json={
+        "merges": [{"target": "X", "sources": 123, "category": "Groceries"}]
+    })
+    assert resp.status_code == 422

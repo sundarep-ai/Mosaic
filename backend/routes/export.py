@@ -11,13 +11,9 @@ import openpyxl
 from auth import get_current_user
 from database import get_session
 from models import Expense
+from utils import escape_like as _escape_like
 
 router = APIRouter()
-
-
-def _escape_like(s: str) -> str:
-    """Escape SQL LIKE wildcard characters."""
-    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 @router.get("/export")
@@ -26,6 +22,8 @@ def export_expenses(
     search: Optional[str] = None,
     paid_by: Optional[str] = None,
     category: Optional[str] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
     session: Session = Depends(get_session),
     current_user: str = Depends(get_current_user),
 ):
@@ -44,6 +42,10 @@ def export_expenses(
         statement = statement.where(Expense.paid_by == paid_by)
     if category:
         statement = statement.where(Expense.category == category)
+    if start_date:
+        statement = statement.where(Expense.date >= start_date)
+    if end_date:
+        statement = statement.where(Expense.date <= end_date)
 
     expenses = session.exec(statement.order_by(Expense.date.desc())).all()
 

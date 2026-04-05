@@ -26,32 +26,8 @@ import { useAuth } from "../auth/AuthContext";
 import { useIncomeMode } from "../hooks/useIncomeMode";
 import Avatar from "../components/Avatar";
 import { getDateRange, groupByDescription, groupByMonth } from "../utils/analytics";
-
-const CHART_COLORS_LIGHT = [
-  "#106a6a",
-  "#7a5a00",
-  "#954b00",
-  "#005d5d",
-  "#6b4e00",
-  "#834100",
-  "#9eeae9",
-  "#ffdfa0",
-  "#ffa35d",
-  "#777b7c",
-];
-
-const CHART_COLORS_DARK = [
-  "#7ad4d3",
-  "#e5c36c",
-  "#ffb77c",
-  "#5ec5c4",
-  "#c8aa50",
-  "#e69b5a",
-  "#a0f0ef",
-  "#ffd580",
-  "#ffcba4",
-  "#a8b5b4",
-];
+import { getChartColors, getTooltipStyles } from "../utils/chartConfig";
+import { buildSankeyData, SankeyNode } from "../components/SankeyChart";
 
 const PRESETS = [
   { label: "1M", days: 30 },
@@ -61,71 +37,6 @@ const PRESETS = [
   { label: "1Y", days: 365 },
   { label: "All", special: "all" },
 ];
-
-// ---------------------------------------------------------------------------
-// Sankey helpers
-// ---------------------------------------------------------------------------
-
-const TOP_SANKEY_CATS = 8;
-
-function buildSankeyData(sankeyResp) {
-  const { by_source, by_category, income_total, expenses_total, savings } = sankeyResp;
-  if (!income_total || income_total === 0) return null;
-
-  // Limit expense categories to top N; bucket the rest as "Other Expenses"
-  const topCats = by_category.slice(0, TOP_SANKEY_CATS);
-  const otherAmt = by_category.slice(TOP_SANKEY_CATS).reduce((s, c) => s + c.amount, 0);
-  if (otherAmt > 0.01) topCats.push({ category: "Other Expenses", amount: otherAmt });
-
-  // denominator for proportional distribution
-  const denom = income_total >= expenses_total ? income_total : expenses_total;
-
-  const sourceNodes = by_source.map((s) => ({ name: s.source }));
-  const categoryNodes = topCats.map((c) => ({ name: c.category }));
-  const savingsNode = savings > 0.01 ? [{ name: "Savings" }] : [];
-  const nodes = [...sourceNodes, ...categoryNodes, ...savingsNode];
-
-  const links = [];
-  by_source.forEach((src, si) => {
-    topCats.forEach((cat, ci) => {
-      const value = parseFloat((src.amount * (cat.amount / denom)).toFixed(2));
-      if (value > 0) links.push({ source: si, target: sourceNodes.length + ci, value });
-    });
-    if (savings > 0.01) {
-      const value = parseFloat((src.amount * (savings / denom)).toFixed(2));
-      if (value > 0) links.push({ source: si, target: nodes.length - 1, value });
-    }
-  });
-
-  return { nodes, links, sourceCount: sourceNodes.length };
-}
-
-function SankeyNode({ x, y, width, height, index, payload, sourceCount, isDark, chartColors }) {
-  const isSource = index < sourceCount;
-  const isSavings = payload.name === "Savings";
-  const fill = isSavings
-    ? (isDark ? "#5ec5c4" : "#106a6a")
-    : isSource
-      ? (isDark ? "#e5c36c" : "#7a5a00")
-      : chartColors[index % chartColors.length];
-
-  return (
-    <Layer key={`node-${index}`}>
-      <Rectangle x={x} y={y} width={width} height={height} fill={fill} fillOpacity={0.9} radius={4} />
-      <text
-        x={isSource ? x - 6 : x + width + 6}
-        y={y + height / 2}
-        textAnchor={isSource ? "end" : "start"}
-        dominantBaseline="middle"
-        fill={isDark ? "#e0e3e3" : "#2f3334"}
-        fontSize={11}
-        fontWeight={600}
-      >
-        {payload.name}
-      </text>
-    </Layer>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Analytics component
@@ -143,18 +54,8 @@ export default function Analytics() {
   const navigate = useNavigate();
   const { incomeEnabled } = useIncomeMode();
   const isDark = theme === "dark";
-  const CHART_COLORS = isDark ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
-  const tooltipTextColor = isDark ? "#e0e3e3" : "#2f3334";
-  const tooltipStyle = {
-    borderRadius: "1rem",
-    border: "none",
-    boxShadow: isDark ? "0 4px 24px rgba(0,0,0,0.4)" : "0 4px 24px rgba(47,51,52,0.1)",
-    fontFamily: "Public Sans",
-    background: isDark ? "#282c2c" : "#fff",
-    color: tooltipTextColor,
-  };
-  const tooltipItemStyle = { color: tooltipTextColor };
-  const tooltipLabelStyle = { color: tooltipTextColor };
+  const CHART_COLORS = getChartColors(isDark);
+  const { tooltipStyle, tooltipItemStyle, tooltipLabelStyle } = getTooltipStyles(isDark);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -174,7 +75,8 @@ export default function Analytics() {
     try {
       const promises = [getAnalytics(params)];
       if (incomeEnabled) promises.push(getIncomeSankey(params));
-      const [result, sankeyResp] = await Promise.all(promises);
+      const [result, ...rest] = await Promise.all(promises);
+      const sankeyResp = rest[0] ?? null;
       setData(result);
       if (sankeyResp) {
         setSankeyData(buildSankeyData(sankeyResp));

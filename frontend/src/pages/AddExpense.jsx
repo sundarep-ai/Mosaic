@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import {
   createExpense,
@@ -199,7 +199,7 @@ export default function AddExpense() {
     }
   };
 
-  const splitMethods = [
+  const splitMethods = useMemo(() => [
     {
       value: "50/50",
       label: "Split 50/50",
@@ -227,7 +227,7 @@ export default function AddExpense() {
       icon: "person_off",
       filled: false,
     },
-  ];
+  ], [form.paid_by, userA, userB]);
 
   if (loading) {
     return (

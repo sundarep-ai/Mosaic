@@ -12,6 +12,8 @@ from fastapi import APIRouter, HTTPException, Request, Response, UploadFile, Fil
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+IS_DEV = os.getenv("ENV", "development") == "development"
+
 from config import (
     USER_A, USER_B,
     USER_A_LOGIN, USER_B_LOGIN,
@@ -142,6 +144,8 @@ def login(data: LoginRequest, response: Response):
         value=token,
         httponly=True,
         samesite="lax",
+        secure=not IS_DEV,
+        max_age=SESSION_TTL,
     )
     return {
         "username": data.username,

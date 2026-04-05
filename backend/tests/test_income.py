@@ -318,3 +318,41 @@ def test_income_sankey_date_filter(auth_client_a, db):
         json={"start_date": today, "end_date": today},
     ).json()
     assert abs(data["income_total"] - 1000.0) < 0.01
+
+
+# ---------------------------------------------------------------------------
+# Sankey Pydantic validation (CR-6 / SG-2)
+# ---------------------------------------------------------------------------
+
+
+def test_income_sankey_malformed_date_rejected(auth_client_a, db):
+    """Malformed date strings should return 422, not 500 (CR-6)."""
+    set_mode(db, "solo")
+    resp = auth_client_a.post("/api/income/sankey", json={
+        "start_date": "not-a-date",
+    })
+    assert resp.status_code == 422
+
+
+def test_income_sankey_partial_dates_ok(auth_client_a, db):
+    """Omitting one date should work fine."""
+    set_mode(db, "solo")
+    today = str(date.today())
+    resp = auth_client_a.post("/api/income/sankey", json={"start_date": today})
+    assert resp.status_code == 200
+
+
+def test_income_notes_max_length_rejected(auth_client_a, db):
+    """Notes exceeding 500 characters should be rejected (WR-4)."""
+    set_mode(db, "solo")
+    long_notes = "x" * 501
+    resp = auth_client_a.post("/api/income", json=make_income(notes=long_notes))
+    assert resp.status_code == 422
+
+
+def test_income_notes_max_length_accepted(auth_client_a, db):
+    """Notes of exactly 500 characters should be accepted."""
+    set_mode(db, "solo")
+    notes = "x" * 500
+    resp = auth_client_a.post("/api/income", json=make_income(notes=notes))
+    assert resp.status_code == 201

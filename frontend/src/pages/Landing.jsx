@@ -54,7 +54,7 @@ export default function Landing() {
       }
     }
     fetchData();
-  }, []);
+  }, [isSolo, isHybrid, incomeEnabled]);
 
   if (loading) {
     return (

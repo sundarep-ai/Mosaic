@@ -10,9 +10,9 @@ from typing import Optional
 
 class ExpenseBase(SQLModel):
     date: date
-    description: str
+    description: str = Field(max_length=500)
     amount: Decimal = Field(sa_column=Column(sqlalchemy.Numeric(10, 2)))
-    category: str
+    category: str = Field(max_length=100)
     paid_by: str
     split_method: str
 
@@ -58,7 +58,7 @@ class IncomeBase(SQLModel):
     date: date
     amount: Decimal = Field(sa_column=Column(sqlalchemy.Numeric(10, 2)))
     source: str  # "Salary / Wages" | "Freelance / Side Income" | "Other"
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(default=None, max_length=500)
 
     @field_validator("amount", mode="before")
     @classmethod

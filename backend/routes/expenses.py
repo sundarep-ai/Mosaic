@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 from sqlalchemy import case, func, or_
 from sqlmodel import Session, select
 
@@ -13,9 +14,18 @@ from models import Expense, ExpenseBase, ExpenseCreate, ExpenseUpdate
 from services.audit import audit_logger, expense_to_dict
 
 from services.clustering import get_embedding_model, cluster_descriptions
+from utils import escape_like
 
 
 router = APIRouter()
+
+VALID_CATEGORIES = {
+    "Groceries", "Rent", "Utilities", "Dining", "Transportation",
+    "Entertainment", "Healthcare", "Shopping", "Travel", "Payment",
+    "Other", "Gas", "Car Insurance", "Car Maintenance", "Home Care",
+    "Pet Care", "Pet Insurance", "Vet", "Gift", "Subscription",
+    "Parking", "Tenant Insurance", "Reimbursement",
+}
 
 
 def _resolve_names(current_user: str) -> tuple:
@@ -61,6 +71,8 @@ def _validate_expense(data: ExpenseBase, session: Session) -> None:
         raise HTTPException(status_code=422, detail="negative amounts are only allowed for Reimbursement")
     if data.date > date.today():
         raise HTTPException(status_code=422, detail="date cannot be in the future")
+    if data.category not in VALID_CATEGORIES:
+        raise HTTPException(status_code=422, detail=f"category must be one of: {', '.join(sorted(VALID_CATEGORIES))}")
     if data.paid_by not in valid_paid_by:
         raise HTTPException(status_code=422, detail=f"paid_by must be one of: {', '.join(valid_paid_by)}")
     if data.split_method not in valid_split_methods:
@@ -187,9 +199,7 @@ def delete_expense(
     return {"ok": True}
 
 
-def _escape_like(s: str) -> str:
-    """Escape SQL LIKE wildcard characters."""
-    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+_escape_like = escape_like
 
 
 @router.get("/suggest-category")
@@ -304,20 +314,29 @@ def similar_descriptions(
     return result
 
 
+class MergeRequest(BaseModel):
+    target: str
+    sources: list[str]
+    category: str
+
+
+class MergePayload(BaseModel):
+    merges: list[MergeRequest]
+
+
 @router.post("/merge-descriptions")
 def merge_descriptions(
-    payload: dict,
+    payload: MergePayload,
     session: Session = Depends(get_session),
     current_user: str = Depends(get_current_user),
 ):
     """Merge variant descriptions into a canonical form within a category."""
-    merges = payload.get("merges", [])
     total_updated = 0
 
-    for merge in merges:
-        target = merge.get("target", "").strip()
-        sources = merge.get("sources", [])
-        category = merge.get("category", "")
+    for merge in payload.merges:
+        target = merge.target.strip()
+        sources = merge.sources
+        category = merge.category
 
         if not target or not sources or not category:
             continue
@@ -336,7 +355,7 @@ def merge_descriptions(
 
     session.commit()
     audit_logger.log("MERGE", current_user, {
-        "merges": merges,
+        "merges": [m.model_dump() for m in payload.merges],
         "total_updated": total_updated,
     })
     return {"updated": total_updated}

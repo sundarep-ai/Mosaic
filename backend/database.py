@@ -44,6 +44,8 @@ def ensure_indexes():
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_expense_date ON expense (date)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_expense_category ON expense (category)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_expense_paid_by ON expense (paid_by)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_income_date ON income (date)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_income_user_id ON income (user_id)"))
         conn.commit()
 
 

@@ -67,6 +67,16 @@ describe("groupByDescription", () => {
     expect(costco.count).toBe(2);
   });
 
+  it("handles string amounts via Number coercion (WR-10)", () => {
+    const stringAmounts = [
+      { description: "A", amount: "100", date: "2026-03-01" },
+      { description: "A", amount: "50", date: "2026-03-02" },
+    ];
+    const result = groupByDescription(stringAmounts);
+    expect(result[0].amount).toBe(150);
+    expect(typeof result[0].amount).toBe("number");
+  });
+
   it("sorts by amount descending", () => {
     const result = groupByDescription(expenses);
     expect(result[0].description).toBe("Costco");
@@ -98,6 +108,16 @@ describe("groupByMonth", () => {
     const jan = result.find((g) => g.month === "2026-01");
     expect(jan.amount).toBe(150);
     expect(jan.count).toBe(2);
+  });
+
+  it("handles string amounts via Number coercion (WR-10)", () => {
+    const stringAmounts = [
+      { description: "A", amount: "100", date: "2026-01-15" },
+      { description: "B", amount: "50", date: "2026-01-20" },
+    ];
+    const result = groupByMonth(stringAmounts);
+    expect(result[0].amount).toBe(150);
+    expect(typeof result[0].amount).toBe("number");
   });
 
   it("sorts chronologically", () => {

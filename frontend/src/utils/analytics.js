@@ -24,7 +24,7 @@ export function groupByDescription(expenses, limit = 7) {
     if (!grouped[e.description]) {
       grouped[e.description] = { description: e.description, amount: 0, count: 0 };
     }
-    grouped[e.description].amount += e.amount;
+    grouped[e.description].amount += Number(e.amount);
     grouped[e.description].count += 1;
   }
   return Object.values(grouped)
@@ -41,7 +41,7 @@ export function groupByMonth(expenses) {
   for (const e of expenses) {
     const month = e.date.substring(0, 7);
     if (!byMonth[month]) byMonth[month] = { month, amount: 0, count: 0 };
-    byMonth[month].amount += e.amount;
+    byMonth[month].amount += Number(e.amount);
     byMonth[month].count += 1;
   }
   return Object.values(byMonth).sort((a, b) => a.month.localeCompare(b.month));

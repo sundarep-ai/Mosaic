@@ -54,6 +54,18 @@ def test_settings_requires_auth(client):
     assert resp.status_code == 401
 
 
+def test_settings_rejects_missing_app_mode(auth_client_a):
+    """Pydantic model requires app_mode field (CR-4 / SG-2)."""
+    resp = auth_client_a.put("/api/settings", json={})
+    assert resp.status_code == 422
+
+
+def test_settings_rejects_extra_fields_only(auth_client_a):
+    """Payload with only extra fields (no app_mode) should fail validation."""
+    resp = auth_client_a.put("/api/settings", json={"is_admin": True})
+    assert resp.status_code == 422
+
+
 def test_config_endpoint_includes_mode(auth_client_a):
     """GET /api/config should reflect the current mode."""
     resp = auth_client_a.get("/api/config")

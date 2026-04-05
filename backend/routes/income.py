@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -135,9 +136,14 @@ def get_monthly_income_summary(
     return {"total": float(total), "count": len(rows), "by_source": by_source}
 
 
+class SankeyRequest(BaseModel):
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+
 @router.post("/income/sankey")
 def get_income_sankey(
-    payload: dict,
+    payload: SankeyRequest,
     session: Session = Depends(get_session),
     current_user: str = Depends(get_current_user),
 ):
@@ -158,12 +164,8 @@ def get_income_sankey(
     """
     _require_income_mode(session)
 
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-    if payload.get("start_date"):
-        start_date = date.fromisoformat(payload["start_date"])
-    if payload.get("end_date"):
-        end_date = date.fromisoformat(payload["end_date"])
+    start_date = payload.start_date
+    end_date = payload.end_date
 
     # --- Income side ---
     income_stmt = (
