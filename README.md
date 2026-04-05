@@ -246,6 +246,25 @@ The script auto-detects columns by header keywords and supports multiple date fo
 | Paid By | Must match `USER_A` / `USER_B` display names in `backend/config.py` |
 | Split Method | 50/50, 100% \<User A name\>, 100% \<User B name\>, Personal |
 
+If you have income history in an `.xlsx` file (Solo / Hybrid mode only):
+
+```bash
+cd backend
+python migrate_income_xlsx.py path/to/income.xlsx
+```
+
+**Expected columns:**
+
+| Column | Required | Example values |
+|---|---|---|
+| Date | Yes | 2026-01-15 |
+| Amount | Yes | 3500.00 |
+| Source | Yes | Salary / Wages, Freelance / Side Income, Other |
+| User ID | Yes | Must match the login username in `backend/config.py` (e.g. `alice`) |
+| Notes | No | Year-end bonus |
+
+Rows with unrecognised sources, non-positive amounts, or unparseable dates are skipped with a warning — the rest are still imported.
+
 ## API Reference
 
 All endpoints are prefixed with `/api`.
@@ -287,7 +306,8 @@ backend/
   main.py                # FastAPI app & CORS config
   database.py            # SQLite engine (WAL mode), session provider, integrity check
   models.py              # Expense, Income & Settings tables, Pydantic schemas
-  migrate_xlsx.py        # Bulk import from .xlsx
+  migrate_xlsx.py        # Bulk import expenses from .xlsx
+  migrate_income_xlsx.py # Bulk import income from .xlsx (Solo/Hybrid only)
   requirements.txt       # Python dependencies
   services/
     audit.py             # Append-only JSONL audit logger
