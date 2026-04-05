@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getExpenses } from "../api/expenses";
+import { getIncome } from "../api/income";
 import { useCurrency } from "../CurrencyContext";
 import { useUsers } from "../ConfigContext";
 import { useAuth } from "../auth/AuthContext";
+import { useIncomeMode } from "../hooks/useIncomeMode";
 import { calcMyPortion } from "../utils/portion";
 
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -29,10 +31,12 @@ export default function Calendar() {
   const me = user?.displayName || userA;
   const other = me === userA ? userB : userA;
   const isSolo = mode === "solo";
+  const { incomeEnabled } = useIncomeMode();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [expenses, setExpenses] = useState([]);
+  const [incomeEntries, setIncomeEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -48,8 +52,17 @@ export default function Calendar() {
         const startDate = `${year}-${pad(month + 1)}-01`;
         const lastDay = new Date(year, month + 1, 0).getDate();
         const endDate = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-        const data = await getExpenses({ start_date: startDate, end_date: endDate, sort: "asc" });
-        if (!cancelled) setExpenses(data);
+        const promises = [
+          getExpenses({ start_date: startDate, end_date: endDate, sort: "asc" }),
+        ];
+        if (incomeEnabled) {
+          promises.push(getIncome({ start_date: startDate, end_date: endDate }));
+        }
+        const [expenseData, incomeData] = await Promise.all(promises);
+        if (!cancelled) {
+          setExpenses(expenseData);
+          setIncomeEntries(incomeData || []);
+        }
       } catch {
         if (!cancelled) setError("Could not load expenses. Is the server running?");
       } finally {
@@ -58,7 +71,15 @@ export default function Calendar() {
     }
     fetchMonth();
     return () => { cancelled = true; };
-  }, [year, month]);
+  }, [year, month, incomeEnabled]);
+
+  // Aggregate daily income by date
+  const dailyIncome = {};
+  if (incomeEnabled) {
+    for (const entry of incomeEntries) {
+      dailyIncome[entry.date] = (dailyIncome[entry.date] || 0) + entry.amount;
+    }
+  }
 
   // Aggregate daily portions (user's share) and shared totals
   // Exclude Payment and Reimbursement from calendar display
@@ -276,6 +297,7 @@ export default function Calendar() {
               }
               const dateKey = `${year}-${pad(month + 1)}-${pad(day)}`;
               const amount = dailyTotals[dateKey] || 0;
+              const incomeAmt = dailyIncome[dateKey] || 0;
               const intensity = getIntensity(amount);
               return (
                 <button
@@ -293,12 +315,24 @@ export default function Calendar() {
                       style={{ opacity: 0.05 + intensity * 0.2 }}
                     />
                   )}
-                  <span className={`relative text-xs sm:text-sm font-bold ${isToday(day) ? "text-primary" : "text-on-surface"}`}>
-                    {day}
-                  </span>
+                  <div className="relative flex items-start justify-between">
+                    <span className={`text-xs sm:text-sm font-bold ${isToday(day) ? "text-primary" : "text-on-surface"}`}>
+                      {day}
+                    </span>
+                    {incomeAmt > 0 && (
+                      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-tertiary text-on-tertiary text-[9px] font-bold leading-none shrink-0">
+                        +
+                      </span>
+                    )}
+                  </div>
                   {amount > 0 && (
                     <span className="relative text-primary font-bold text-[11px] sm:text-sm mt-auto">
                       {fmt(amount)}
+                    </span>
+                  )}
+                  {incomeAmt > 0 && (
+                    <span className="relative text-tertiary font-bold text-[10px] sm:text-xs">
+                      +{fmt(incomeAmt)}
                     </span>
                   )}
                 </button>

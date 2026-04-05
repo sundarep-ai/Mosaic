@@ -5,6 +5,7 @@ import ErrorBoundary from "./ErrorBoundary";
 import Navbar from "./components/Navbar";
 import Landing from "./pages/Landing";
 import AddExpense from "./pages/AddExpense";
+import AddIncome from "./pages/AddIncome";
 import History from "./pages/History";
 import Login from "./pages/Login";
 import Settings from "./pages/Settings";
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/add" element={<AddExpense />} />
             <Route path="/edit/:id" element={<AddExpense />} />
+            <Route path="/add-income" element={<AddIncome />} />
             <Route path="/analytics" element={
               <Suspense fallback={
                 <div className="flex items-center justify-center h-64">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   XAxis,
@@ -12,13 +12,18 @@ import {
   Cell,
   BarChart,
   Bar,
+  Sankey,
+  Layer,
+  Rectangle,
 } from "recharts";
 import { getAnalytics, getExpenses } from "../api/expenses";
+import { getIncomeSankey } from "../api/income";
 import { CATEGORY_ICONS } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
 import { useTheme } from "../ThemeContext";
 import { useCurrency } from "../CurrencyContext";
 import { useAuth } from "../auth/AuthContext";
+import { useIncomeMode } from "../hooks/useIncomeMode";
 import Avatar from "../components/Avatar";
 import { getDateRange, groupByDescription, groupByMonth } from "../utils/analytics";
 
@@ -57,6 +62,75 @@ const PRESETS = [
   { label: "All", special: "all" },
 ];
 
+// ---------------------------------------------------------------------------
+// Sankey helpers
+// ---------------------------------------------------------------------------
+
+const TOP_SANKEY_CATS = 8;
+
+function buildSankeyData(sankeyResp) {
+  const { by_source, by_category, income_total, expenses_total, savings } = sankeyResp;
+  if (!income_total || income_total === 0) return null;
+
+  // Limit expense categories to top N; bucket the rest as "Other Expenses"
+  const topCats = by_category.slice(0, TOP_SANKEY_CATS);
+  const otherAmt = by_category.slice(TOP_SANKEY_CATS).reduce((s, c) => s + c.amount, 0);
+  if (otherAmt > 0.01) topCats.push({ category: "Other Expenses", amount: otherAmt });
+
+  // denominator for proportional distribution
+  const denom = income_total >= expenses_total ? income_total : expenses_total;
+
+  const sourceNodes = by_source.map((s) => ({ name: s.source }));
+  const categoryNodes = topCats.map((c) => ({ name: c.category }));
+  const savingsNode = savings > 0.01 ? [{ name: "Savings" }] : [];
+  const nodes = [...sourceNodes, ...categoryNodes, ...savingsNode];
+
+  const links = [];
+  by_source.forEach((src, si) => {
+    topCats.forEach((cat, ci) => {
+      const value = parseFloat((src.amount * (cat.amount / denom)).toFixed(2));
+      if (value > 0) links.push({ source: si, target: sourceNodes.length + ci, value });
+    });
+    if (savings > 0.01) {
+      const value = parseFloat((src.amount * (savings / denom)).toFixed(2));
+      if (value > 0) links.push({ source: si, target: nodes.length - 1, value });
+    }
+  });
+
+  return { nodes, links, sourceCount: sourceNodes.length };
+}
+
+function SankeyNode({ x, y, width, height, index, payload, sourceCount, isDark, chartColors }) {
+  const isSource = index < sourceCount;
+  const isSavings = payload.name === "Savings";
+  const fill = isSavings
+    ? (isDark ? "#5ec5c4" : "#106a6a")
+    : isSource
+      ? (isDark ? "#e5c36c" : "#7a5a00")
+      : chartColors[index % chartColors.length];
+
+  return (
+    <Layer key={`node-${index}`}>
+      <Rectangle x={x} y={y} width={width} height={height} fill={fill} fillOpacity={0.9} radius={4} />
+      <text
+        x={isSource ? x - 6 : x + width + 6}
+        y={y + height / 2}
+        textAnchor={isSource ? "end" : "start"}
+        dominantBaseline="middle"
+        fill={isDark ? "#e0e3e3" : "#2f3334"}
+        fontSize={11}
+        fontWeight={600}
+      >
+        {payload.name}
+      </text>
+    </Layer>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Analytics component
+// ---------------------------------------------------------------------------
+
 export default function Analytics() {
   const { userA, userB, mode } = useUsers();
   const { user } = useAuth();
@@ -67,6 +141,7 @@ export default function Analytics() {
   const { theme } = useTheme();
   const { fmt } = useCurrency();
   const navigate = useNavigate();
+  const { incomeEnabled } = useIncomeMode();
   const isDark = theme === "dark";
   const CHART_COLORS = isDark ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
   const tooltipTextColor = isDark ? "#e0e3e3" : "#2f3334";
@@ -91,23 +166,31 @@ export default function Analytics() {
   const [drillDownData, setDrillDownData] = useState(null);
   const [drillDownLoading, setDrillDownLoading] = useState(false);
   const [categoryVelocityData, setCategoryVelocityData] = useState(null);
+  const [sankeyData, setSankeyData] = useState(null);
 
-  const fetchData = async (params) => {
+  const fetchData = useCallback(async (params) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await getAnalytics(params);
+      const promises = [getAnalytics(params)];
+      if (incomeEnabled) promises.push(getIncomeSankey(params));
+      const [result, sankeyResp] = await Promise.all(promises);
       setData(result);
+      if (sankeyResp) {
+        setSankeyData(buildSankeyData(sankeyResp));
+      } else {
+        setSankeyData(null);
+      }
     } catch (err) {
       setError("Could not load analytics. Is the server running?");
     } finally {
       setLoading(false);
     }
-  };
+  }, [incomeEnabled]);
 
   useEffect(() => {
     fetchData(getDateRange(91));
-  }, []);
+  }, [fetchData]);
 
   const handlePreset = (preset) => {
     setActivePreset(preset.label);
@@ -236,6 +319,59 @@ export default function Analytics() {
 
       {data && (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+
+          {/* Income → Expenses Sankey chart */}
+          {incomeEnabled && (
+            <div className="md:col-span-12 bg-surface-container p-8 rounded-[2rem]">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="material-symbols-outlined text-tertiary" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  account_tree
+                </span>
+                <h3 className="font-headline text-xl font-bold">Income Flow</h3>
+              </div>
+              <p className="text-on-surface-variant text-sm font-medium mb-8">
+                Where your money comes from and where it goes
+              </p>
+              {sankeyData ? (
+                <ResponsiveContainer width="100%" height={320}>
+                  <Sankey
+                    data={sankeyData}
+                    nodePadding={20}
+                    nodeWidth={14}
+                    margin={{ top: 10, right: 160, bottom: 10, left: 160 }}
+                    link={{ stroke: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)", strokeWidth: 1 }}
+                    node={
+                      <SankeyNode
+                        sourceCount={sankeyData.sourceCount}
+                        isDark={isDark}
+                        chartColors={CHART_COLORS}
+                      />
+                    }
+                  >
+                    <Tooltip
+                      formatter={(val) => [fmt(val), "Amount"]}
+                      contentStyle={tooltipStyle}
+                      itemStyle={tooltipItemStyle}
+                      labelStyle={tooltipLabelStyle}
+                    />
+                  </Sankey>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-40 text-on-surface-variant gap-3">
+                  <span className="material-symbols-outlined text-4xl opacity-30">payments</span>
+                  <p className="text-sm">No income logged for this period.</p>
+                  <Link
+                    to="/add-income"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-tertiary-container text-on-tertiary-container text-sm font-bold"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">add</span>
+                    Log income
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Total Spend Summary */}
           <div className="md:col-span-4 bg-surface-container-lowest p-8 rounded-[2rem] flex flex-col justify-between relative overflow-hidden group">
             <div className="relative z-10">

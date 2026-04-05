@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getBalance, getMonthlySummary, getExpenses, getPersonalSummary, getMyExpenseSummary } from "../api/expenses";
+import { getMonthlyIncomeSummary } from "../api/income";
 import { CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
 import { useCurrency } from "../CurrencyContext";
 import { useAuth } from "../auth/AuthContext";
+import { useIncomeMode } from "../hooks/useIncomeMode";
 import Avatar from "../components/Avatar";
 
 export default function Landing() {
@@ -15,11 +17,13 @@ export default function Landing() {
   const isSolo = mode === "solo";
   const isHybrid = mode === "hybrid";
   const { fmt } = useCurrency();
+  const { incomeEnabled } = useIncomeMode();
   const [balance, setBalance] = useState(null);
   const [monthlySummary, setMonthlySummary] = useState([]);
   const [recentExpenses, setRecentExpenses] = useState([]);
   const [personalSpend, setPersonalSpend] = useState(null);
   const [myExpense, setMyExpense] = useState(null);
+  const [monthlyIncome, setMonthlyIncome] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -33,13 +37,16 @@ export default function Landing() {
           getMyExpenseSummary(),
         ];
         if (isHybrid) promises.push(getPersonalSummary());
+        if (incomeEnabled) promises.push(getMonthlyIncomeSummary());
 
         const results = await Promise.all(promises);
         setBalance(results[0]);
         setMonthlySummary(results[1]);
         setRecentExpenses(results[2]);
         setMyExpense(results[3]);
-        if (isHybrid && results[4]) setPersonalSpend(results[4]);
+        let idx = 4;
+        if (isHybrid && results[idx]) { setPersonalSpend(results[idx]); idx++; }
+        if (incomeEnabled && results[idx]) setMonthlyIncome(results[idx]);
       } catch (err) {
         setError("Could not load dashboard data. Is the server running?");
       } finally {
@@ -96,7 +103,7 @@ export default function Landing() {
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
         {/* Balance / Total Spend Card */}
-        <div className="md:col-span-4 bg-surface-container-lowest p-8 rounded-[2rem] flex flex-col justify-between relative overflow-hidden group">
+        <div className={`${isSolo && incomeEnabled ? "md:col-span-6" : "md:col-span-4"} bg-surface-container-lowest p-8 rounded-[2rem] flex flex-col justify-between relative overflow-hidden group`}>
           <div className="relative z-10">
             {isSolo ? (
               <>
@@ -178,7 +185,7 @@ export default function Landing() {
 
         {/* Your Expense Card (duo/hybrid) */}
         {!isSolo && myExpense && (
-          <div className="md:col-span-4 bg-surface-container p-8 rounded-[2rem]">
+          <div className={`${incomeEnabled ? "md:col-span-4" : "md:col-span-4"} bg-surface-container p-8 rounded-[2rem]`}>
             <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
               Your Expense This Month
             </span>
@@ -194,8 +201,36 @@ export default function Landing() {
           </div>
         )}
 
-        {/* Quick Actions & Monthly Summary */}
-        <div className={`${isSolo ? "md:col-span-8" : "md:col-span-4"} bg-surface-container p-8 rounded-[2rem]`}>
+        {/* Income This Month tile */}
+        {incomeEnabled && (
+          <div className={`${isSolo ? "md:col-span-6" : "md:col-span-4"} bg-surface-container p-8 rounded-[2rem] relative overflow-hidden group`}>
+            <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
+              Income This Month
+            </span>
+            <div className="mt-4">
+              <span className="font-headline text-4xl font-extrabold text-tertiary">
+                {fmt(monthlyIncome?.total ?? 0)}
+              </span>
+            </div>
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-tertiary-container text-on-tertiary-container text-sm font-bold">
+              <span className="material-symbols-outlined text-[16px]">payments</span>
+              {monthlyIncome?.by_source?.length
+                ? monthlyIncome.by_source.map((s) => s.source).join(", ")
+                : "No income logged yet"}
+            </div>
+            <Link
+              to="/add-income"
+              className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-tertiary/10 text-tertiary font-headline font-bold text-sm active:scale-95 transition-transform hover:bg-tertiary/20"
+            >
+              <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
+              Add Income
+            </Link>
+            <div className="absolute -right-12 -bottom-12 w-40 h-40 bg-tertiary/5 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500"></div>
+          </div>
+        )}
+
+        {/* Quick Actions & Monthly Summary — full width when income enabled, otherwise same as before */}
+        <div className={`${incomeEnabled ? "md:col-span-12" : isSolo ? "md:col-span-8" : "md:col-span-4"} bg-surface-container p-8 rounded-[2rem]`}>
           <div className="flex items-center justify-between mb-8">
             <h3 className="font-headline text-xl font-bold">
               This Month&apos;s Spend by Category

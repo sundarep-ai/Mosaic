@@ -108,6 +108,7 @@ def _clean_db():
     yield
     with Session(_test_engine) as s:
         s.execute(text("DELETE FROM expense"))
+        s.execute(text("DELETE FROM income"))
         s.execute(text("DELETE FROM settings"))
         s.commit()
 
@@ -181,3 +182,27 @@ def make_expense(**overrides) -> dict:
     }
     data.update(overrides)
     return data
+
+
+def make_income(**overrides) -> dict:
+    """Build an income JSON payload with sensible defaults."""
+    data = {
+        "date": str(date.today()),
+        "amount": 1000.00,
+        "source": "Salary / Wages",
+        "notes": None,
+    }
+    data.update(overrides)
+    return data
+
+
+def set_mode(db_session, mode: str) -> None:
+    """Helper to set app mode in the test database."""
+    from models import Settings
+    row = db_session.get(Settings, 1)
+    if row:
+        row.app_mode = mode
+    else:
+        row = Settings(id=1, app_mode=mode)
+    db_session.add(row)
+    db_session.commit()
