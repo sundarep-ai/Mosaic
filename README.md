@@ -26,7 +26,7 @@ Switch modes anytime from the Settings page (gear icon in the top bar). Mode cha
 
 ### How "Your Expense" Is Calculated
 
-Across Home, Analytics, and Calendar, MosaicTally shows each user their personal expense burden — not the raw total of all expenses. The calculation depends on the split method:
+Across Home, Analytics, Calendar, and Smart Insights, MosaicTally shows each user their personal expense burden — not the raw total of all expenses. The calculation depends on the split method:
 
 | Split Method | Your Portion |
 |---|---|
@@ -51,7 +51,7 @@ Reimbursements (stored as negative amounts) reduce your net expense on Home and 
 | **Edit Expense** | Full-page edit form at `/edit/:id` — reuses the Add Expense form with all fields pre-filled |
 | **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses. Filter presets: 1M, 3M, 6M, YTD, 1Y, All — plus custom date range. **Solo** shows your total expense; **Shared** / **Hybrid** show total shared spend, your share, and total spend. Payer breakdown hidden in Solo; Personal vs Shared chart shown in Hybrid. When Income Tracking is enabled, a **Sankey chart** appears at the top showing income sources → expense categories → Savings (if income exceeds expenses). |
 | **Calendar** | Month-view calendar showing your daily expense portion with logarithmic heat-map shading (prevents a single outlier like rent from washing out all other days). Navigate months with chevron arrows or jump to any month/year via a dropdown picker. Displays your monthly expense at the top alongside total shared spend (in Shared/Hybrid modes). Day cells show only your portion. Click any day to drill down into that day's expenses on the History page. Payment and Reimbursement categories are excluded from calendar totals. When Income Tracking is enabled, days with income show a green `+` badge and the income amount alongside the expense amount. |
-| **Smart Insights** | Automated spending analysis — detects recurring payments (weekly/monthly/quarterly/annual) with change alerts, highlights category trend spikes, flags statistical anomalies, projects next-month spending via weighted moving average, compares weekend vs weekday habits, and ranks fastest-growing categories. All computed server-side using rule-based pattern detection and the existing embedding model for description clustering. |
+| **Smart Insights** | User-portion-aware spending analysis — all monetary values reflect **your expense** (your share based on split method), not raw totals. Detects recurring payments (weekly/monthly/quarterly/annual) with change alerts, highlights category trend spikes, flags statistical anomalies, projects next-month spending via weighted moving average, and ranks fastest-growing categories. **Weekend vs Weekday** shows side-by-side panels comparing your expense and shared expense patterns. In non-Solo modes, shared (full) amounts are shown as secondary info alongside your portion. When **Income Tracking** is enabled (Solo/Hybrid), an additional section shows savings rate, income vs expenses trend, and income breakdown by source. All computed server-side. |
 | **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. In Solo mode, the "Paid By" column and filter are hidden. In Hybrid mode, an extra "Type" filter lets you toggle between All, Personal, and Shared expenses. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics"). |
 | **Export** | Download the current filtered view as an `.xlsx` file |
 
@@ -283,7 +283,7 @@ All endpoints are prefixed with `/api`.
 | `GET` | `/balance` | Current balance between the two configured users |
 | `GET` | `/monthly-summary` | Category totals for the current month |
 | `GET` | `/analytics` | Aggregated analytics including `my_share` (query: `start_date`, `end_date`) |
-| `GET` | `/insights` | Smart insights: recurring payments, trend alerts, anomalies, forecast, weekend vs weekday, top growing categories |
+| `GET` | `/insights` | Smart insights: user-portion-aware recurring payments, trend alerts, anomalies, forecast, weekend vs weekday (dual view), top growing categories, income insights (Solo/Hybrid) |
 | `GET` | `/personal-summary` | Current user's personal spend for this month (Hybrid mode) |
 | `GET` | `/my-expense-summary` | Current user's total expense portion and total shared spend for this month |
 | `GET` | `/settings` | Current app mode |
@@ -317,7 +317,7 @@ backend/
     expenses.py          # CRUD, balance, monthly summary, description similarity & merge
     analytics.py         # Date-filtered analytics aggregation
     income.py            # Income CRUD, monthly summary, Sankey data (Solo/Hybrid only)
-    insights.py          # Smart insights: recurring detection, trends, anomalies, forecast
+    insights.py          # Smart insights: user-portion-aware recurring detection, trends, anomalies, forecast, income insights
     export.py            # .xlsx file generation & download
   data/                  # Generated at runtime (gitignored)
     audit/

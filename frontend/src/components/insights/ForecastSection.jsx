@@ -10,8 +10,9 @@ import {
 import { useCurrency } from "../../CurrencyContext";
 import EmptyState from "./EmptyState";
 
-export default function ForecastSection({ forecast, CHART_COLORS, isDark, tooltipStyle, tooltipItemStyle, tooltipLabelStyle }) {
+export default function ForecastSection({ forecast, mode, CHART_COLORS, isDark, tooltipStyle, tooltipItemStyle, tooltipLabelStyle }) {
   const { fmt } = useCurrency();
+  const isSolo = mode === "solo";
 
   const now = new Date();
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -28,11 +29,16 @@ export default function ForecastSection({ forecast, CHART_COLORS, isDark, toolti
           {/* Summary card */}
           <div className="md:col-span-4 bg-primary text-on-primary p-8 rounded-[2rem] relative overflow-hidden">
             <span className="font-label text-xs uppercase tracking-[0.2em] text-on-primary/70 font-bold">
-              Estimated Total
+              Your Estimated Total
             </span>
             <div className="mt-4 font-headline text-4xl font-extrabold">
               {fmt(forecast.total_forecast)}
             </div>
+            {!isSolo && forecast.shared_total_forecast > 0 && (
+              <p className="mt-1 text-sm text-on-primary/60">
+                Shared total: {fmt(forecast.shared_total_forecast)}
+              </p>
+            )}
             <div className="mt-4 space-y-2 text-sm text-on-primary/80">
               <div className="flex justify-between">
                 <span>Recurring</span>
