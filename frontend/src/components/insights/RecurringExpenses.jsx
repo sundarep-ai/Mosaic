@@ -10,8 +10,9 @@ const FREQ_COLORS = {
   Annual: "bg-surface-container-highest text-on-surface-variant",
 };
 
-export default function RecurringExpenses({ recurring_expenses }) {
+export default function RecurringExpenses({ recurring_expenses, mode }) {
   const { fmt } = useCurrency();
+  const isSolo = mode === "solo";
 
   return (
     <section>
@@ -34,33 +35,49 @@ export default function RecurringExpenses({ recurring_expenses }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container-low">
-                {[...recurring_expenses].sort((a, b) => b.occurrence_count - a.occurrence_count).map((r, i) => (
-                  <tr key={i} className="hover:bg-surface-container-low/50 transition-colors">
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center">
-                          <span className="material-symbols-outlined text-on-surface">
-                            {CATEGORY_ICONS[r.category] || "receipt_long"}
-                          </span>
+                {[...recurring_expenses].sort((a, b) => b.occurrence_count - a.occurrence_count).map((r, i) => {
+                  const avgDisplay = r.avg_my_amount != null ? r.avg_my_amount : r.avg_amount;
+                  const lastDisplay = r.last_my_amount != null ? r.last_my_amount : r.last_amount;
+                  const showShared = !isSolo && r.avg_my_amount != null && r.avg_my_amount !== r.avg_amount;
+
+                  return (
+                    <tr key={i} className="hover:bg-surface-container-low/50 transition-colors">
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center">
+                            <span className="material-symbols-outlined text-on-surface">
+                              {CATEGORY_ICONS[r.category] || "receipt_long"}
+                            </span>
+                          </div>
+                          <span className="font-bold text-on-surface">{r.description}</span>
                         </div>
-                        <span className="font-bold text-on-surface">{r.description}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <span className="px-3 py-1 rounded-full bg-surface-container-high text-[11px] font-bold uppercase text-on-surface-variant">
-                        {r.category}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${FREQ_COLORS[r.frequency] || FREQ_COLORS.Monthly}`}>
-                        {r.frequency}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5 text-right font-medium">{fmt(r.avg_amount)}</td>
-                    <td className="px-6 py-5 text-right font-headline font-bold">{fmt(r.last_amount)}</td>
-                    <td className="px-6 py-5 text-right text-on-surface-variant">{r.occurrence_count}x</td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-5">
+                        <span className="px-3 py-1 rounded-full bg-surface-container-high text-[11px] font-bold uppercase text-on-surface-variant">
+                          {r.category}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${FREQ_COLORS[r.frequency] || FREQ_COLORS.Monthly}`}>
+                          {r.frequency}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5 text-right">
+                        <span className="font-medium">{fmt(avgDisplay)}</span>
+                        {showShared && (
+                          <span className="block text-xs text-on-surface-variant">({fmt(r.avg_amount)})</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-5 text-right">
+                        <span className="font-headline font-bold">{fmt(lastDisplay)}</span>
+                        {showShared && (
+                          <span className="block text-xs text-on-surface-variant">({fmt(r.last_amount)})</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-5 text-right text-on-surface-variant">{r.occurrence_count}x</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

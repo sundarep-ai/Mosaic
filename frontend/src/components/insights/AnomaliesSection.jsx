@@ -1,8 +1,9 @@
 import { CATEGORY_ICONS } from "../../constants/categories";
 import { useCurrency } from "../../CurrencyContext";
 
-export default function AnomaliesSection({ anomalies }) {
+export default function AnomaliesSection({ anomalies, mode }) {
   const { fmt } = useCurrency();
+  const isSolo = mode === "solo";
 
   if (anomalies.length === 0) return null;
 
@@ -33,7 +34,14 @@ export default function AnomaliesSection({ anomalies }) {
               </span>
             </div>
             <p className="font-bold text-on-surface truncate">{a.description}</p>
-            <p className="text-2xl font-headline font-extrabold mt-1">{fmt(a.amount)}</p>
+            <p className="text-2xl font-headline font-extrabold mt-1">
+              {fmt(a.my_portion != null ? a.my_portion : a.amount)}
+            </p>
+            {!isSolo && a.my_portion != null && a.my_portion !== a.amount && (
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                Full amount: {fmt(a.amount)}
+              </p>
+            )}
             <p className="text-xs text-on-surface-variant mt-2">
               {a.category} avg: {fmt(a.category_mean)} &middot; {a.date}
             </p>

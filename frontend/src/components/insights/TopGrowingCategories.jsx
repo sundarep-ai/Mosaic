@@ -2,8 +2,9 @@ import { CATEGORY_ICONS } from "../../constants/categories";
 import { useCurrency } from "../../CurrencyContext";
 import EmptyState from "./EmptyState";
 
-export default function TopGrowingCategories({ top_growing_categories }) {
+export default function TopGrowingCategories({ top_growing_categories, mode }) {
   const { fmt } = useCurrency();
+  const isSolo = mode === "solo";
 
   return (
     <section>
@@ -16,6 +17,7 @@ export default function TopGrowingCategories({ top_growing_categories }) {
           <div className="space-y-4">
             {top_growing_categories.map((g, i) => {
               const isPositive = g.avg_mom_growth_pct > 0;
+              const showShared = !isSolo && g.shared_last_3_months;
               return (
                 <div key={i} className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center shrink-0">
@@ -38,6 +40,9 @@ export default function TopGrowingCategories({ top_growing_categories }) {
                       {g.last_3_months.map((val, mi) => (
                         <span key={mi}>
                           {g.months?.[mi]?.slice(5) || `M${mi + 1}`}: {fmt(val)}
+                          {showShared && g.shared_last_3_months[mi] !== val && (
+                            <span className="text-on-surface-variant/60"> ({fmt(g.shared_last_3_months[mi])})</span>
+                          )}
                         </span>
                       ))}
                     </div>
