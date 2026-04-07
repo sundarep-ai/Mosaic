@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useCurrency } from "../CurrencyContext";
+import { useDateFormat } from "../DateFormatContext";
 import {
   getExpenses,
   deleteExpense,
@@ -10,17 +11,6 @@ import { CATEGORIES, CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories
 import { useUsers } from "../ConfigContext";
 import Avatar from "../components/Avatar";
 import MergeDescriptionsModal from "../components/MergeDescriptionsModal";
-
-function formatDate(dateStr) {
-  try {
-    const d = new Date(dateStr + "T00:00:00");
-    const monthDay = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const year = d.getFullYear();
-    return `${monthDay}\n${year}`;
-  } catch {
-    return dateStr;
-  }
-}
 
 function getSplitBadge(method) {
   if (method === "50/50") {
@@ -54,6 +44,7 @@ export default function History() {
   const isSolo = mode === "solo";
   const isHybrid = mode === "hybrid";
   const { fmt } = useCurrency();
+  const { formatDate } = useDateFormat();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const searchRef = useRef(null);
@@ -177,7 +168,7 @@ export default function History() {
         <div className="flex items-center gap-3">
           <div className="inline-flex items-center gap-2 bg-primary-container text-on-primary-container px-4 py-2 rounded-full text-sm font-bold">
             <span className="material-symbols-outlined text-[16px]">filter_alt</span>
-            {new Date(monthFilter + "-02").toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+            {new Date(monthFilter + "-02").toLocaleDateString(undefined, { month: "long", year: "numeric" })}
             {filterCategory && <><span className="opacity-50">·</span>{filterCategory}</>}
             <button
               onClick={() => {

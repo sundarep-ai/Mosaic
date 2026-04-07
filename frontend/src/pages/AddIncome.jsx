@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { addIncome } from "../api/income";
 import { INCOME_SOURCES } from "../constants/incomeSources";
 import { useIncomeMode } from "../hooks/useIncomeMode";
+import DateInput from "../components/DateInput";
 
 export default function AddIncome() {
   const navigate = useNavigate();
@@ -115,11 +116,10 @@ export default function AddIncome() {
                 <span className="material-symbols-outlined text-tertiary/60 mr-3">
                   calendar_today
                 </span>
-                <input
-                  type="date"
+                <DateInput
                   name="date"
                   value={form.date}
-                  onChange={handleChange}
+                  onChange={(iso) => setForm((prev) => ({ ...prev, date: iso }))}
                   max={today}
                   className="bg-transparent border-none focus:ring-0 w-full font-medium text-on-surface"
                   required

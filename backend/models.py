@@ -106,6 +106,16 @@ class DismissedMerge(SQLModel, table=True):
         return (d1, d2) if d1 <= d2 else (d2, d1)
 
 
+VALID_DATE_FORMATS = {"MM/DD/YYYY", "DD/MM/YYYY", "YYYY/MM/DD", "YYYY/DD/MM"}
+
+
+class UserPreference(SQLModel, table=True):
+    """Per-user preferences (e.g. date display format)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(max_length=100, unique=True, index=True)
+    date_format: str = Field(default="DD/MM/YYYY", max_length=20)
+
+
 class IncomeCreate(IncomeBase):
     pass
 
