@@ -66,3 +66,88 @@ def test_merge_descriptions(auth_client_a):
     # Verify all are now "Walmart"
     expenses = auth_client_a.get("/api/expenses").json()
     assert all(e["description"] == "Walmart" for e in expenses)
+
+
+def test_dismiss_merge(auth_client_a):
+    """Dismissing a merge suggestion persists and returns count."""
+    resp = auth_client_a.post("/api/dismiss-merge", json={
+        "dismissals": [{
+            "category": "Groceries",
+            "canonical": "Walmart",
+            "variants": ["Wal-Mart", "WalMart"],
+        }],
+    })
+    assert resp.status_code == 200
+    assert resp.json()["dismissed"] == 2
+
+
+def test_dismiss_merge_idempotent(auth_client_a):
+    """Dismissing the same pair twice doesn't create duplicates."""
+    payload = {
+        "dismissals": [{
+            "category": "Groceries",
+            "canonical": "Walmart",
+            "variants": ["Wal-Mart"],
+        }],
+    }
+    auth_client_a.post("/api/dismiss-merge", json=payload)
+    resp = auth_client_a.post("/api/dismiss-merge", json=payload)
+    assert resp.json()["dismissed"] == 0  # already exists
+
+
+def test_list_dismissed_merges(auth_client_a):
+    """Dismissed merges appear in the listing endpoint."""
+    auth_client_a.post("/api/dismiss-merge", json={
+        "dismissals": [{
+            "category": "Groceries",
+            "canonical": "Walmart",
+            "variants": ["Wal-Mart"],
+        }],
+    })
+    resp = auth_client_a.get("/api/dismissed-merges")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["category"] == "Groceries"
+    assert len(data[0]["pairs"]) == 1
+
+
+def test_undismiss_merge(auth_client_a):
+    """Undismissing restores the pair for future suggestions."""
+    auth_client_a.post("/api/dismiss-merge", json={
+        "dismissals": [{
+            "category": "Groceries",
+            "canonical": "Walmart",
+            "variants": ["Wal-Mart"],
+        }],
+    })
+    dismissed = auth_client_a.get("/api/dismissed-merges").json()
+    pair_id = dismissed[0]["pairs"][0]["id"]
+
+    resp = auth_client_a.post("/api/undismiss-merge", json={"ids": [pair_id]})
+    assert resp.status_code == 200
+    assert resp.json()["undismissed"] == 1
+
+    # Verify it's gone from the list
+    dismissed_after = auth_client_a.get("/api/dismissed-merges").json()
+    assert len(dismissed_after) == 0
+
+
+def test_dismiss_merge_pair_order_independent(auth_client_a):
+    """Dismissing (A, B) and (B, A) should be treated as the same pair."""
+    auth_client_a.post("/api/dismiss-merge", json={
+        "dismissals": [{
+            "category": "Groceries",
+            "canonical": "Walmart",
+            "variants": ["Wal-Mart"],
+        }],
+    })
+    # Dismiss with reversed order
+    resp = auth_client_a.post("/api/dismiss-merge", json={
+        "dismissals": [{
+            "category": "Groceries",
+            "canonical": "Wal-Mart",
+            "variants": ["Walmart"],
+        }],
+    })
+    assert resp.json()["dismissed"] == 0  # same pair, already dismissed

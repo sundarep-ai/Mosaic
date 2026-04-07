@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from auth import get_current_user
 from config import USER_A, USER_B
 from database import get_session
-from models import Expense, ExpenseBase, ExpenseCreate, ExpenseUpdate
+from models import Expense, ExpenseBase, ExpenseCreate, ExpenseUpdate, DismissedMerge
 from services.audit import audit_logger, expense_to_dict
 
 from services.clustering import get_embedding_model, cluster_descriptions
@@ -282,6 +282,16 @@ def similar_descriptions(
         .order_by(func.count().desc())
     ).all()
 
+    # Load all dismissed pairs into a set for fast lookup
+    dismissed_rows = session.exec(select(DismissedMerge)).all()
+    dismissed_set: set[tuple[str, str, str]] = {
+        (d.category, d.desc_a, d.desc_b) for d in dismissed_rows
+    }
+
+    def is_dismissed(category: str, d1: str, d2: str) -> bool:
+        a, b = DismissedMerge.make_pair(d1, d2)
+        return (category, a, b) in dismissed_set
+
     # Group by category
     by_category: dict[str, list[tuple[str, int]]] = {}
     for desc, cat, cnt in rows:
@@ -302,10 +312,16 @@ def similar_descriptions(
             cluster_descs = [descriptions[k] for k in cluster_indices]
             canonical = max(cluster_descs, key=lambda d: counts[d])
             variants = [d for d in cluster_descs if d != canonical]
+
+            # Filter out variants that have been dismissed against the canonical
+            variants = [v for v in variants if not is_dismissed(category, canonical, v)]
+            if not variants:
+                continue
+
             groups.append({
                 "canonical": canonical,
                 "variants": variants,
-                "total_count": sum(counts[d] for d in cluster_descs),
+                "total_count": sum(counts[d] for d in [canonical] + variants),
             })
 
         if groups:
@@ -359,6 +375,95 @@ def merge_descriptions(
         "total_updated": total_updated,
     })
     return {"updated": total_updated}
+
+
+class DismissRequest(BaseModel):
+    category: str
+    canonical: str
+    variants: list[str]
+
+
+class DismissPayload(BaseModel):
+    dismissals: list[DismissRequest]
+
+
+@router.post("/dismiss-merge")
+def dismiss_merge(
+    payload: DismissPayload,
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
+    """Permanently dismiss merge suggestions so they never appear again."""
+    added = 0
+    for d in payload.dismissals:
+        for variant in d.variants:
+            desc_a, desc_b = DismissedMerge.make_pair(d.canonical, variant)
+            # Check if already dismissed
+            existing = session.exec(
+                select(DismissedMerge)
+                .where(DismissedMerge.category == d.category)
+                .where(DismissedMerge.desc_a == desc_a)
+                .where(DismissedMerge.desc_b == desc_b)
+            ).first()
+            if not existing:
+                session.add(DismissedMerge(
+                    category=d.category,
+                    desc_a=desc_a,
+                    desc_b=desc_b,
+                    dismissed_by=current_user,
+                ))
+                added += 1
+    session.commit()
+    audit_logger.log("DISMISS_MERGE", current_user, {
+        "dismissals": [d.model_dump() for d in payload.dismissals],
+        "added": added,
+    })
+    return {"dismissed": added}
+
+
+@router.get("/dismissed-merges")
+def list_dismissed_merges(
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
+    """List all permanently dismissed merge suggestions."""
+    rows = session.exec(
+        select(DismissedMerge).order_by(DismissedMerge.category)
+    ).all()
+    # Group by category for frontend consumption
+    by_cat: dict[str, list[dict]] = {}
+    for r in rows:
+        by_cat.setdefault(r.category, []).append({
+            "id": r.id,
+            "desc_a": r.desc_a,
+            "desc_b": r.desc_b,
+        })
+    return [{"category": cat, "pairs": pairs} for cat, pairs in by_cat.items()]
+
+
+class UndismissPayload(BaseModel):
+    ids: list[int]
+
+
+@router.post("/undismiss-merge")
+def undismiss_merge(
+    payload: UndismissPayload,
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
+    """Undo a dismissed merge suggestion so it appears again."""
+    removed = 0
+    for dismiss_id in payload.ids:
+        row = session.get(DismissedMerge, dismiss_id)
+        if row:
+            session.delete(row)
+            removed += 1
+    session.commit()
+    audit_logger.log("UNDISMISS_MERGE", current_user, {
+        "ids": payload.ids,
+        "removed": removed,
+    })
+    return {"undismissed": removed}
 
 
 @router.get("/balance")
