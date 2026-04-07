@@ -110,6 +110,7 @@ def _clean_db():
         s.execute(text("DELETE FROM expense"))
         s.execute(text("DELETE FROM income"))
         s.execute(text("DELETE FROM settings"))
+        s.execute(text("DELETE FROM dismissedmerge"))
         s.commit()
 
 

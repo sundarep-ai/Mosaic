@@ -87,6 +87,32 @@ export async function mergeDescriptions(merges) {
   return res.json();
 }
 
+export async function dismissMergeSuggestions(dismissals) {
+  const res = await fetchWithAuth(`${API_BASE}/dismiss-merge`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dismissals }),
+  });
+  if (!res.ok) throw new Error("Failed to dismiss merge suggestions");
+  return res.json();
+}
+
+export async function getDismissedMerges() {
+  const res = await fetchWithAuth(`${API_BASE}/dismissed-merges`);
+  if (!res.ok) throw new Error("Failed to fetch dismissed merges");
+  return res.json();
+}
+
+export async function undismissMerges(ids) {
+  const res = await fetchWithAuth(`${API_BASE}/undismiss-merge`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) throw new Error("Failed to undismiss merges");
+  return res.json();
+}
+
 export async function getInsights() {
   const res = await fetchWithAuth(`${API_BASE}/insights`);
   if (!res.ok) throw new Error("Failed to fetch insights");

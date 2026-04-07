@@ -89,6 +89,23 @@ class Income(IncomeBase, table=True):
     user_id: str = Field(index=True)
 
 
+class DismissedMerge(SQLModel, table=True):
+    """Permanently dismissed merge suggestions — stored as (category, desc_a, desc_b) pairs."""
+    __table_args__ = (
+        Index("ix_dismissed_merge_lookup", "category", "desc_a", "desc_b", unique=True),
+    )
+    id: Optional[int] = Field(default=None, primary_key=True)
+    category: str = Field(max_length=100)
+    desc_a: str = Field(max_length=500)  # alphabetically smaller
+    desc_b: str = Field(max_length=500)  # alphabetically larger
+    dismissed_by: str = Field(max_length=100)
+
+    @staticmethod
+    def make_pair(d1: str, d2: str) -> tuple[str, str]:
+        """Return descriptions in canonical alphabetical order."""
+        return (d1, d2) if d1 <= d2 else (d2, d1)
+
+
 class IncomeCreate(IncomeBase):
     pass
 

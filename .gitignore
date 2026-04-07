@@ -38,10 +38,10 @@ backend/data/
 
 # Claude
 .claude/
+claude.md
 
 # Excel
 *.xlsx
 
 #reports
 code-review-reports
-
