@@ -47,13 +47,26 @@ Reimbursements (stored as negative amounts) reduce your net expense on Home and 
 | **Home** | Mode-aware overview with "Your Expense This Month" — your personal portion of all spending. **Solo** shows your total; **Shared** / **Hybrid** add a balance card and settle button alongside your expense card. When Income Tracking is enabled, a third tile shows "Income This Month" and the Spend by Category section moves below. All modes show this month's spend by category and recent activity. |
 | **Add Expense** | Log an expense with date, description, category, amount, payer, and split method. In Solo mode, the "Who Paid" and "Split Method" fields are hidden (defaults to the single user and "Personal"). Supports custom categories via "+ New Category". Fuzzy matching suggests existing descriptions and auto-suggests categories — all client-side. |
 | **Add Income** | Log income received at `/add-income`. Fields: date, amount, source (Salary / Wages, Freelance / Side Income, Other), optional notes. Available only when Income Tracking is enabled in Settings. |
-| **Settings** | Choose your app mode (Solo / Shared / Personal + Shared), upload a profile picture, set your preferred date format, and optionally enable Income Tracking (Solo and Hybrid modes only). Accessible via the gear icon in the top bar. |
+| **Settings** | Choose your app mode (Solo / Shared / Personal + Shared), upload a profile picture, set your preferred date format, enable Income Tracking (Solo and Hybrid modes only), toggle Stay Signed In, change your password, and delete your account. |
 | **Edit Expense** | Full-page edit form at `/edit/:id` — reuses the Add Expense form with all fields pre-filled |
 | **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses. Filter presets: 1M, 3M, 6M, YTD, 1Y, All — plus custom date range. **Solo** shows your total expense; **Shared** / **Hybrid** show total shared spend, your share, and total spend. Payer breakdown hidden in Solo; Personal vs Shared chart shown in Hybrid. When Income Tracking is enabled, a **Sankey chart** appears at the top showing income sources → expense categories → Savings (if income exceeds expenses). |
 | **Calendar** | Month-view calendar showing your daily expense portion with logarithmic heat-map shading (prevents a single outlier like rent from washing out all other days). Navigate months with chevron arrows or jump to any month/year via a dropdown picker. Displays your monthly expense at the top alongside total shared spend (in Shared/Hybrid modes). Day cells show only your portion. Click any day to drill down into that day's expenses on the History page. Payment and Reimbursement categories are excluded from calendar totals. When Income Tracking is enabled, days with income show a green `+` badge and the income amount alongside the expense amount. |
 | **Smart Insights** | User-portion-aware spending analysis — all monetary values reflect **your expense** (your share based on split method), not raw totals. Detects recurring payments (weekly/monthly/quarterly/annual) with change alerts, highlights category trend spikes, flags statistical anomalies, projects next-month spending via weighted moving average, and ranks fastest-growing categories. **Weekend vs Weekday** shows side-by-side panels comparing your expense and shared expense patterns. In non-Solo modes, shared (full) amounts are shown as secondary info alongside your portion. When **Income Tracking** is enabled (Solo/Hybrid), an additional section shows savings rate, income vs expenses trend, and income breakdown by source. All computed server-side. |
 | **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. In Solo mode, the "Paid By" column and filter are hidden. In Hybrid mode, an extra "Type" filter lets you toggle between All, Personal, and Shared expenses. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics") — with Accept, Reject, and Review Later actions per suggestion, a Custom Merge tab for manual merges, and a Dismissed tab to restore accidentally rejected pairs. |
 | **Export** | Download the current filtered view as an `.xlsx` file |
+
+### Account Management
+
+User accounts are stored in the SQLite database (no hardcoded config files). The app supports up to 2 accounts.
+
+| Feature | Description |
+|---|---|
+| **Create Account** | Available from the login page when fewer than 2 accounts exist. Collects display name, username, password, and a security question + answer. |
+| **Forgot Password** | Security question-based password reset accessible from the login page. Enter your username, answer your security question, then set a new password. |
+| **Change Password** | Available in Settings under the Security section. Requires your current password. |
+| **Stay Signed In** | Per-user toggle in Settings. When enabled, your session lasts 1 year instead of 8 hours. Convenient for locally hosted apps. |
+| **Delete Account** | In Settings under the Danger Zone. Requires your password. Choose to delete all your data or anonymize it (expenses show as "Deleted User"). |
+| **CLI Password Reset** | Last-resort recovery when you can't answer your security question. Run `python cli_reset_password.py` on the host machine — requires physical/SSH access. |
 
 ### Income Tracking
 
@@ -142,11 +155,14 @@ The database runs in WAL (Write-Ahead Logging) mode for crash recovery, and an i
 
 ### Security
 
-- **Passwords** are stored as bcrypt hashes in `backend/.env` — plaintext passwords are never stored
+- **Passwords** are stored as bcrypt hashes in the database — plaintext passwords are never stored
+- **Security answers** are normalized (lowercased, trimmed) and bcrypt-hashed before storage
 - **Session cookies** are HMAC-SHA256 signed with a required `SECRET_KEY` — the app refuses to start without one
 - **Avatar uploads** are validated with magic byte checks and path traversal protection
 - **Solo mode** blocks login for the second user at the auth layer — not just hidden in UI
 - **Search queries** escape SQL LIKE wildcards to prevent injection
+- **Account creation** is capped at 2 users — enforced server-side with uniqueness constraints
+- **Account deletion** requires password confirmation before proceeding
 
 ---
 
@@ -171,45 +187,22 @@ git clone <your-repo-url>
 cd MosaicTally
 ```
 
-### 2. Configure users
+### 2. Configure the backend
 
-Copy the example config and edit it with your own names:
+Copy the example config:
 
 ```bash
 cd backend
 cp config.example.py config.py
 ```
 
-Edit **`backend/config.py`** — the frontend fetches names automatically from the backend at runtime:
-
-```python
-# Display names shown in the UI
-USER_A = "Alice"
-USER_B = "Bob"
-
-# Login usernames (used for authentication)
-USER_A_LOGIN = "alice"
-USER_B_LOGIN = "bob"
-```
-
-> **Note:** `config.py` is gitignored. Use `config.example.py` as your starting template.
-
-Then create **`backend/.env`** for passwords and the session secret (see `.env.example`):
+Create **`backend/.env`** with your session secret:
 
 ```env
-USER_A_PASSWORD=<bcrypt hash>
-USER_B_PASSWORD=<bcrypt hash>
 SECRET_KEY=<long random string>
 
 # Optional: set to a OneDrive/cloud folder for cloud-synced backups
 # BACKUP_PATH=C:/Users/yourname/OneDrive/MosaicTally-Backups
-```
-
-**Passwords must be bcrypt hashes**, not plaintext. Generate them after installing dependencies (step 3):
-
-```bash
-cd backend
-python -c "from auth import hash_password; print(hash_password('your-password'))"
 ```
 
 **SECRET_KEY** is required — the app will refuse to start without one. Generate a strong key:
@@ -217,6 +210,8 @@ python -c "from auth import hash_password; print(hash_password('your-password'))
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
+
+> **Note:** User accounts are no longer configured in files. Create accounts through the web UI after starting the app.
 
 ### 3. Start the backend
 
@@ -245,7 +240,7 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:5173** in your browser.
+Open **http://localhost:5173** in your browser. On first visit you'll see the login page with a "Create Account" link — create up to 2 accounts through the web UI.
 
 ### 5. (Optional) Import existing data
 
@@ -266,8 +261,8 @@ The script auto-detects columns by header keywords and supports multiple date fo
 | Description | Weekly groceries |
 | Amount | 45.50 |
 | Category | Groceries, Rent, Utilities, Dining, etc. |
-| Paid By | Must match `USER_A` / `USER_B` display names in `backend/config.py` |
-| Split Method | 50/50, 100% \<User A name\>, 100% \<User B name\>, Personal |
+| Paid By | Must match a registered user's display name |
+| Split Method | 50/50, 100% \<Display Name\>, Personal |
 
 If you have income history in an `.xlsx` file (Solo / Hybrid mode only):
 
@@ -283,57 +278,85 @@ python migrate_income_xlsx.py path/to/income.xlsx
 | Date | Yes | 2026-01-15 |
 | Amount | Yes | 3500.00 |
 | Source | Yes | Salary / Wages, Freelance / Side Income, Other |
-| User ID | Yes | Must match the login username in `backend/config.py` (e.g. `alice`) |
+| User ID | Yes | Must match a registered user's login username |
 | Notes | No | Year-end bonus |
 
 Rows with unrecognised sources, non-positive amounts, or unparseable dates are skipped with a warning — the rest are still imported.
+
+### 6. (Optional) CLI password reset
+
+If a user forgets their password and cannot answer their security question, reset it from the command line:
+
+```bash
+cd backend
+python cli_reset_password.py
+```
+
+This requires direct access to the host machine (physical or SSH).
 
 ## API Reference
 
 All endpoints are prefixed with `/api`.
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/expenses` | List expenses (query: `search`, `paid_by`, `category`, `limit`, `sort`) |
-| `POST` | `/expenses` | Create a new expense |
-| `GET` | `/expenses/{id}` | Get a single expense |
-| `PUT` | `/expenses/{id}` | Update an expense |
-| `DELETE` | `/expenses/{id}` | Delete an expense |
-| `GET` | `/suggest-category` | Auto-suggest a category from history (query: `description`) |
-| `GET` | `/unique-descriptions` | All unique (description, category, count) tuples for client-side fuzzy matching |
-| `GET` | `/similar-descriptions` | Embedding-based similarity clusters grouped by category, excluding dismissed pairs (query: `threshold`) |
-| `POST` | `/merge-descriptions` | Merge variant descriptions into a canonical form within a category |
-| `GET` | `/balance` | Current balance between the two configured users |
-| `GET` | `/monthly-summary` | Category totals for the current month |
-| `GET` | `/analytics` | Aggregated analytics including `my_share` (query: `start_date`, `end_date`) |
-| `GET` | `/insights` | Smart insights: user-portion-aware recurring payments, trend alerts, anomalies, forecast, weekend vs weekday (dual view), top growing categories, income insights (Solo/Hybrid) |
-| `GET` | `/personal-summary` | Current user's personal spend for this month (Hybrid mode) |
-| `GET` | `/my-expense-summary` | Current user's total expense portion and total shared spend for this month |
-| `GET` | `/settings` | Current app mode |
-| `PUT` | `/settings` | Update app mode (`solo`, `duo`, `hybrid`) |
-| `GET` | `/user-preferences` | Current user's preferences (date format) |
-| `PUT` | `/user-preferences` | Update user preferences (`date_format`: `DD/MM/YYYY`, `MM/DD/YYYY`, `YYYY/MM/DD`, `YYYY/DD/MM`) |
-| `POST` | `/dismiss-merge` | Permanently dismiss a merge suggestion pair (body: `category`, `desc_a`, `desc_b`) |
-| `GET` | `/dismissed-merges` | List all dismissed merge pairs grouped by category |
-| `POST` | `/undismiss-merge` | Restore a dismissed merge pair by ID |
-| `GET` | `/export` | Download filtered expenses as `.xlsx` (query: `search`, `paid_by`, `category`) |
-| `GET` | `/income` | List income entries for the current user (query: `start_date`, `end_date`) — Solo/Hybrid only |
-| `POST` | `/income` | Create an income entry (`date`, `amount`, `source`, optional `notes`) — Solo/Hybrid only |
-| `PUT` | `/income/{id}` | Update an income entry — owner only |
-| `DELETE` | `/income/{id}` | Delete an income entry — owner only |
-| `GET` | `/income/monthly-summary` | Total income and source breakdown for the current month — Solo/Hybrid only |
-| `POST` | `/income/sankey` | Income + expense breakdown shaped for a Sankey chart (body: `start_date`, `end_date`) — Solo/Hybrid only |
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/auth/register` | Public | Create a new account (max 2) |
+| `GET` | `/auth/account-status` | Public | Check how many accounts exist |
+| `GET` | `/auth/security-questions` | Public | List preset security questions |
+| `POST` | `/auth/login` | Public | Log in with username/password |
+| `POST` | `/auth/logout` | Auth | Log out (clear session cookie) |
+| `GET` | `/auth/me` | Auth | Get current user info |
+| `POST` | `/auth/forgot-password/question` | Public | Get security question for a username |
+| `POST` | `/auth/forgot-password/reset` | Public | Reset password with security answer |
+| `PUT` | `/auth/change-password` | Auth | Change password (requires current password) |
+| `PUT` | `/auth/stay-signed-in` | Auth | Toggle stay-signed-in preference |
+| `DELETE` | `/auth/account` | Auth | Delete account (with data action choice) |
+| `POST` | `/auth/avatar` | Auth | Upload profile picture |
+| `GET` | `/auth/avatar/{username}` | Auth | Get profile picture |
+| `GET` | `/expenses` | Auth | List expenses (query: `search`, `paid_by`, `category`, `limit`, `sort`) |
+| `POST` | `/expenses` | Auth | Create a new expense |
+| `GET` | `/expenses/{id}` | Auth | Get a single expense |
+| `PUT` | `/expenses/{id}` | Auth | Update an expense |
+| `DELETE` | `/expenses/{id}` | Auth | Delete an expense |
+| `GET` | `/suggest-category` | Auth | Auto-suggest a category from history (query: `description`) |
+| `GET` | `/unique-descriptions` | Auth | All unique (description, category, count) tuples for client-side fuzzy matching |
+| `GET` | `/similar-descriptions` | Auth | Embedding-based similarity clusters grouped by category, excluding dismissed pairs (query: `threshold`) |
+| `POST` | `/merge-descriptions` | Auth | Merge variant descriptions into a canonical form within a category |
+| `GET` | `/balance` | Auth | Current balance between the two users |
+| `GET` | `/monthly-summary` | Auth | Category totals for the current month |
+| `GET` | `/analytics` | Auth | Aggregated analytics including `my_share` (query: `start_date`, `end_date`) |
+| `GET` | `/insights` | Auth | Smart insights: user-portion-aware recurring payments, trend alerts, anomalies, forecast, weekend vs weekday (dual view), top growing categories, income insights (Solo/Hybrid) |
+| `GET` | `/personal-summary` | Auth | Current user's personal spend for this month (Hybrid mode) |
+| `GET` | `/my-expense-summary` | Auth | Current user's total expense portion and total shared spend for this month |
+| `GET` | `/config` | Public | Display names and app mode |
+| `GET` | `/settings` | Public | Current app mode |
+| `PUT` | `/settings` | Auth | Update app mode (`solo`, `duo`, `hybrid`) |
+| `GET` | `/user-preferences` | Auth | Current user's preferences (date format) |
+| `PUT` | `/user-preferences` | Auth | Update user preferences |
+| `POST` | `/dismiss-merge` | Auth | Permanently dismiss a merge suggestion pair |
+| `GET` | `/dismissed-merges` | Auth | List all dismissed merge pairs grouped by category |
+| `POST` | `/undismiss-merge` | Auth | Restore a dismissed merge pair by ID |
+| `GET` | `/export` | Auth | Download filtered expenses as `.xlsx` |
+| `GET` | `/income` | Auth | List income entries (Solo/Hybrid only) |
+| `POST` | `/income` | Auth | Create an income entry (Solo/Hybrid only) |
+| `PUT` | `/income/{id}` | Auth | Update an income entry — owner only |
+| `DELETE` | `/income/{id}` | Auth | Delete an income entry — owner only |
+| `GET` | `/income/monthly-summary` | Auth | Total income and source breakdown for the current month |
+| `POST` | `/income/sankey` | Auth | Income + expense breakdown for Sankey chart |
 
 ## Project Structure
 
 ```
 backend/
-  config.example.py      # Template — copy to config.py and edit with your names
+  config.example.py      # Template — copy to config.py
   config.py              # Your local config (gitignored)
-  .env                   # Passwords & session secret (not committed — see .env.example)
+  .env                   # Session secret & backup path (not committed)
   main.py                # FastAPI app & CORS config
   database.py            # SQLite engine (WAL mode), session provider, integrity check
-  models.py              # Expense, Income, Settings, UserPreference & DismissedMerge tables, Pydantic schemas
+  models.py              # User, Expense, Income, Settings, UserPreference & DismissedMerge tables
+  users.py               # Dynamic user resolution (replaces hardcoded config constants)
+  auth.py                # Authentication, registration, password reset, account management
+  cli_reset_password.py  # CLI tool for last-resort password reset
   migrate_xlsx.py        # Bulk import expenses from .xlsx
   migrate_income_xlsx.py # Bulk import income from .xlsx (Solo/Hybrid only)
   requirements.txt       # Python dependencies
@@ -342,15 +365,11 @@ backend/
     backup.py            # Startup backup manager (SQLite online backup API)
     clustering.py        # Shared embedding model & cosine-similarity clustering
   routes/
-    expenses.py          # CRUD, balance, monthly summary, description similarity & merge, dismiss/undismiss
+    expenses.py          # CRUD, balance, monthly summary, description similarity & merge
     analytics.py         # Date-filtered analytics aggregation
     income.py            # Income CRUD, monthly summary, Sankey data (Solo/Hybrid only)
-    insights.py          # Smart insights: user-portion-aware recurring detection, trends, anomalies, forecast, income insights
+    insights.py          # Smart insights: recurring detection, trends, anomalies, forecast
     export.py            # .xlsx file generation & download
-  data/                  # Generated at runtime (gitignored)
-    audit/
-      audit.jsonl        # Permanent append-only audit log of all mutations
-    backups/             # Timestamped DB + audit log snapshots (or see BACKUP_PATH)
 
 frontend/
   package.json           # Node dependencies & scripts
@@ -360,35 +379,40 @@ frontend/
   src/
     config.js            # API base URL & app name (user names fetched from backend)
     main.jsx             # React root & router setup
-    App.jsx              # Route definitions & layout shell (includes /edit/:id, /settings)
+    App.jsx              # Route definitions & layout shell
     ConfigContext.jsx     # User names, app mode, and setMode — fetched from backend
-    CurrencyContext.jsx  # Currency selection context with localStorage persistence
+    CurrencyContext.jsx   # Currency selection context with localStorage persistence
     DateFormatContext.jsx # Per-user date format context with backend persistence
     ErrorBoundary.jsx    # Catches render errors to prevent white-screen crashes
     index.css            # Tailwind directives
+    auth/
+      AuthContext.jsx    # Authentication state, login/logout, 401 handling
     api/
-      fetchWithAuth.js   # Centralized fetch wrapper with automatic 401 → logout handling
+      fetchWithAuth.js   # Centralized fetch wrapper with automatic 401 → logout
       expenses.js        # Fetch helpers for all expense endpoints
       income.js          # Fetch helpers for income endpoints
     constants/
       categories.js      # Shared category list, icons, and color mappings
       incomeSources.js   # Income source constants
     hooks/
-      useDescriptionSuggestions.js  # Fuse.js-powered fuzzy matching for descriptions & categories
+      useDescriptionSuggestions.js  # Fuse.js-powered fuzzy matching
       useIncomeMode.js   # localStorage-backed opt-in state for income tracking
     components/
       Navbar.jsx                   # Sticky navigation bar
-      DateInput.jsx                # Format-aware date text input (replaces native date picker)
-      MergeDescriptionsModal.jsx   # Bulk description merge review UI (Suggestions/Custom/Dismissed tabs)
+      DateInput.jsx                # Format-aware date text input
+      MergeDescriptionsModal.jsx   # Bulk description merge review UI
     pages/
       Landing.jsx        # Dashboard page
-      AddExpense.jsx     # New/edit expense form (also handles /edit/:id)
-      AddIncome.jsx      # Log income form at /add-income (Solo/Hybrid only)
-      Analytics.jsx      # Charts & analytics dashboard (includes Sankey when income enabled)
-      Calendar.jsx       # Month-view calendar with daily spend totals and month/year picker
-      Insights.jsx       # Smart Insights: recurring payments, trends, anomalies, forecast
-      Settings.jsx       # App mode selector, profile picture upload, date format picker, income tracking toggle
-      History.jsx        # Expense table with delete/export, edit navigates to /edit/:id
+      Login.jsx          # Login page with Create Account and Forgot Password links
+      CreateAccount.jsx  # Account registration with security question
+      ForgotPassword.jsx # Security question-based password reset
+      AddExpense.jsx     # New/edit expense form
+      AddIncome.jsx      # Log income form (Solo/Hybrid only)
+      Analytics.jsx      # Charts & analytics dashboard
+      Calendar.jsx       # Month-view calendar with daily spend totals
+      Insights.jsx       # Smart Insights page
+      Settings.jsx       # App mode, profile picture, date format, stay signed in, change password, delete account
+      History.jsx        # Expense table with delete/export and Clean Up
 ```
 
 ## License

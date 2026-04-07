@@ -1,11 +1,25 @@
 from decimal import Decimal
+from datetime import date, datetime, timezone
+from typing import Optional
 
 import sqlalchemy
 from sqlalchemy import Index, CheckConstraint
 from pydantic import field_serializer, field_validator
 from sqlmodel import SQLModel, Field, Column
-from datetime import date
-from typing import Optional
+
+
+class User(SQLModel, table=True):
+    """Registered user account."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(max_length=50, unique=True, index=True)
+    display_name: str = Field(max_length=100, unique=True, index=True)
+    password_hash: str = Field(max_length=200)
+    security_question: str = Field(max_length=300)
+    security_answer_hash: str = Field(max_length=200)
+    stay_signed_in: bool = Field(default=False)
+    created_at: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
 
 class ExpenseBase(SQLModel):

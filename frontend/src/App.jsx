@@ -9,6 +9,8 @@ import AddExpense from "./pages/AddExpense";
 import AddIncome from "./pages/AddIncome";
 import History from "./pages/History";
 import Login from "./pages/Login";
+import CreateAccount from "./pages/CreateAccount";
+import ForgotPassword from "./pages/ForgotPassword";
 import Settings from "./pages/Settings";
 
 const Analytics = lazy(() => import("./pages/Analytics"));
@@ -27,7 +29,13 @@ export default function App() {
   }
 
   if (!user?.username) {
-    return <Login />;
+    return (
+      <Routes>
+        <Route path="/create-account" element={<CreateAccount />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="*" element={<Login />} />
+      </Routes>
+    );
   }
 
   return (

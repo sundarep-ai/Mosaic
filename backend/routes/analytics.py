@@ -148,7 +148,7 @@ def get_analytics(
     ]
 
     # User's share (exclude Payment only — Reimbursements reduce net share)
-    me, other = _resolve_names(current_user)
+    me, other = _resolve_names(current_user, session)
     my_share_result = session.exec(
         _date_filters(
             select(func.coalesce(func.sum(_my_portion_expr(me, other)), 0)),

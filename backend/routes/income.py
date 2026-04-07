@@ -184,7 +184,7 @@ def get_income_sankey(
 
     # --- Expense side: current user's share, excluding Payment + Reimbursement ---
     from routes.expenses import _resolve_names, _my_portion_expr
-    me, other = _resolve_names(current_user)
+    me, other = _resolve_names(current_user, session)
     portion_expr = _my_portion_expr(me, other)
 
     expense_stmt = (
