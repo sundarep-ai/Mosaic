@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from auth import get_current_user
-from config import USER_A, USER_B, BACKUP_PATH, VALID_MODES, get_app_mode
+from config import BACKUP_PATH, VALID_MODES, get_app_mode
+from users import get_display_names
 from database import create_db_and_tables, check_db_integrity, ensure_indexes, DB_PATH, get_session
 from routes import expenses, analytics, export, insights, income
 from auth import router as auth_router
@@ -64,7 +65,8 @@ app.include_router(income.router, prefix="/api")
 def get_app_config(session: Session = Depends(get_session)):
     """Public endpoint returning display names and app mode."""
     mode = get_app_mode(session)
-    return {"userA": USER_A, "userB": USER_B, "mode": mode}
+    a, b = get_display_names(session)
+    return {"userA": a, "userB": b, "mode": mode}
 
 
 @app.get("/api/settings")

@@ -698,7 +698,7 @@ def get_insights(
     All monetary amounts reflect the current user's portion of each expense.
     """
     mode = get_app_mode(session)
-    me, other = _resolve_names(current_user)
+    me, other = _resolve_names(current_user, session)
     expenses = _fetch_all_expenses(session)
 
     # A: Recurring payment detection

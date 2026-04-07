@@ -8,10 +8,10 @@ from sqlalchemy import case, func, or_
 from sqlmodel import Session, select
 
 from auth import get_current_user
-from config import USER_A, USER_B
 from database import get_session
 from models import Expense, ExpenseBase, ExpenseCreate, ExpenseUpdate, DismissedMerge
 from services.audit import audit_logger, expense_to_dict
+from users import resolve_names, get_display_names
 
 from services.clustering import get_embedding_model, cluster_descriptions
 from utils import escape_like
@@ -28,12 +28,9 @@ VALID_CATEGORIES = {
 }
 
 
-def _resolve_names(current_user: str) -> tuple:
+def _resolve_names(current_user: str, session: Session) -> tuple:
     """Return (my_display_name, other_display_name) for the logged-in user."""
-    from auth import LOGIN_TO_DISPLAY
-    me = LOGIN_TO_DISPLAY.get(current_user, current_user)
-    other = USER_B if me == USER_A else USER_A
-    return me, other
+    return resolve_names(session, current_user)
 
 
 def _my_portion_expr(me: str, other: str):
@@ -58,9 +55,10 @@ def _get_valid_sets(session: Session):
     """Return (valid_paid_by, valid_split_methods) based on current app mode."""
     from config import get_app_mode
     mode = get_app_mode(session)
+    a, b = get_display_names(session)
     if mode == "solo":
-        return {USER_A}, {"Personal"}
-    return {USER_A, USER_B}, {"50/50", f"100% {USER_A}", f"100% {USER_B}", "Personal"}
+        return {a}, {"Personal"}
+    return {a, b}, {"50/50", f"100% {a}", f"100% {b}", "Personal"}
 
 
 def _validate_expense(data: ExpenseBase, session: Session) -> None:
@@ -480,26 +478,28 @@ def get_balance(
     if get_app_mode(session) == "solo":
         return {"amount": 0, "description": "Solo mode"}
 
+    a, b = get_display_names(session)
+
     balance_expr = func.coalesce(
         func.sum(
             case(
                 # 50/50: A paid -> B owes half (negative), B paid -> A owes half (positive)
                 (
-                    (Expense.split_method == "50/50") & (Expense.paid_by == USER_A),
+                    (Expense.split_method == "50/50") & (Expense.paid_by == a),
                     -Expense.amount / 2,
                 ),
                 (
-                    (Expense.split_method == "50/50") & (Expense.paid_by == USER_B),
+                    (Expense.split_method == "50/50") & (Expense.paid_by == b),
                     Expense.amount / 2,
                 ),
                 # 100% A: B paid A's share -> A owes B
                 (
-                    (Expense.split_method == f"100% {USER_A}") & (Expense.paid_by == USER_B),
+                    (Expense.split_method == f"100% {a}") & (Expense.paid_by == b),
                     Expense.amount,
                 ),
                 # 100% B: A paid B's share -> B owes A
                 (
-                    (Expense.split_method == f"100% {USER_B}") & (Expense.paid_by == USER_A),
+                    (Expense.split_method == f"100% {b}") & (Expense.paid_by == a),
                     -Expense.amount,
                 ),
                 else_=0,
@@ -516,9 +516,9 @@ def get_balance(
     if abs(balance) < Decimal("0.01"):
         description = "All settled up!"
     elif balance > 0:
-        description = f"{USER_A} owes {USER_B} ${abs(balance):.2f}"
+        description = f"{a} owes {b} ${abs(balance):.2f}"
     else:
-        description = f"{USER_B} owes {USER_A} ${abs(balance):.2f}"
+        description = f"{b} owes {a} ${abs(balance):.2f}"
 
     return {"amount": float(round(balance, 2)), "description": description}
 
@@ -553,8 +553,8 @@ def get_personal_summary(
     current_user: str = Depends(get_current_user),
 ):
     """Return total personal spend this month for the current user."""
-    from auth import LOGIN_TO_DISPLAY
-    display_name = LOGIN_TO_DISPLAY.get(current_user, current_user)
+    me, _ = _resolve_names(current_user, session)
+    display_name = me
     today = date.today()
     first_of_month = today.replace(day=1)
 
@@ -584,7 +584,7 @@ def get_my_expense_summary(
 
     today = date.today()
     first_of_month = today.replace(day=1)
-    me, other = _resolve_names(current_user)
+    me, other = _resolve_names(current_user, session)
 
     base_filters = (
         select(func.coalesce(func.sum(_my_portion_expr(me, other)), 0))

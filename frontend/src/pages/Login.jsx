@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { API_BASE } from "../config";
 import config from "../config";
 
 export default function Login() {
@@ -8,6 +10,14 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/auth/account-status`)
+      .then((r) => r.json())
+      .then((data) => setRegistrationOpen(data.registration_open ?? false))
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -55,7 +65,7 @@ export default function Login() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your name"
+                  placeholder="Enter your username"
                   className="bg-transparent border-none focus:ring-0 focus:outline-none w-full font-medium text-on-surface"
                   autoFocus
                   required
@@ -91,6 +101,23 @@ export default function Login() {
               {submitting ? "Signing in..." : "Sign In"}
             </button>
           </form>
+
+          <div className="flex flex-col items-center gap-3 mt-6">
+            <Link
+              to="/forgot-password"
+              className="text-primary font-bold text-sm hover:underline"
+            >
+              Forgot Password?
+            </Link>
+            {registrationOpen && (
+              <Link
+                to="/create-account"
+                className="text-primary font-bold text-sm hover:underline"
+              >
+                Create Account
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@
 MosaicTally backend test configuration.
 
 Bootstraps a mock config module and in-memory SQLite database
-so tests run without config.py or .env files.
+so tests run without .env files. Users are seeded in the DB.
 
 Additional test dependencies (beyond requirements.txt):
     pip install pytest httpx
@@ -23,6 +23,7 @@ import pytest
 _backend_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_backend_dir))
 
+# Test user credentials (will be seeded into User table)
 USER_A = "Alice"
 USER_B = "Bob"
 USER_A_LOGIN = "alice"
@@ -30,17 +31,14 @@ USER_B_LOGIN = "bob"
 PASSWORD_A = "testpass_a"
 PASSWORD_B = "testpass_b"
 SECRET_KEY = "test-secret-key-for-unit-tests-only"
+SECURITY_QUESTION = "What is your favorite color?"
+SECURITY_ANSWER = "blue"
 
 _hash_a = bcrypt.hashpw(PASSWORD_A.encode(), bcrypt.gensalt()).decode()
 _hash_b = bcrypt.hashpw(PASSWORD_B.encode(), bcrypt.gensalt()).decode()
+_answer_hash = bcrypt.hashpw(SECURITY_ANSWER.encode(), bcrypt.gensalt()).decode()
 
 _config = types.ModuleType("config")
-_config.USER_A = USER_A
-_config.USER_B = USER_B
-_config.USER_A_LOGIN = USER_A_LOGIN
-_config.USER_B_LOGIN = USER_B_LOGIN
-_config.USER_A_PASSWORD = _hash_a
-_config.USER_B_PASSWORD = _hash_b
 _config.SECRET_KEY = SECRET_KEY
 _config.BACKUP_PATH = ""
 _config.VALID_MODES = {"solo", "duo", "hybrid"}
@@ -58,8 +56,6 @@ _config.get_app_mode = _get_app_mode
 sys.modules["config"] = _config
 
 os.environ["SECRET_KEY"] = SECRET_KEY
-os.environ["USER_A_PASSWORD"] = _hash_a
-os.environ["USER_B_PASSWORD"] = _hash_b
 
 # ── 2. Now safe to import app modules ───────────────────────────────
 from sqlalchemy import text
@@ -69,7 +65,7 @@ from fastapi.testclient import TestClient
 
 import database
 from main import app
-from models import Expense
+from models import Expense, User
 from services.audit import AuditLogger
 
 # ── 3. In-memory test database (shared via StaticPool) ──────────────
@@ -103,15 +99,38 @@ app.router.lifespan_context = _test_lifespan
 # ── 5. Fixtures ─────────────────────────────────────────────────────
 @pytest.fixture(autouse=True)
 def _clean_db():
-    """Ensure tables exist before each test, clear data after."""
+    """Ensure tables exist before each test, seed users, clear data after."""
     SQLModel.metadata.create_all(_test_engine)
+
+    # Seed test users into the User table
+    with Session(_test_engine) as s:
+        # Clear existing users first (in case previous test left some)
+        s.execute(text("DELETE FROM user"))
+        s.add(User(
+            username=USER_A_LOGIN,
+            display_name=USER_A,
+            password_hash=_hash_a,
+            security_question=SECURITY_QUESTION,
+            security_answer_hash=_answer_hash,
+        ))
+        s.add(User(
+            username=USER_B_LOGIN,
+            display_name=USER_B,
+            password_hash=_hash_b,
+            security_question=SECURITY_QUESTION,
+            security_answer_hash=_answer_hash,
+        ))
+        s.commit()
+
     yield
+
     with Session(_test_engine) as s:
         s.execute(text("DELETE FROM expense"))
         s.execute(text("DELETE FROM income"))
         s.execute(text("DELETE FROM settings"))
         s.execute(text("DELETE FROM dismissedmerge"))
         s.execute(text("DELETE FROM userpreference"))
+        s.execute(text("DELETE FROM user"))
         s.commit()
 
 
