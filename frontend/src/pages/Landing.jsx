@@ -5,6 +5,7 @@ import { getMonthlyIncomeSummary } from "../api/income";
 import { CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
 import { useCurrency } from "../CurrencyContext";
+import { useDateFormat } from "../DateFormatContext";
 import { useAuth } from "../auth/AuthContext";
 import { useIncomeMode } from "../hooks/useIncomeMode";
 import Avatar from "../components/Avatar";
@@ -17,6 +18,7 @@ export default function Landing() {
   const isSolo = mode === "solo";
   const isHybrid = mode === "hybrid";
   const { fmt } = useCurrency();
+  const { formatDate } = useDateFormat();
   const { incomeEnabled } = useIncomeMode();
   const [balance, setBalance] = useState(null);
   const [monthlySummary, setMonthlySummary] = useState([]);
@@ -351,7 +353,7 @@ export default function Landing() {
                       )}
                       <td className="py-5">
                         <span className="text-sm text-on-surface-variant font-medium">
-                          {expense.date}
+                          {formatDate(expense.date)}
                         </span>
                       </td>
                       <td className="py-5 text-right">

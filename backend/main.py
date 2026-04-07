@@ -95,3 +95,45 @@ def update_settings(
     session.add(row)
     session.commit()
     return {"app_mode": new_mode}
+
+
+# ── User Preferences (per-user) ──────────────────────────────────────
+
+@app.get("/api/user-preferences")
+def get_user_preferences(
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
+    from models import UserPreference
+    from sqlmodel import select
+    row = session.exec(select(UserPreference).where(UserPreference.username == current_user)).first()
+    if row:
+        return {"date_format": row.date_format}
+    return {"date_format": "DD/MM/YYYY"}
+
+
+class UserPreferencesUpdate(BaseModel):
+    date_format: str
+
+
+@app.put("/api/user-preferences")
+def update_user_preferences(
+    payload: UserPreferencesUpdate,
+    session: Session = Depends(get_session),
+    current_user: str = Depends(get_current_user),
+):
+    from models import UserPreference, VALID_DATE_FORMATS
+    from sqlmodel import select
+    if payload.date_format not in VALID_DATE_FORMATS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"date_format must be one of: {', '.join(sorted(VALID_DATE_FORMATS))}",
+        )
+    row = session.exec(select(UserPreference).where(UserPreference.username == current_user)).first()
+    if row:
+        row.date_format = payload.date_format
+    else:
+        row = UserPreference(username=current_user, date_format=payload.date_format)
+    session.add(row)
+    session.commit()
+    return {"date_format": row.date_format}

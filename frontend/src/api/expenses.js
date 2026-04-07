@@ -168,6 +168,22 @@ export async function updateSettings(data) {
   return res.json();
 }
 
+export async function getUserPreferences() {
+  const res = await fetchWithAuth(`${API_BASE}/user-preferences`);
+  if (!res.ok) throw new Error("Failed to fetch user preferences");
+  return res.json();
+}
+
+export async function updateUserPreferences(data) {
+  const res = await fetchWithAuth(`${API_BASE}/user-preferences`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update user preferences");
+  return res.json();
+}
+
 export async function exportExpenses(params = {}) {
   const query = new URLSearchParams(params).toString();
   const res = await fetchWithAuth(`${API_BASE}/export?${query}`);

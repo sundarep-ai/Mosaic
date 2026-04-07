@@ -10,6 +10,7 @@ import { useUsers } from "../ConfigContext";
 import { useAuth } from "../auth/AuthContext";
 import useDescriptionSuggestions from "../hooks/useDescriptionSuggestions";
 import { validateExpense } from "../utils/validation";
+import DateInput from "../components/DateInput";
 
 const CUSTOM_CATEGORY_VALUE = "__custom__";
 
@@ -295,11 +296,10 @@ export default function AddExpense() {
                 <span className="material-symbols-outlined text-primary/60 mr-3">
                   calendar_today
                 </span>
-                <input
-                  type="date"
+                <DateInput
                   name="date"
                   value={form.date}
-                  onChange={handleChange}
+                  onChange={(iso) => setForm((prev) => ({ ...prev, date: iso }))}
                   max={today}
                   className="bg-transparent border-none focus:ring-0 w-full font-medium text-on-surface"
                   required

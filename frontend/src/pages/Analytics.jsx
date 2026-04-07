@@ -23,7 +23,9 @@ import { useUsers } from "../ConfigContext";
 import { useTheme } from "../ThemeContext";
 import { useCurrency } from "../CurrencyContext";
 import { useAuth } from "../auth/AuthContext";
+import { useDateFormat } from "../DateFormatContext";
 import { useIncomeMode } from "../hooks/useIncomeMode";
+import DateInput from "../components/DateInput";
 import Avatar from "../components/Avatar";
 import { getDateRange, groupByDescription, groupByMonth } from "../utils/analytics";
 import { getChartColors, getTooltipStyles } from "../utils/chartConfig";
@@ -51,6 +53,7 @@ export default function Analytics() {
   const isHybrid = mode === "hybrid";
   const { theme } = useTheme();
   const { fmt } = useCurrency();
+  const { formatDate } = useDateFormat();
   const navigate = useNavigate();
   const { incomeEnabled } = useIncomeMode();
   const isDark = theme === "dark";
@@ -193,18 +196,16 @@ export default function Analytics() {
           ))}
           <div className="h-4 w-[1px] bg-outline-variant/30 mx-2 hidden sm:block"></div>
           <div className="flex items-center gap-2">
-            <input
-              type="date"
+            <DateInput
               value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="bg-transparent border-none focus:ring-0 text-sm px-2 py-1"
+              onChange={(iso) => setCustomStart(iso)}
+              className="bg-transparent border-none focus:ring-0 text-sm px-2 py-1 w-28"
             />
             <span className="text-outline text-xs">to</span>
-            <input
-              type="date"
+            <DateInput
               value={customEnd}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              className="bg-transparent border-none focus:ring-0 text-sm px-2 py-1"
+              onChange={(iso) => setCustomEnd(iso)}
+              className="bg-transparent border-none focus:ring-0 text-sm px-2 py-1 w-28"
             />
             <button
               onClick={handleCustomRange}
@@ -746,7 +747,7 @@ export default function Analytics() {
                         </td>
                         <td className="py-6">
                           <span className="text-sm text-on-surface-variant font-medium">
-                            {e.date}
+                            {formatDate(e.date)}
                           </span>
                         </td>
                         <td className="py-6 text-right">

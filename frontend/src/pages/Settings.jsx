@@ -4,6 +4,7 @@ import { uploadAvatar } from "../api/expenses";
 import Avatar from "../components/Avatar";
 import { useUsers } from "../ConfigContext";
 import { useIncomeMode } from "../hooks/useIncomeMode";
+import { useDateFormat } from "../DateFormatContext";
 
 const MODES = [
   {
@@ -26,12 +27,20 @@ const MODES = [
   },
 ];
 
+const DATE_FORMATS = [
+  { value: "DD/MM/YYYY", label: "DD/MM/YYYY", example: "25/12/2025" },
+  { value: "MM/DD/YYYY", label: "MM/DD/YYYY", example: "12/25/2025" },
+  { value: "YYYY/MM/DD", label: "YYYY/MM/DD", example: "2025/12/25" },
+  { value: "YYYY/DD/MM", label: "YYYY/DD/MM", example: "2025/25/12" },
+];
+
 export default function Settings() {
   const { user } = useAuth();
   const { mode, setMode } = useUsers();
   const fileInputRef = useRef(null);
   const [avatarKey, setAvatarKey] = useState(0);
   const { incomeEnabled, toggleIncome, clearIncome, canUseIncome } = useIncomeMode();
+  const { dateFormat, setDateFormat } = useDateFormat();
 
   const handleAvatarUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -98,6 +107,45 @@ export default function Settings() {
           </div>
         </section>
       )}
+
+      {/* Date Format */}
+      <section className="space-y-4">
+        <h2 className="font-headline text-xl font-bold text-on-surface">
+          Date Format
+        </h2>
+        <div className="bg-surface-container p-6 rounded-2xl space-y-4">
+          <p className="text-sm text-on-surface-variant leading-relaxed">
+            Choose how dates are displayed and entered throughout the app.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {DATE_FORMATS.map((f) => {
+              const isActive = dateFormat === f.value;
+              return (
+                <button
+                  key={f.value}
+                  onClick={() => setDateFormat(f.value)}
+                  className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
+                    isActive
+                      ? "bg-primary-container/30 border-primary/30"
+                      : "bg-surface-container-high border-transparent hover:border-outline-variant/20"
+                  }`}
+                >
+                  <span
+                    className={`font-bold text-sm mb-1 ${
+                      isActive ? "text-primary" : "text-on-surface"
+                    }`}
+                  >
+                    {f.label}
+                  </span>
+                  <span className="text-xs text-on-surface-variant">
+                    {f.example}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
       {/* Income Tracking — Solo and Hybrid only */}
       {canUseIncome && (

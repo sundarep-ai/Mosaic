@@ -47,12 +47,12 @@ Reimbursements (stored as negative amounts) reduce your net expense on Home and 
 | **Home** | Mode-aware overview with "Your Expense This Month" — your personal portion of all spending. **Solo** shows your total; **Shared** / **Hybrid** add a balance card and settle button alongside your expense card. When Income Tracking is enabled, a third tile shows "Income This Month" and the Spend by Category section moves below. All modes show this month's spend by category and recent activity. |
 | **Add Expense** | Log an expense with date, description, category, amount, payer, and split method. In Solo mode, the "Who Paid" and "Split Method" fields are hidden (defaults to the single user and "Personal"). Supports custom categories via "+ New Category". Fuzzy matching suggests existing descriptions and auto-suggests categories — all client-side. |
 | **Add Income** | Log income received at `/add-income`. Fields: date, amount, source (Salary / Wages, Freelance / Side Income, Other), optional notes. Available only when Income Tracking is enabled in Settings. |
-| **Settings** | Choose your app mode (Solo / Shared / Personal + Shared), upload a profile picture, and optionally enable Income Tracking (Solo and Hybrid modes only). Accessible via the gear icon in the top bar. |
+| **Settings** | Choose your app mode (Solo / Shared / Personal + Shared), upload a profile picture, set your preferred date format, and optionally enable Income Tracking (Solo and Hybrid modes only). Accessible via the gear icon in the top bar. |
 | **Edit Expense** | Full-page edit form at `/edit/:id` — reuses the Add Expense form with all fields pre-filled |
 | **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses. Filter presets: 1M, 3M, 6M, YTD, 1Y, All — plus custom date range. **Solo** shows your total expense; **Shared** / **Hybrid** show total shared spend, your share, and total spend. Payer breakdown hidden in Solo; Personal vs Shared chart shown in Hybrid. When Income Tracking is enabled, a **Sankey chart** appears at the top showing income sources → expense categories → Savings (if income exceeds expenses). |
 | **Calendar** | Month-view calendar showing your daily expense portion with logarithmic heat-map shading (prevents a single outlier like rent from washing out all other days). Navigate months with chevron arrows or jump to any month/year via a dropdown picker. Displays your monthly expense at the top alongside total shared spend (in Shared/Hybrid modes). Day cells show only your portion. Click any day to drill down into that day's expenses on the History page. Payment and Reimbursement categories are excluded from calendar totals. When Income Tracking is enabled, days with income show a green `+` badge and the income amount alongside the expense amount. |
 | **Smart Insights** | User-portion-aware spending analysis — all monetary values reflect **your expense** (your share based on split method), not raw totals. Detects recurring payments (weekly/monthly/quarterly/annual) with change alerts, highlights category trend spikes, flags statistical anomalies, projects next-month spending via weighted moving average, and ranks fastest-growing categories. **Weekend vs Weekday** shows side-by-side panels comparing your expense and shared expense patterns. In non-Solo modes, shared (full) amounts are shown as secondary info alongside your portion. When **Income Tracking** is enabled (Solo/Hybrid), an additional section shows savings rate, income vs expenses trend, and income breakdown by source. All computed server-side. |
-| **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. In Solo mode, the "Paid By" column and filter are hidden. In Hybrid mode, an extra "Type" filter lets you toggle between All, Personal, and Shared expenses. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics"). |
+| **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. In Solo mode, the "Paid By" column and filter are hidden. In Hybrid mode, an extra "Type" filter lets you toggle between All, Personal, and Shared expenses. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics") — with Accept, Reject, and Review Later actions per suggestion, a Custom Merge tab for manual merges, and a Dismissed tab to restore accidentally rejected pairs. |
 | **Export** | Download the current filtered view as an `.xlsx` file |
 
 ### Income Tracking
@@ -75,6 +75,29 @@ Income Tracking is an optional opt-in feature available in **Solo** and **Person
 ### Currency Selector
 
 A currency dropdown in the top navigation bar lets you choose your display currency. The selection is persisted in localStorage and applies across all pages instantly. Supported currencies: USD, EUR, GBP, CAD, AUD, INR, JPY, CNY, CHF, SGD.
+
+### Date Format
+
+Each user can choose their preferred date display and input format from the Settings page. The setting is stored per user in the database (not localStorage), so it follows you across browsers.
+
+| Format | Example |
+|---|---|
+| DD/MM/YYYY (default) | 25/12/2025 |
+| MM/DD/YYYY | 12/25/2025 |
+| YYYY/MM/DD | 2025/12/25 |
+| YYYY/DD/MM | 2025/25/12 |
+
+The chosen format applies everywhere dates appear (Home, History, Analytics, Calendar, Insights) and everywhere dates are entered (Add Expense, Add Income, Analytics custom date range). Date inputs use a custom text field with auto-slash insertion and format-aware placeholder — replacing the native browser date picker so the format is consistent regardless of OS locale. Database storage always remains ISO `YYYY-MM-DD`.
+
+### Description Clean Up
+
+The History page includes a "Clean Up" button that uses AI embeddings (fastembed / ONNX) to find description variants that likely refer to the same thing (e.g. "Foodbasics" vs "Food Basics"). The merge review modal offers three workflows:
+
+- **Suggestions tab** — AI-detected clusters. Each group can be Accepted (merges immediately into the canonical form), Rejected (permanently dismissed), or skipped for later review. Immediate toast feedback after each action.
+- **Custom Merge tab** — Manual merge with autocomplete from existing descriptions, category picker, source description list builder, and a live preview of what will change.
+- **Dismissed tab** — Lists all previously rejected pairs grouped by category, with a Restore button to undo accidental rejects.
+
+Dismissed pairs are stored in a `DismissedMerge` table using canonical alphabetical ordering, so dismissing A↔B and B↔A are treated as the same pair. Dismissed pairs are automatically filtered out of future AI suggestions.
 
 ### Profile Pictures
 
@@ -278,7 +301,7 @@ All endpoints are prefixed with `/api`.
 | `DELETE` | `/expenses/{id}` | Delete an expense |
 | `GET` | `/suggest-category` | Auto-suggest a category from history (query: `description`) |
 | `GET` | `/unique-descriptions` | All unique (description, category, count) tuples for client-side fuzzy matching |
-| `GET` | `/similar-descriptions` | Embedding-based similarity clusters grouped by category (query: `threshold`) |
+| `GET` | `/similar-descriptions` | Embedding-based similarity clusters grouped by category, excluding dismissed pairs (query: `threshold`) |
 | `POST` | `/merge-descriptions` | Merge variant descriptions into a canonical form within a category |
 | `GET` | `/balance` | Current balance between the two configured users |
 | `GET` | `/monthly-summary` | Category totals for the current month |
@@ -288,6 +311,11 @@ All endpoints are prefixed with `/api`.
 | `GET` | `/my-expense-summary` | Current user's total expense portion and total shared spend for this month |
 | `GET` | `/settings` | Current app mode |
 | `PUT` | `/settings` | Update app mode (`solo`, `duo`, `hybrid`) |
+| `GET` | `/user-preferences` | Current user's preferences (date format) |
+| `PUT` | `/user-preferences` | Update user preferences (`date_format`: `DD/MM/YYYY`, `MM/DD/YYYY`, `YYYY/MM/DD`, `YYYY/DD/MM`) |
+| `POST` | `/dismiss-merge` | Permanently dismiss a merge suggestion pair (body: `category`, `desc_a`, `desc_b`) |
+| `GET` | `/dismissed-merges` | List all dismissed merge pairs grouped by category |
+| `POST` | `/undismiss-merge` | Restore a dismissed merge pair by ID |
 | `GET` | `/export` | Download filtered expenses as `.xlsx` (query: `search`, `paid_by`, `category`) |
 | `GET` | `/income` | List income entries for the current user (query: `start_date`, `end_date`) — Solo/Hybrid only |
 | `POST` | `/income` | Create an income entry (`date`, `amount`, `source`, optional `notes`) — Solo/Hybrid only |
@@ -305,7 +333,7 @@ backend/
   .env                   # Passwords & session secret (not committed — see .env.example)
   main.py                # FastAPI app & CORS config
   database.py            # SQLite engine (WAL mode), session provider, integrity check
-  models.py              # Expense, Income & Settings tables, Pydantic schemas
+  models.py              # Expense, Income, Settings, UserPreference & DismissedMerge tables, Pydantic schemas
   migrate_xlsx.py        # Bulk import expenses from .xlsx
   migrate_income_xlsx.py # Bulk import income from .xlsx (Solo/Hybrid only)
   requirements.txt       # Python dependencies
@@ -314,7 +342,7 @@ backend/
     backup.py            # Startup backup manager (SQLite online backup API)
     clustering.py        # Shared embedding model & cosine-similarity clustering
   routes/
-    expenses.py          # CRUD, balance, monthly summary, description similarity & merge
+    expenses.py          # CRUD, balance, monthly summary, description similarity & merge, dismiss/undismiss
     analytics.py         # Date-filtered analytics aggregation
     income.py            # Income CRUD, monthly summary, Sankey data (Solo/Hybrid only)
     insights.py          # Smart insights: user-portion-aware recurring detection, trends, anomalies, forecast, income insights
@@ -335,6 +363,7 @@ frontend/
     App.jsx              # Route definitions & layout shell (includes /edit/:id, /settings)
     ConfigContext.jsx     # User names, app mode, and setMode — fetched from backend
     CurrencyContext.jsx  # Currency selection context with localStorage persistence
+    DateFormatContext.jsx # Per-user date format context with backend persistence
     ErrorBoundary.jsx    # Catches render errors to prevent white-screen crashes
     index.css            # Tailwind directives
     api/
@@ -349,7 +378,8 @@ frontend/
       useIncomeMode.js   # localStorage-backed opt-in state for income tracking
     components/
       Navbar.jsx                   # Sticky navigation bar
-      MergeDescriptionsModal.jsx   # Bulk description merge review UI
+      DateInput.jsx                # Format-aware date text input (replaces native date picker)
+      MergeDescriptionsModal.jsx   # Bulk description merge review UI (Suggestions/Custom/Dismissed tabs)
     pages/
       Landing.jsx        # Dashboard page
       AddExpense.jsx     # New/edit expense form (also handles /edit/:id)
@@ -357,7 +387,7 @@ frontend/
       Analytics.jsx      # Charts & analytics dashboard (includes Sankey when income enabled)
       Calendar.jsx       # Month-view calendar with daily spend totals and month/year picker
       Insights.jsx       # Smart Insights: recurring payments, trends, anomalies, forecast
-      Settings.jsx       # App mode selector, profile picture upload, income tracking toggle
+      Settings.jsx       # App mode selector, profile picture upload, date format picker, income tracking toggle
       History.jsx        # Expense table with delete/export, edit navigates to /edit/:id
 ```
 

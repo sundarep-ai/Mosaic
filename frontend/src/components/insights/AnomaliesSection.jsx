@@ -1,8 +1,10 @@
 import { CATEGORY_ICONS } from "../../constants/categories";
 import { useCurrency } from "../../CurrencyContext";
+import { useDateFormat } from "../../DateFormatContext";
 
 export default function AnomaliesSection({ anomalies, mode }) {
   const { fmt } = useCurrency();
+  const { formatDate } = useDateFormat();
   const isSolo = mode === "solo";
 
   if (anomalies.length === 0) return null;
@@ -43,7 +45,7 @@ export default function AnomaliesSection({ anomalies, mode }) {
               </p>
             )}
             <p className="text-xs text-on-surface-variant mt-2">
-              {a.category} avg: {fmt(a.category_mean)} &middot; {a.date}
+              {a.category} avg: {fmt(a.category_mean)} &middot; {formatDate(a.date)}
             </p>
           </div>
         ))}

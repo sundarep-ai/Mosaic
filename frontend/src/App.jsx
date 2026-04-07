@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
+import { DateFormatProvider } from "./DateFormatContext";
 import ErrorBoundary from "./ErrorBoundary";
 import Navbar from "./components/Navbar";
 import Landing from "./pages/Landing";
@@ -30,6 +31,7 @@ export default function App() {
   }
 
   return (
+    <DateFormatProvider>
     <div className="min-h-screen bg-background font-body text-on-surface">
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-32 md:pb-8">
@@ -72,5 +74,6 @@ export default function App() {
         </ErrorBoundary>
       </main>
     </div>
+    </DateFormatProvider>
   );
 }
