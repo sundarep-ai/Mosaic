@@ -200,8 +200,37 @@ def register(data: RegisterRequest, response: Response, session: Session = Depen
         security_answer_hash=_hash_answer(data.security_answer),
     )
     session.add(user)
+
+    # First user → ensure mode is set to solo
+    if count == 0:
+        from models import Settings
+        settings = session.get(Settings, 1)
+        if settings:
+            settings.app_mode = "solo"
+        else:
+            settings = Settings(id=1, app_mode="solo")
+        session.add(settings)
+
     session.commit()
     session.refresh(user)
+
+    # If second user registers while in solo mode, don't auto-login
+    is_second_user = count == 1
+    if is_second_user:
+        from config import get_app_mode
+        current_mode = get_app_mode(session)
+        if current_mode == "solo":
+            from users import get_all_users
+            primary = get_all_users(session)[0]
+            return {
+                "username": user.username,
+                "display_name": user.display_name,
+                "solo_mode_notice": True,
+                "message": (
+                    f"Account created! {primary.display_name} needs to switch "
+                    "to Shared or Personal + Shared mode before you can sign in."
+                ),
+            }
 
     # Auto-login
     token = _make_token(user.username)

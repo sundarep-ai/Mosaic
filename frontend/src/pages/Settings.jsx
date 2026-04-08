@@ -38,7 +38,7 @@ const DATE_FORMATS = [
 
 export default function Settings() {
   const { user, logout } = useAuth();
-  const { mode, setMode } = useUsers();
+  const { mode, setMode, userCount } = useUsers();
   const fileInputRef = useRef(null);
   const [avatarKey, setAvatarKey] = useState(0);
   const { incomeEnabled, toggleIncome, clearIncome, canUseIncome } = useIncomeMode();
@@ -339,17 +339,30 @@ export default function Settings() {
         <h2 className="font-headline text-xl font-bold text-on-surface">
           App Mode
         </h2>
+        {mode === "solo" && userCount >= 2 && (
+          <div className="bg-tertiary-container/30 border border-tertiary/20 rounded-2xl px-4 py-3 flex items-center gap-3">
+            <span className="material-symbols-outlined text-tertiary">group_add</span>
+            <p className="text-sm text-on-surface">
+              A second user has registered. Switch to <strong>Shared</strong> or{" "}
+              <strong>Personal + Shared</strong> mode to start collaborating.
+            </p>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {MODES.map((m) => {
             const isActive = mode === m.value;
+            const needsSecondUser = m.value !== "solo" && userCount < 2;
             return (
               <button
                 key={m.value}
-                onClick={() => handleModeChange(m.value)}
+                onClick={() => !needsSecondUser && handleModeChange(m.value)}
+                disabled={needsSecondUser}
                 className={`flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all ${
-                  isActive
-                    ? "bg-primary-container/30 border-primary/30"
-                    : "bg-surface-container border-transparent hover:border-outline-variant/20"
+                  needsSecondUser
+                    ? "opacity-50 cursor-not-allowed bg-surface-container border-transparent"
+                    : isActive
+                      ? "bg-primary-container/30 border-primary/30"
+                      : "bg-surface-container border-transparent hover:border-outline-variant/20"
                 }`}
               >
                 <div
@@ -380,6 +393,13 @@ export default function Settings() {
             );
           })}
         </div>
+        {userCount < 2 && (
+          <p className="text-sm text-on-surface-variant flex items-center gap-2">
+            <span className="material-symbols-outlined text-base">info</span>
+            A second user must create an account before switching to Shared or
+            Personal + Shared mode.
+          </p>
+        )}
       </section>
 
       {/* Security — Change Password */}

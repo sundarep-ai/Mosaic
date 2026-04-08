@@ -20,6 +20,7 @@ export default function CreateAccount() {
   const [customQuestion, setCustomQuestion] = useState("");
   const [securityAnswer, setSecurityAnswer] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -75,6 +76,13 @@ export default function CreateAccount() {
         throw new Error(err.detail || "Registration failed");
       }
 
+      const data = await res.json();
+
+      if (data.solo_mode_notice) {
+        setSuccessMessage(data.message);
+        return;
+      }
+
       // Auto-login was done server-side (cookie set). Refresh auth state.
       await login(username, password);
     } catch (err) {
@@ -83,6 +91,30 @@ export default function CreateAccount() {
       setSubmitting(false);
     }
   };
+
+  if (successMessage) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="w-full max-w-sm bg-surface-container-lowest rounded-[2rem] p-8 shadow-[0_4px_32px_rgba(47,51,52,0.08)] text-center">
+          <span className="material-symbols-outlined text-4xl text-tertiary mb-4">
+            check_circle
+          </span>
+          <h2 className="font-headline text-xl font-bold text-on-surface mb-2">
+            Account Created
+          </h2>
+          <p className="text-on-surface-variant text-sm mb-6">
+            {successMessage}
+          </p>
+          <button
+            onClick={() => navigate("/")}
+            className="text-primary font-bold text-sm hover:underline"
+          >
+            Back to Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (accountStatus && !accountStatus.registration_open) {
     return (

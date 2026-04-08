@@ -62,7 +62,7 @@ class ExpenseUpdate(ExpenseBase):
 
 class Settings(SQLModel, table=True):
     id: int = Field(default=1, primary_key=True)
-    app_mode: str = Field(default="duo")  # "solo" | "duo" | "hybrid"
+    app_mode: str = Field(default="solo")  # "solo" | "duo" | "hybrid"
 
 
 VALID_INCOME_SOURCES = {"Salary / Wages", "Freelance / Side Income", "Other"}
