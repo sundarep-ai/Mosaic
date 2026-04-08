@@ -9,7 +9,7 @@ from sqlmodel import Session
 
 from auth import get_current_user
 from config import BACKUP_PATH, VALID_MODES, get_app_mode
-from users import get_display_names
+from users import get_display_names, get_user_count
 from database import create_db_and_tables, check_db_integrity, ensure_indexes, DB_PATH, get_session
 from routes import expenses, analytics, export, insights, income
 from auth import router as auth_router
@@ -66,7 +66,8 @@ def get_app_config(session: Session = Depends(get_session)):
     """Public endpoint returning display names and app mode."""
     mode = get_app_mode(session)
     a, b = get_display_names(session)
-    return {"userA": a, "userB": b, "mode": mode}
+    count = get_user_count(session)
+    return {"userA": a, "userB": b, "mode": mode, "user_count": count}
 
 
 @app.get("/api/settings")
@@ -89,6 +90,8 @@ def update_settings(
     new_mode = payload.app_mode
     if new_mode not in VALID_MODES:
         raise HTTPException(status_code=422, detail=f"app_mode must be one of: {', '.join(VALID_MODES)}")
+    if new_mode in ("duo", "hybrid") and get_user_count(session) < 2:
+        raise HTTPException(status_code=409, detail="A second user must create an account before switching to this mode.")
     row = session.get(Settings, 1)
     if row:
         row.app_mode = new_mode

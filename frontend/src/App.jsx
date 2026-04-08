@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { DateFormatProvider } from "./DateFormatContext";
 import ErrorBoundary from "./ErrorBoundary";
@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import CreateAccount from "./pages/CreateAccount";
 import ForgotPassword from "./pages/ForgotPassword";
 import Settings from "./pages/Settings";
+import ModeSwitchBanner from "./components/ModeSwitchBanner";
 
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Calendar = lazy(() => import("./pages/Calendar"));
@@ -43,6 +44,7 @@ export default function App() {
     <div className="min-h-screen bg-background font-body text-on-surface">
       <Navbar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-32 md:pb-8">
+        <ModeSwitchBanner />
         <ErrorBoundary>
           <Routes>
             <Route path="/" element={<Landing />} />
@@ -78,6 +80,7 @@ export default function App() {
             } />
             <Route path="/history" element={<History />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </ErrorBoundary>
       </main>
