@@ -6,7 +6,7 @@ import ErrorBoundary from "./ErrorBoundary";
 import Navbar from "./components/Navbar";
 import Landing from "./pages/Landing";
 import AddExpense from "./pages/AddExpense";
-import AddIncome from "./pages/AddIncome";
+import AddNew from "./pages/AddNew";
 import History from "./pages/History";
 import Login from "./pages/Login";
 import CreateAccount from "./pages/CreateAccount";
@@ -48,9 +48,9 @@ export default function App() {
         <ErrorBoundary>
           <Routes>
             <Route path="/" element={<Landing />} />
-            <Route path="/add" element={<AddExpense />} />
+            <Route path="/add" element={<AddNew />} />
             <Route path="/edit/:id" element={<AddExpense />} />
-            <Route path="/add-income" element={<AddIncome />} />
+            <Route path="/add-income" element={<Navigate to="/add?tab=income" replace />} />
             <Route path="/analytics" element={
               <Suspense fallback={
                 <div className="flex items-center justify-center h-64">

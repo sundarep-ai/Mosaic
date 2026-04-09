@@ -220,13 +220,6 @@ export default function Landing() {
                 ? monthlyIncome.by_source.map((s) => s.source).join(", ")
                 : "No income logged yet"}
             </div>
-            <Link
-              to="/add-income"
-              className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-tertiary/10 text-tertiary font-headline font-bold text-sm active:scale-95 transition-transform hover:bg-tertiary/20"
-            >
-              <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>add_circle</span>
-              Add Income
-            </Link>
             <div className="absolute -right-12 -bottom-12 w-40 h-40 bg-tertiary/5 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500"></div>
           </div>
         )}
