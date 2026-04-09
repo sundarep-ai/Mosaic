@@ -5,7 +5,7 @@ import { useDateFormat } from "../../DateFormatContext";
 export default function AnomaliesSection({ anomalies, mode }) {
   const { fmt } = useCurrency();
   const { formatDate } = useDateFormat();
-  const isSolo = mode === "solo";
+  const isPersonal = mode === "personal";
 
   if (anomalies.length === 0) return null;
 
@@ -39,7 +39,7 @@ export default function AnomaliesSection({ anomalies, mode }) {
             <p className="text-2xl font-headline font-extrabold mt-1">
               {fmt(a.my_portion != null ? a.my_portion : a.amount)}
             </p>
-            {!isSolo && a.my_portion != null && a.my_portion !== a.amount && (
+            {!isPersonal && a.my_portion != null && a.my_portion !== a.amount && (
               <p className="text-xs text-on-surface-variant mt-0.5">
                 Full amount: {fmt(a.amount)}
               </p>

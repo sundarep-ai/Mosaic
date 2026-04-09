@@ -724,7 +724,7 @@ def get_insights(
 
     # H: Income insights (only for solo/hybrid modes)
     income_data = None
-    if mode in ("solo", "hybrid"):
+    if mode in ("personal", "blended"):
         income_data = _income_insights(session, current_user, me, other, expenses)
 
     return {

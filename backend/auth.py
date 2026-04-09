@@ -201,14 +201,14 @@ def register(data: RegisterRequest, response: Response, session: Session = Depen
     )
     session.add(user)
 
-    # First user → ensure mode is set to solo
+    # First user → ensure mode is set to personal
     if count == 0:
         from models import Settings
         settings = session.get(Settings, 1)
         if settings:
-            settings.app_mode = "solo"
+            settings.app_mode = "personal"
         else:
-            settings = Settings(id=1, app_mode="solo")
+            settings = Settings(id=1, app_mode="personal")
         session.add(settings)
 
     session.commit()
@@ -219,16 +219,16 @@ def register(data: RegisterRequest, response: Response, session: Session = Depen
     if is_second_user:
         from config import get_app_mode
         current_mode = get_app_mode(session)
-        if current_mode == "solo":
+        if current_mode == "personal":
             from users import get_all_users
             primary = get_all_users(session)[0]
             return {
                 "username": user.username,
                 "display_name": user.display_name,
-                "solo_mode_notice": True,
+                "personal_mode_notice": True,
                 "message": (
                     f"Account created! {primary.display_name} needs to switch "
-                    "to Shared or Personal + Shared mode before you can sign in."
+                    "to Shared or Blended mode before you can sign in."
                 ),
             }
 
@@ -275,8 +275,8 @@ def login(data: LoginRequest, response: Response, session: Session = Depends(get
     from config import get_app_mode
     mode = get_app_mode(session)
 
-    # In solo mode, only the first-created user can log in
-    if mode == "solo" and not is_primary_user(session, data.username):
+    # In personal mode, only the first-created user can log in
+    if mode == "personal" and not is_primary_user(session, data.username):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     user = get_user_by_username(session, data.username)
@@ -501,12 +501,12 @@ def delete_account(
     # Delete the user
     session.delete(user)
 
-    # If remaining users drops to 1 or 0, auto-switch to solo
+    # If remaining users drops to 1 or 0, auto-switch to personal
     remaining = get_user_count(session) - 1  # haven't committed yet
     if remaining <= 1:
         settings = session.get(Settings, 1)
         if settings:
-            settings.app_mode = "solo"
+            settings.app_mode = "personal"
             session.add(settings)
 
     session.commit()

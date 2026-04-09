@@ -10,20 +10,20 @@ import { fetchWithAuth } from "../api/fetchWithAuth";
 
 const MODES = [
   {
-    value: "solo",
-    label: "Solo",
+    value: "personal",
+    label: "Personal",
     icon: "person",
     description: "Track your personal expenses",
   },
   {
-    value: "duo",
+    value: "shared",
     label: "Shared",
     icon: "group",
     description: "Split expenses with your partner",
   },
   {
-    value: "hybrid",
-    label: "Personal + Shared",
+    value: "blended",
+    label: "Blended",
     icon: "diversity_3",
     description: "Track personal expenses and split shared ones",
   },
@@ -93,7 +93,7 @@ export default function Settings() {
   const handleModeChange = async (newMode) => {
     try {
       await setMode(newMode);
-      if (newMode === "duo") {
+      if (newMode === "shared") {
         clearIncome();
       }
     } catch {
@@ -339,19 +339,19 @@ export default function Settings() {
         <h2 className="font-headline text-xl font-bold text-on-surface">
           App Mode
         </h2>
-        {mode === "solo" && userCount >= 2 && (
+        {mode === "personal" && userCount >= 2 && (
           <div className="bg-tertiary-container/30 border border-tertiary/20 rounded-2xl px-4 py-3 flex items-center gap-3">
             <span className="material-symbols-outlined text-tertiary">group_add</span>
             <p className="text-sm text-on-surface">
               A second user has registered. Switch to <strong>Shared</strong> or{" "}
-              <strong>Personal + Shared</strong> mode to start collaborating.
+              <strong>Blended</strong> mode to start collaborating.
             </p>
           </div>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {MODES.map((m) => {
             const isActive = mode === m.value;
-            const needsSecondUser = m.value !== "solo" && userCount < 2;
+            const needsSecondUser = m.value !== "personal" && userCount < 2;
             return (
               <button
                 key={m.value}
@@ -397,7 +397,7 @@ export default function Settings() {
           <p className="text-sm text-on-surface-variant flex items-center gap-2">
             <span className="material-symbols-outlined text-base">info</span>
             A second user must create an account before switching to Shared or
-            Personal + Shared mode.
+            Blended mode.
           </p>
         )}
       </section>

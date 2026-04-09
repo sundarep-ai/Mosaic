@@ -3,7 +3,7 @@ import { useCurrency } from "../../CurrencyContext";
 
 export default function AlertBanners({ recurring_alerts, category_trend_alerts, mode }) {
   const { fmt } = useCurrency();
-  const isSolo = mode === "solo";
+  const isPersonal = mode === "personal";
 
   return (
     <section className="space-y-3">
@@ -31,7 +31,7 @@ export default function AlertBanners({ recurring_alerts, category_trend_alerts, 
               </p>
               <p className="text-xs text-on-surface-variant mt-0.5">
                 Recurring payment &middot; {a.category}
-                {!isSolo && a.my_previous_avg != null && a.my_previous_avg !== a.previous_avg && (
+                {!isPersonal && a.my_previous_avg != null && a.my_previous_avg !== a.previous_avg && (
                   <span> &middot; Full: {fmt(a.previous_avg)} &rarr; {fmt(a.current_amount)}</span>
                 )}
               </p>
@@ -76,7 +76,7 @@ export default function AlertBanners({ recurring_alerts, category_trend_alerts, 
             </p>
             <p className="text-xs text-on-surface-variant mt-0.5">
               {fmt(a.current_month_amount)} vs {fmt(a.three_month_avg)} 3-month avg
-              {!isSolo && a.shared_current_month_amount != null && a.shared_current_month_amount !== a.current_month_amount && (
+              {!isPersonal && a.shared_current_month_amount != null && a.shared_current_month_amount !== a.current_month_amount && (
                 <span> &middot; Shared: {fmt(a.shared_current_month_amount)}</span>
               )}
             </p>

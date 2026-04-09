@@ -12,7 +12,7 @@ const FREQ_COLORS = {
 
 export default function RecurringExpenses({ recurring_expenses, mode }) {
   const { fmt } = useCurrency();
-  const isSolo = mode === "solo";
+  const isPersonal = mode === "personal";
 
   return (
     <section>
@@ -38,7 +38,7 @@ export default function RecurringExpenses({ recurring_expenses, mode }) {
                 {[...recurring_expenses].sort((a, b) => b.occurrence_count - a.occurrence_count).map((r, i) => {
                   const avgDisplay = r.avg_my_amount != null ? r.avg_my_amount : r.avg_amount;
                   const lastDisplay = r.last_my_amount != null ? r.last_my_amount : r.last_amount;
-                  const showShared = !isSolo && r.avg_my_amount != null && r.avg_my_amount !== r.avg_amount;
+                  const showShared = !isPersonal && r.avg_my_amount != null && r.avg_my_amount !== r.avg_amount;
 
                   return (
                     <tr key={i} className="hover:bg-surface-container-low/50 transition-colors">

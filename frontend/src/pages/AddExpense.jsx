@@ -21,11 +21,11 @@ export default function AddExpense() {
   const isEdit = Boolean(id);
   const today = new Date().toISOString().split("T")[0];
   const { userA, userB, mode } = useUsers();
-  const isSolo = mode === "solo";
+  const isPersonal = mode === "personal";
   const { user: authUser } = useAuth();
   const prefill = location.state || {};
   const loggedInDisplay = authUser?.displayName || userA;
-  const otherUser = isSolo ? "" : (loggedInDisplay === userA ? userB : userA);
+  const otherUser = isPersonal ? "" : (loggedInDisplay === userA ? userB : userA);
 
   const [form, setForm] = useState({
     date: today,
@@ -33,7 +33,7 @@ export default function AddExpense() {
     amount: "",
     category: prefill.category || "Groceries",
     paid_by: loggedInDisplay,
-    split_method: isSolo
+    split_method: isPersonal
       ? "Personal"
       : prefill.split_method === "100% other"
         ? `100% ${otherUser}`
@@ -248,7 +248,7 @@ export default function AddExpense() {
           <p className="text-on-surface-variant font-medium">
             {isEdit
               ? "Update the details below."
-              : isSolo
+              : isPersonal
                 ? "Track your spending."
                 : "Keep your shared balance in harmony."}
           </p>
@@ -411,7 +411,7 @@ export default function AddExpense() {
           </div>
 
           {/* Who Paid */}
-          {!isSolo && (
+          {!isPersonal && (
             <div className="flex flex-col">
               <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-3 ml-1">
                 Who Paid?
@@ -456,7 +456,7 @@ export default function AddExpense() {
           )}
 
           {/* Split Method */}
-          {!isSolo && (
+          {!isPersonal && (
             <div className="flex flex-col">
               <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-3 ml-1">
                 Split Method
@@ -532,7 +532,7 @@ export default function AddExpense() {
       </section>
 
       {/* Collaborative Tip */}
-      {!isEdit && !isSolo && (
+      {!isEdit && !isPersonal && (
         <div className="mt-8 mb-12 bg-secondary-container/20 p-6 rounded-3xl flex items-start gap-4 border border-secondary-container/30">
           <div className="bg-secondary-container p-3 rounded-2xl">
             <span className="material-symbols-outlined text-on-secondary-container">

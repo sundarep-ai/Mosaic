@@ -14,6 +14,6 @@ export async function fetchAppConfig() {
     if (!res.ok) throw new Error("Failed to fetch config");
     return await res.json();
   } catch {
-    return { userA: "", userB: "", mode: "solo", user_count: 0 };
+    return { userA: "", userB: "", mode: "personal", user_count: 0 };
   }
 }

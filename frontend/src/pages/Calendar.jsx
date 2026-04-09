@@ -30,7 +30,7 @@ export default function Calendar() {
   const { user } = useAuth();
   const me = user?.displayName || userA;
   const other = me === userA ? userB : userA;
-  const isSolo = mode === "solo";
+  const isPersonal = mode === "personal";
   const { incomeEnabled } = useIncomeMode();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -259,7 +259,7 @@ export default function Calendar() {
               {fmt(monthTotal)}
             </span>
           </div>
-          {!isSolo && monthSharedTotal > 0 && (
+          {!isPersonal && monthSharedTotal > 0 && (
             <p className="mt-2 text-sm font-medium">
               <span className="text-on-surface-variant">Total shared spend: </span>
               <span className="text-secondary font-bold">{fmt(monthSharedTotal)}</span>

@@ -2,10 +2,10 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { fetchAppConfig, API_BASE } from "./config";
 import { fetchWithAuth } from "./api/fetchWithAuth";
 
-const ConfigContext = createContext({ userA: "", userB: "", mode: "solo", userCount: 0, setMode: () => {} });
+const ConfigContext = createContext({ userA: "", userB: "", mode: "personal", userCount: 0, setMode: () => {} });
 
 export function ConfigProvider({ children }) {
-  const [config, setConfig] = useState({ userA: "", userB: "", mode: "solo", userCount: 0 });
+  const [config, setConfig] = useState({ userA: "", userB: "", mode: "personal", userCount: 0 });
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -13,7 +13,7 @@ export function ConfigProvider({ children }) {
       setConfig({
         userA: data.userA,
         userB: data.userB,
-        mode: data.mode || "solo",
+        mode: data.mode || "personal",
         userCount: data.user_count || 0,
       });
       setReady(true);

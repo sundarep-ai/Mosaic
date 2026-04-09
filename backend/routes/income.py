@@ -20,10 +20,10 @@ EXCLUDED_CATEGORIES = ("Payment", "Reimbursement")
 def _require_income_mode(session: Session) -> None:
     """Raise 403 if the current app mode does not support income tracking."""
     mode = get_app_mode(session)
-    if mode == "duo":
+    if mode == "shared":
         raise HTTPException(
             status_code=403,
-            detail="Income tracking is not available in Shared mode. Switch to Solo or Personal + Shared.",
+            detail="Income tracking is not available in Shared mode. Switch to Personal or Blended.",
         )
 
 

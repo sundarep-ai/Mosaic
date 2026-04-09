@@ -56,7 +56,7 @@ def _get_valid_sets(session: Session):
     from config import get_app_mode
     mode = get_app_mode(session)
     a, b = get_display_names(session)
-    if mode == "solo":
+    if mode == "personal":
         return {a}, {"Personal"}
     return {a, b}, {"50/50", f"100% {a}", f"100% {b}", "Personal"}
 
@@ -475,8 +475,8 @@ def get_balance(
     Negative amount = User B owes User A.
     """
     from config import get_app_mode
-    if get_app_mode(session) == "solo":
-        return {"amount": 0, "description": "Solo mode"}
+    if get_app_mode(session) == "personal":
+        return {"amount": 0, "description": "Personal mode"}
 
     a, b = get_display_names(session)
 
@@ -593,8 +593,8 @@ def get_my_expense_summary(
     )
 
     mode = get_app_mode(session)
-    if mode == "solo":
-        # In solo mode all expenses are Personal paid by me, so my_total = total
+    if mode == "personal":
+        # In personal mode all expenses are Personal paid by me, so my_total = total
         my_total = Decimal(str(session.exec(base_filters).one()))
         return {
             "my_total": float(round(my_total, 2)),

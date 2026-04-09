@@ -49,8 +49,8 @@ export default function Analytics() {
   const { user } = useAuth();
   const me = user?.displayName || userA;
   const other = me === userA ? userB : userA;
-  const isSolo = mode === "solo";
-  const isHybrid = mode === "hybrid";
+  const isPersonal = mode === "personal";
+  const isBlended = mode === "blended";
   const { theme } = useTheme();
   const { fmt } = useCurrency();
   const { formatDate } = useDateFormat();
@@ -286,7 +286,7 @@ export default function Analytics() {
                   {fmt(myShare)}
                 </span>
               </div>
-              {!isSolo && (
+              {!isPersonal && (
                 <div className="mt-3">
                   <div className="text-sm text-on-surface-variant font-medium">
                     Total shared spend: {fmt(totalShared)}
@@ -295,7 +295,7 @@ export default function Analytics() {
               )}
             </div>
             <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-500"></div>
-            {!isSolo && (
+            {!isPersonal && (
               <div className="mt-12 flex items-center gap-4 text-on-surface-variant">
                 <div className="flex -space-x-3">
                   <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
@@ -306,11 +306,11 @@ export default function Analytics() {
                   </div>
                 </div>
                 <p className="text-xs font-medium italic">
-                  {isHybrid ? `Personal + Shared with ${other}` : `Shared between ${me} & ${other}`}
+                  {isBlended ? `Blended with ${other}` : `Shared between ${me} & ${other}`}
                 </p>
               </div>
             )}
-            {isSolo && (
+            {isPersonal && (
               <div className="mt-12 flex items-center gap-4 text-on-surface-variant">
                 <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
                   <Avatar user={me} size="md" />
@@ -509,7 +509,7 @@ export default function Analytics() {
           </div>
 
           {/* Payer Breakdown */}
-          {!isSolo && (
+          {!isPersonal && (
             <div className="md:col-span-5 bg-surface-container-lowest p-8 rounded-[2rem]">
               <h3 className="font-headline text-xl font-bold mb-2">
                 Payer Breakdown
@@ -574,8 +574,8 @@ export default function Analytics() {
           )}
 
           {/* Personal vs Shared (hybrid only) */}
-          {isHybrid && data.by_split_type && (
-            <div className={`${isSolo ? "md:col-span-12" : "md:col-span-5"} bg-surface-container-lowest p-8 rounded-[2rem]`}>
+          {isBlended && data.by_split_type && (
+            <div className={`${isPersonal ? "md:col-span-12" : "md:col-span-5"} bg-surface-container-lowest p-8 rounded-[2rem]`}>
               <h3 className="font-headline text-xl font-bold mb-2">Personal vs Shared</h3>
               <p className="text-on-surface-variant text-sm font-medium mb-8">How your spending breaks down</p>
               <div className="space-y-6">
@@ -609,7 +609,7 @@ export default function Analytics() {
           )}
 
           {/* Spending Velocity Chart */}
-          <div className={`${isSolo ? "md:col-span-12" : "md:col-span-7"} bg-primary text-on-primary p-8 rounded-[2rem] overflow-hidden relative`}>
+          <div className={`${isPersonal ? "md:col-span-12" : "md:col-span-7"} bg-primary text-on-primary p-8 rounded-[2rem] overflow-hidden relative`}>
             <div className="relative z-10">
               <h3 className="font-headline text-xl font-bold mb-2">
                 Spending Velocity

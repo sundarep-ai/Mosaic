@@ -65,7 +65,7 @@ export default function Insights() {
     forecast = { recurring_total: 0, variable_total: 0, total_forecast: 0, last_month_total: 0, change_vs_last_month_pct: 0, shared_total_forecast: 0, by_category: [] },
     top_growing_categories = [],
     income_insights = null,
-    mode = "duo",
+    mode = "shared",
   } = data || {};
 
   const hasAlerts = recurring_alerts.length > 0 || category_trend_alerts.length > 0;

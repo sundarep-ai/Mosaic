@@ -90,7 +90,7 @@ def update_settings(
     new_mode = payload.app_mode
     if new_mode not in VALID_MODES:
         raise HTTPException(status_code=422, detail=f"app_mode must be one of: {', '.join(VALID_MODES)}")
-    if new_mode in ("duo", "hybrid") and get_user_count(session) < 2:
+    if new_mode in ("shared", "blended") and get_user_count(session) < 2:
         raise HTTPException(status_code=409, detail="A second user must create an account before switching to this mode.")
     row = session.get(Settings, 1)
     if row:

@@ -10,7 +10,7 @@ export default function ModeSwitchBanner() {
     () => sessionStorage.getItem(DISMISS_KEY) === "true"
   );
 
-  if (mode !== "solo" || userCount < 2 || dismissed) return null;
+  if (mode !== "personal" || userCount < 2 || dismissed) return null;
 
   const handleDismiss = () => {
     sessionStorage.setItem(DISMISS_KEY, "true");
@@ -26,7 +26,7 @@ export default function ModeSwitchBanner() {
           to="/settings"
           className="font-bold text-tertiary underline ml-1"
         >
-          Switch to Shared or Personal + Shared mode
+          Switch to Shared or Blended mode
         </Link>{" "}
         to start tracking together.
       </p>

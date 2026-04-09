@@ -41,16 +41,16 @@ _answer_hash = bcrypt.hashpw(SECURITY_ANSWER.encode(), bcrypt.gensalt()).decode(
 _config = types.ModuleType("config")
 _config.SECRET_KEY = SECRET_KEY
 _config.BACKUP_PATH = ""
-_config.VALID_MODES = {"solo", "duo", "hybrid"}
+_config.VALID_MODES = {"personal", "shared", "blended"}
 
 def _get_app_mode(session=None):
     if session is None:
-        return "duo"
+        return "shared"
     from models import Settings
     row = session.get(Settings, 1)
     if row and row.app_mode in _config.VALID_MODES:
         return row.app_mode
-    return "duo"
+    return "shared"
 
 _config.get_app_mode = _get_app_mode
 sys.modules["config"] = _config

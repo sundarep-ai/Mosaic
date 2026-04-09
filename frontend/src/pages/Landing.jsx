@@ -15,8 +15,8 @@ export default function Landing() {
   const { user } = useAuth();
   const me = user?.displayName || userA;
   const other = me === userA ? userB : userA;
-  const isSolo = mode === "solo";
-  const isHybrid = mode === "hybrid";
+  const isPersonal = mode === "personal";
+  const isBlended = mode === "blended";
   const { fmt } = useCurrency();
   const { formatDate } = useDateFormat();
   const { incomeEnabled } = useIncomeMode();
@@ -33,12 +33,12 @@ export default function Landing() {
     async function fetchData() {
       try {
         const promises = [
-          isSolo ? Promise.resolve({ amount: 0, description: "Solo mode" }) : getBalance(),
+          isPersonal ? Promise.resolve({ amount: 0, description: "Personal mode" }) : getBalance(),
           getMonthlySummary(),
           getExpenses({ limit: 5, sort: "desc" }),
           getMyExpenseSummary(),
         ];
-        if (isHybrid) promises.push(getPersonalSummary());
+        if (isBlended) promises.push(getPersonalSummary());
         if (incomeEnabled) promises.push(getMonthlyIncomeSummary());
 
         const results = await Promise.all(promises);
@@ -47,7 +47,7 @@ export default function Landing() {
         setRecentExpenses(results[2]);
         setMyExpense(results[3]);
         let idx = 4;
-        if (isHybrid && results[idx]) { setPersonalSpend(results[idx]); idx++; }
+        if (isBlended && results[idx]) { setPersonalSpend(results[idx]); idx++; }
         if (incomeEnabled && results[idx]) setMonthlyIncome(results[idx]);
       } catch (err) {
         setError("Could not load dashboard data. Is the server running?");
@@ -56,7 +56,7 @@ export default function Landing() {
       }
     }
     fetchData();
-  }, [isSolo, isHybrid, incomeEnabled]);
+  }, [isPersonal, isBlended, incomeEnabled]);
 
   if (loading) {
     return (
@@ -86,7 +86,7 @@ export default function Landing() {
             Home
           </h1>
           <p className="text-on-surface-variant font-medium">
-            {isSolo ? "Your personal financial overview at a glance." : "Your shared financial overview at a glance."}
+            {isPersonal ? "Your personal financial overview at a glance." : "Your shared financial overview at a glance."}
           </p>
         </div>
         <Link
@@ -105,9 +105,9 @@ export default function Landing() {
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
         {/* Balance / Total Spend Card */}
-        <div className={`${isSolo && incomeEnabled ? "md:col-span-6" : "md:col-span-4"} bg-surface-container-lowest p-8 rounded-[2rem] flex flex-col justify-between relative overflow-hidden group`}>
+        <div className={`${isPersonal && incomeEnabled ? "md:col-span-6" : "md:col-span-4"} bg-surface-container-lowest p-8 rounded-[2rem] flex flex-col justify-between relative overflow-hidden group`}>
           <div className="relative z-10">
-            {isSolo ? (
+            {isPersonal ? (
               <>
                 <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
                   Your Expense This Month
@@ -143,7 +143,7 @@ export default function Landing() {
           </div>
 
           {/* Settle button — hide in solo */}
-          {!isSolo && (
+          {!isPersonal && (
             <Link
               to="/add"
               state={{ description: "Payment", category: "Payment", split_method: "100% other" }}
@@ -160,7 +160,7 @@ export default function Landing() {
 
           {/* Footer — avatars and subtitle */}
           <div className="mt-12 flex items-center gap-4 text-on-surface-variant">
-            {isSolo ? (
+            {isPersonal ? (
               <>
                 <div className="w-10 h-10 rounded-full border-4 border-surface-container-lowest overflow-hidden">
                   <Avatar user={me} size="md" />
@@ -178,7 +178,7 @@ export default function Landing() {
                   </div>
                 </div>
                 <p className="text-xs font-medium italic">
-                  {isHybrid ? `Personal + Shared with ${other}` : `Shared between ${me} & ${other}`}
+                  {isBlended ? `Blended with ${other}` : `Shared between ${me} & ${other}`}
                 </p>
               </>
             )}
@@ -186,7 +186,7 @@ export default function Landing() {
         </div>
 
         {/* Your Expense Card (duo/hybrid) */}
-        {!isSolo && myExpense && (
+        {!isPersonal && myExpense && (
           <div className={`${incomeEnabled ? "md:col-span-4" : "md:col-span-4"} bg-surface-container p-8 rounded-[2rem]`}>
             <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
               Your Expense This Month
@@ -198,14 +198,14 @@ export default function Landing() {
             </div>
             <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary-container text-on-secondary-container text-sm font-bold">
               <span className="material-symbols-outlined text-[16px]">person</span>
-              {isHybrid ? "Personal + your share of shared" : "Your share of shared expenses"}
+              {isBlended ? "Personal + your share of shared expenses" : "Your share of shared expenses"}
             </div>
           </div>
         )}
 
         {/* Income This Month tile */}
         {incomeEnabled && (
-          <div className={`${isSolo ? "md:col-span-6" : "md:col-span-4"} bg-surface-container p-8 rounded-[2rem] relative overflow-hidden group`}>
+          <div className={`${isPersonal ? "md:col-span-6" : "md:col-span-4"} bg-surface-container p-8 rounded-[2rem] relative overflow-hidden group`}>
             <span className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-bold">
               Income This Month
             </span>
@@ -225,7 +225,7 @@ export default function Landing() {
         )}
 
         {/* Quick Actions & Monthly Summary — full width when income enabled, otherwise same as before */}
-        <div className={`${incomeEnabled ? "md:col-span-12" : isSolo ? "md:col-span-8" : "md:col-span-4"} bg-surface-container p-8 rounded-[2rem]`}>
+        <div className={`${incomeEnabled ? "md:col-span-12" : isPersonal ? "md:col-span-8" : "md:col-span-4"} bg-surface-container p-8 rounded-[2rem]`}>
           <div className="flex items-center justify-between mb-8">
             <h3 className="font-headline text-xl font-bold">
               This Month&apos;s Spend by Category
@@ -307,7 +307,7 @@ export default function Landing() {
                   <tr className="text-on-surface-variant font-label text-xs uppercase tracking-widest border-b border-surface-container-high">
                     <th scope="col" className="pb-4 font-bold">Description</th>
                     <th scope="col" className="pb-4 font-bold">Category</th>
-                    {!isSolo && <th scope="col" className="pb-4 font-bold">Paid By</th>}
+                    {!isPersonal && <th scope="col" className="pb-4 font-bold">Paid By</th>}
                     <th scope="col" className="pb-4 font-bold">Date</th>
                     <th scope="col" className="pb-4 font-bold text-right">Amount</th>
                   </tr>
@@ -337,7 +337,7 @@ export default function Landing() {
                           {expense.category}
                         </span>
                       </td>
-                      {!isSolo && (
+                      {!isPersonal && (
                         <td className="py-5">
                           <span className="text-sm font-medium">
                             {expense.paid_by}

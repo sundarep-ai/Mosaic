@@ -4,7 +4,7 @@ import EmptyState from "./EmptyState";
 
 export default function TopGrowingCategories({ top_growing_categories, mode }) {
   const { fmt } = useCurrency();
-  const isSolo = mode === "solo";
+  const isPersonal = mode === "personal";
 
   return (
     <section>
@@ -17,7 +17,7 @@ export default function TopGrowingCategories({ top_growing_categories, mode }) {
           <div className="space-y-4">
             {top_growing_categories.map((g, i) => {
               const isPositive = g.avg_mom_growth_pct > 0;
-              const showShared = !isSolo && g.shared_last_3_months;
+              const showShared = !isPersonal && g.shared_last_3_months;
               return (
                 <div key={i} className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center shrink-0">

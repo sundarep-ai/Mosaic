@@ -245,9 +245,9 @@ def test_analytics_my_share_includes_reimbursement(auth_client_a):
     assert data["my_share"] == 35.0
 
 
-def test_analytics_my_share_solo(auth_client_a):
-    """In solo mode, my_share equals total_spend."""
-    auth_client_a.put("/api/settings", json={"app_mode": "solo"})
+def test_analytics_my_share_personal(auth_client_a):
+    """In personal mode, my_share equals total_spend."""
+    auth_client_a.put("/api/settings", json={"app_mode": "personal"})
     auth_client_a.post("/api/expenses", json=make_expense(
         amount=120, split_method="Personal", paid_by=USER_A,
     ))

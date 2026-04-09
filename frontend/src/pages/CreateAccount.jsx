@@ -78,7 +78,7 @@ export default function CreateAccount() {
 
       const data = await res.json();
 
-      if (data.solo_mode_notice) {
+      if (data.personal_mode_notice) {
         setSuccessMessage(data.message);
         return;
       }
