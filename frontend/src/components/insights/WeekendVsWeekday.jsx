@@ -121,7 +121,7 @@ function WeekendPanel({ data, title, fmt, isDark, CHART_COLORS, tooltipStyle, to
 
 export default function WeekendVsWeekday({ weekend_vs_weekday, mode, CHART_COLORS, isDark, tooltipStyle, tooltipItemStyle, tooltipLabelStyle }) {
   const { fmt } = useCurrency();
-  const isSolo = mode === "solo";
+  const isPersonal = mode === "personal";
 
   const yourData = weekend_vs_weekday.your_expense || { weekday: { total: 0, count: 0, by_category: [] }, weekend: { total: 0, count: 0, by_category: [] } };
   const sharedData = weekend_vs_weekday.shared_expense || yourData;
@@ -137,9 +137,9 @@ export default function WeekendVsWeekday({ weekend_vs_weekday, mode, CHART_COLOR
         Weekend vs Weekday Spending
       </h2>
       {hasAnyData ? (
-        <div className={`grid gap-6 ${isSolo ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}>
+        <div className={`grid gap-6 ${isPersonal ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}>
           <WeekendPanel data={yourData} title="Your Expense" {...panelProps} />
-          {!isSolo && (
+          {!isPersonal && (
             <WeekendPanel data={sharedData} title="Shared Expense" {...panelProps} />
           )}
         </div>

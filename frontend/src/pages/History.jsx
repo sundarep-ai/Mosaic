@@ -41,8 +41,8 @@ export default function History() {
   const navigate = useNavigate();
   const location = useLocation();
   const { userA, userB, mode } = useUsers();
-  const isSolo = mode === "solo";
-  const isHybrid = mode === "hybrid";
+  const isPersonal = mode === "personal";
+  const isBlended = mode === "blended";
   const { fmt } = useCurrency();
   const { formatDate } = useDateFormat();
   const [expenses, setExpenses] = useState([]);
@@ -129,7 +129,7 @@ export default function History() {
             Detailed Expenses
           </h1>
           <p className="text-on-surface-variant font-medium">
-            {isSolo ? "Review and manage your expenses." : "Review and manage your shared financial journey."}
+            {isPersonal ? "Review and manage your expenses." : "Review and manage your shared financial journey."}
           </p>
         </div>
         <div className="flex gap-3">
@@ -205,7 +205,7 @@ export default function History() {
             className="bg-transparent border-none focus:ring-0 w-full text-on-surface font-medium placeholder:text-outline"
           />
         </form>
-        <div className={`grid grid-cols-1 ${isHybrid ? "lg:grid-cols-4" : isSolo ? "lg:grid-cols-2" : "lg:grid-cols-3"} gap-3`}>
+        <div className={`grid grid-cols-1 ${isBlended ? "lg:grid-cols-4" : isPersonal ? "lg:grid-cols-2" : "lg:grid-cols-3"} gap-3`}>
           <div className="bg-surface-container rounded-3xl p-2 flex items-center justify-between px-4">
             <span className="text-on-surface-variant font-label font-semibold uppercase tracking-wider text-xs">
               Category
@@ -226,7 +226,7 @@ export default function History() {
               ))}
             </select>
           </div>
-          {!isSolo && (
+          {!isPersonal && (
             <div className="bg-surface-container rounded-3xl p-2 flex items-center justify-between px-4">
               <span className="text-on-surface-variant font-label font-semibold uppercase tracking-wider text-xs">
                 Paid By
@@ -245,7 +245,7 @@ export default function History() {
               </select>
             </div>
           )}
-          {isHybrid && (
+          {isBlended && (
             <div className="bg-surface-container rounded-3xl p-2 flex items-center justify-between px-4">
               <span className="text-on-surface-variant font-label font-semibold uppercase tracking-wider text-xs">
                 Type
@@ -307,12 +307,12 @@ export default function History() {
             return (
               <>
                 {/* Table Header (Desktop) */}
-                <div className={`hidden md:grid ${isSolo ? "md:grid-cols-8" : "md:grid-cols-12"} gap-4 px-8 py-5 bg-surface-container-highest border-b border-outline-variant/10 text-on-surface-variant font-label font-bold uppercase tracking-widest text-[11px]`}>
+                <div className={`hidden md:grid ${isPersonal ? "md:grid-cols-8" : "md:grid-cols-12"} gap-4 px-8 py-5 bg-surface-container-highest border-b border-outline-variant/10 text-on-surface-variant font-label font-bold uppercase tracking-widest text-[11px]`}>
                   <div className="col-span-1">Date</div>
-                  <div className={isSolo ? "col-span-3" : "col-span-4"}>Description</div>
+                  <div className={isPersonal ? "col-span-3" : "col-span-4"}>Description</div>
                   <div className="col-span-2">Amount</div>
-                  {!isSolo && <div className="col-span-2 text-center">Paid By</div>}
-                  {!isSolo && <div className="col-span-2 text-center">Type</div>}
+                  {!isPersonal && <div className="col-span-2 text-center">Paid By</div>}
+                  {!isPersonal && <div className="col-span-2 text-center">Type</div>}
                   <div className="col-span-1 text-right">Actions</div>
                 </div>
 
@@ -321,12 +321,12 @@ export default function History() {
                   {filteredExpenses.map((expense) => (
                     <div
                       key={expense.id}
-                      className={`bg-surface-container-lowest rounded-2xl md:rounded-none md:bg-transparent md:hover:bg-surface-container transition-colors grid grid-cols-1 ${isSolo ? "md:grid-cols-8" : "md:grid-cols-12"} gap-4 items-center px-6 py-6 group`}
+                      className={`bg-surface-container-lowest rounded-2xl md:rounded-none md:bg-transparent md:hover:bg-surface-container transition-colors grid grid-cols-1 ${isPersonal ? "md:grid-cols-8" : "md:grid-cols-12"} gap-4 items-center px-6 py-6 group`}
                     >
                       <div className="col-span-1 text-on-surface-variant font-medium md:text-sm whitespace-pre-line">
                         {formatDate(expense.date)}
                       </div>
-                      <div className={`${isSolo ? "col-span-3" : "col-span-4"} flex items-center gap-4`}>
+                      <div className={`${isPersonal ? "col-span-3" : "col-span-4"} flex items-center gap-4`}>
                         <div
                           className={`w-10 h-10 rounded-full flex items-center justify-center ${CATEGORY_BG[expense.category] || CATEGORY_BG.Other}`}
                         >
@@ -348,7 +348,7 @@ export default function History() {
                       <div className="col-span-2 text-xl font-headline font-bold text-on-surface">
                         {fmt(expense.amount)}
                       </div>
-                      {!isSolo && (
+                      {!isPersonal && (
                         <div className="col-span-2 flex justify-center">
                           <div className="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full">
                             <Avatar user={expense.paid_by} size="sm" />
@@ -358,7 +358,7 @@ export default function History() {
                           </div>
                         </div>
                       )}
-                      {!isSolo && (
+                      {!isPersonal && (
                         <div className="col-span-2 flex justify-center">
                           {getSplitBadge(expense.split_method)}
                         </div>

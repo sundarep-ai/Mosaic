@@ -29,7 +29,7 @@ export default function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const { currency, setCurrency, currencies } = useCurrency();
   const { mode } = useUsers();
-  const modeLabel = mode === "solo" ? "Solo" : mode === "hybrid" ? "Personal + Shared" : "Shared";
+  const modeLabel = mode === "personal" ? "Personal" : mode === "blended" ? "Blended" : "Shared";
 
   return (
     <>

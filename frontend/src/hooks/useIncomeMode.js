@@ -5,7 +5,7 @@ const STORAGE_KEY = "income_mode_enabled";
 
 export function useIncomeMode() {
   const { mode } = useUsers();
-  const canUseIncome = mode === "solo" || mode === "hybrid";
+  const canUseIncome = mode === "personal" || mode === "blended";
 
   const [enabled, setEnabled] = useState(
     () => canUseIncome && localStorage.getItem(STORAGE_KEY) === "true"

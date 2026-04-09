@@ -18,9 +18,9 @@ MosaicTally tracks expenses — personal, shared between two people, or both —
 
 | Mode | Description | Income Tracking |
 |---|---|---|
-| **Solo** | Single-user personal expense tracking. No balance, no split options, simplified UI. | Available (opt-in) |
+| **Personal** | Single-user personal expense tracking. No balance, no split options, simplified UI. | Available (opt-in) |
 | **Shared** (default) | Two-person shared expenses with balance tracking, split methods, and settle-up. | Not available — incomplete picture of each person's finances |
-| **Personal + Shared** (Hybrid) | Both personal and shared expenses — see your own spending alongside what you split. | Available (opt-in, per user) |
+| **Blended** | Both personal and shared expenses — see your own spending alongside what you split. | Available (opt-in, per user) |
 
 Switch modes anytime from the Settings page (gear icon in the top bar). Mode changes only affect validation and UI — your data is never deleted or migrated.
 
@@ -36,7 +36,7 @@ Across Home, Analytics, Calendar, and Smart Insights, MosaicTally shows each use
 | **100% You** | 100% of the amount (you owe it all) |
 | **100% Partner** | 0% (they owe it all) |
 
-In **Solo** mode, all expenses are Personal, so your expense equals the total. In **Shared** mode, your expense is your portion of all shared expenses. In **Hybrid** mode, it combines your personal expenses plus your portion of shared ones.
+In **Personal** mode, all expenses are Personal, so your expense equals the total. In **Shared** mode, your expense is your portion of all shared expenses. In **Blended** mode, it combines your personal expenses plus your portion of shared ones.
 
 Reimbursements (stored as negative amounts) reduce your net expense on Home and Analytics but are excluded from Calendar day totals to avoid confusion when a reimbursement arrives in a different month than the original expense.
 
@@ -44,15 +44,15 @@ Reimbursements (stored as negative amounts) reduce your net expense on Home and 
 
 | Page | What it does |
 |---|---|
-| **Home** | Mode-aware overview with "Your Expense This Month" — your personal portion of all spending. **Solo** shows your total; **Shared** / **Hybrid** add a balance card and settle button alongside your expense card. When Income Tracking is enabled, a third tile shows "Income This Month" and the Spend by Category section moves below. All modes show this month's spend by category and recent activity. |
-| **Add Expense** | Log an expense with date, description, category, amount, payer, and split method. In Solo mode, the "Who Paid" and "Split Method" fields are hidden (defaults to the single user and "Personal"). Supports custom categories via "+ New Category". Fuzzy matching suggests existing descriptions and auto-suggests categories — all client-side. |
+| **Home** | Mode-aware overview with "Your Expense This Month" — your personal portion of all spending. **Personal** shows your total; **Shared** / **Blended** add a balance card and settle button alongside your expense card. When Income Tracking is enabled, a third tile shows "Income This Month" and the Spend by Category section moves below. All modes show this month's spend by category and recent activity. |
+| **Add Expense** | Log an expense with date, description, category, amount, payer, and split method. In Personal mode, the "Who Paid" and "Split Method" fields are hidden (defaults to the single user and "Personal"). Supports custom categories via "+ New Category". Fuzzy matching suggests existing descriptions and auto-suggests categories — all client-side. |
 | **Add Income** | Log income received at `/add-income`. Fields: date, amount, source (Salary / Wages, Freelance / Side Income, Other), optional notes. Available only when Income Tracking is enabled in Settings. |
-| **Settings** | Choose your app mode (Solo / Shared / Personal + Shared), upload a profile picture, set your preferred date format, enable Income Tracking (Solo and Hybrid modes only), toggle Stay Signed In, change your password, and delete your account. |
+| **Settings** | Choose your app mode (Personal / Shared / Blended), upload a profile picture, set your preferred date format, enable Income Tracking (Personal and Blended modes only), toggle Stay Signed In, change your password, and delete your account. |
 | **Edit Expense** | Full-page edit form at `/edit/:id` — reuses the Add Expense form with all fields pre-filled |
-| **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses. Filter presets: 1M, 3M, 6M, YTD, 1Y, All — plus custom date range. **Solo** shows your total expense; **Shared** / **Hybrid** show total shared spend, your share, and total spend. Payer breakdown hidden in Solo; Personal vs Shared chart shown in Hybrid. When Income Tracking is enabled, a **Sankey chart** appears at the top showing income sources → expense categories → Savings (if income exceeds expenses). |
-| **Calendar** | Month-view calendar showing your daily expense portion with logarithmic heat-map shading (prevents a single outlier like rent from washing out all other days). Navigate months with chevron arrows or jump to any month/year via a dropdown picker. Displays your monthly expense at the top alongside total shared spend (in Shared/Hybrid modes). Day cells show only your portion. Click any day to drill down into that day's expenses on the History page. Payment and Reimbursement categories are excluded from calendar totals. When Income Tracking is enabled, days with income show a green `+` badge and the income amount alongside the expense amount. |
-| **Smart Insights** | User-portion-aware spending analysis — all monetary values reflect **your expense** (your share based on split method), not raw totals. Detects recurring payments (weekly/monthly/quarterly/annual) with change alerts, highlights category trend spikes, flags statistical anomalies, projects next-month spending via weighted moving average, and ranks fastest-growing categories. **Weekend vs Weekday** shows side-by-side panels comparing your expense and shared expense patterns. In non-Solo modes, shared (full) amounts are shown as secondary info alongside your portion. When **Income Tracking** is enabled (Solo/Hybrid), an additional section shows savings rate, income vs expenses trend, and income breakdown by source. All computed server-side. |
-| **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. In Solo mode, the "Paid By" column and filter are hidden. In Hybrid mode, an extra "Type" filter lets you toggle between All, Personal, and Shared expenses. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics") — with Accept, Reject, and Review Later actions per suggestion, a Custom Merge tab for manual merges, and a Dismissed tab to restore accidentally rejected pairs. |
+| **Analytics** | Date-range filtered Bar / Pie / Line charts, summary cards, top 5 largest expenses. Filter presets: 1M, 3M, 6M, YTD, 1Y, All — plus custom date range. **Personal** shows your total expense; **Shared** / **Blended** show total shared spend, your share, and total spend. Payer breakdown hidden in Personal; Personal vs Shared chart shown in Blended. When Income Tracking is enabled, a **Sankey chart** appears at the top showing income sources → expense categories → Savings (if income exceeds expenses). |
+| **Calendar** | Month-view calendar showing your daily expense portion with logarithmic heat-map shading (prevents a single outlier like rent from washing out all other days). Navigate months with chevron arrows or jump to any month/year via a dropdown picker. Displays your monthly expense at the top alongside total shared spend (in Shared/Blended modes). Day cells show only your portion. Click any day to drill down into that day's expenses on the History page. Payment and Reimbursement categories are excluded from calendar totals. When Income Tracking is enabled, days with income show a green `+` badge and the income amount alongside the expense amount. |
+| **Smart Insights** | User-portion-aware spending analysis — all monetary values reflect **your expense** (your share based on split method), not raw totals. Detects recurring payments (weekly/monthly/quarterly/annual) with change alerts, highlights category trend spikes, flags statistical anomalies, projects next-month spending via weighted moving average, and ranks fastest-growing categories. **Weekend vs Weekday** shows side-by-side panels comparing your expense and shared expense patterns. In non-Personal modes, shared (full) amounts are shown as secondary info alongside your portion. When **Income Tracking** is enabled (Personal/Blended), an additional section shows savings rate, income vs expenses trend, and income breakdown by source. All computed server-side. |
+| **History** | Full expense table with search, category & payer filters, edit (navigates to edit page), delete with confirmation. In Personal mode, the "Paid By" column and filter are hidden. In Blended mode, an extra "Type" filter lets you toggle between All, Personal, and Shared expenses. Includes a "Clean Up" tool that uses AI embeddings to find and merge similar description variants (e.g. "Foodbasics" / "Food Basics") — with Accept, Reject, and Review Later actions per suggestion, a Custom Merge tab for manual merges, and a Dismissed tab to restore accidentally rejected pairs. |
 | **Export** | Download the current filtered view as an `.xlsx` file |
 
 ### Account Management
@@ -70,7 +70,7 @@ User accounts are stored in the SQLite database (no hardcoded config files). The
 
 ### Income Tracking
 
-Income Tracking is an optional opt-in feature available in **Solo** and **Personal + Shared (Hybrid)** modes. It is not available in Shared mode because that mode only reflects shared household expenses — without a complete view of each person's personal finances, an income-vs-expenses picture would be misleading.
+Income Tracking is an optional opt-in feature available in **Personal** and **Blended** modes. It is not available in Shared mode because that mode only reflects shared household expenses — without a complete view of each person's personal finances, an income-vs-expenses picture would be misleading.
 
 **To enable:** Go to Settings → toggle "Enable Income Tracking". The setting is stored per browser (localStorage) and per user, so each user can opt in independently.
 
@@ -78,7 +78,7 @@ Income Tracking is an optional opt-in feature available in **Solo** and **Person
 
 - Log income at `/add-income` (linked from the Home income tile or via the Add Income button)
 - Income sources: **Salary / Wages**, **Freelance / Side Income**, **Other**
-- Income is private — in Hybrid mode, your income is never visible to the other user
+- Income is private — in Blended mode, your income is never visible to the other user
 - In the **Analytics** page, a Sankey chart visualises how income flows into expense categories. If income exceeds expenses, the remainder is shown as a **Savings** node. The chart respects the active date range filter.
 - On the **Home** page, an "Income This Month" tile shows the current month's total and source breakdown
 - On the **Calendar** page, days with income logged show a green `+` badge and the income amount
@@ -120,15 +120,15 @@ Each user can upload a profile picture from the Settings page (gear icon → Pro
 
 | Method | Availability | Behaviour |
 |---|---|---|
-| `50/50` | Shared, Hybrid | Cost is shared equally — the non-payer owes half |
-| `100% (Other Owes)` | Shared, Hybrid | The non-payer is fully responsible for the expense |
-| `Personal` | All modes | No balance impact — a personal expense logged for tracking only. In Solo mode, this is the only option (applied automatically). |
+| `50/50` | Shared, Blended | Cost is shared equally — the non-payer owes half |
+| `100% (Other Owes)` | Shared, Blended | The non-payer is fully responsible for the expense |
+| `Personal` | All modes | No balance impact — a personal expense logged for tracking only. In Personal mode, this is the only option (applied automatically). |
 
 ### Validation
 
 - **Amount** must be greater than zero (enforced on both frontend and backend) and is automatically rounded to 2 decimal places on input
 - **Date** cannot be in the future (enforced on both frontend and backend)
-- **Paid By** and **Split Method** are validated dynamically based on the current app mode — Solo restricts to a single user and "Personal" split only
+- **Paid By** and **Split Method** are validated dynamically based on the current app mode — Personal restricts to a single user and "Personal" split only
 - **Category** is free-form — choose from the default list or create a custom category
 
 ## Data Protection
@@ -159,7 +159,7 @@ The database runs in WAL (Write-Ahead Logging) mode for crash recovery, and an i
 - **Security answers** are normalized (lowercased, trimmed) and bcrypt-hashed before storage
 - **Session cookies** are HMAC-SHA256 signed with a required `SECRET_KEY` — the app refuses to start without one
 - **Avatar uploads** are validated with magic byte checks and path traversal protection
-- **Solo mode** blocks login for the second user at the auth layer — not just hidden in UI
+- **Personal mode** blocks login for the second user at the auth layer — not just hidden in UI
 - **Search queries** escape SQL LIKE wildcards to prevent injection
 - **Account creation** is capped at 2 users — enforced server-side with uniqueness constraints
 - **Account deletion** requires password confirmation before proceeding
@@ -264,7 +264,7 @@ The script auto-detects columns by header keywords and supports multiple date fo
 | Paid By | Must match a registered user's display name |
 | Split Method | 50/50, 100% \<Display Name\>, Personal |
 
-If you have income history in an `.xlsx` file (Solo / Hybrid mode only):
+If you have income history in an `.xlsx` file (Personal / Blended mode only):
 
 ```bash
 cd backend
@@ -325,8 +325,8 @@ All endpoints are prefixed with `/api`.
 | `GET` | `/balance` | Auth | Current balance between the two users |
 | `GET` | `/monthly-summary` | Auth | Category totals for the current month |
 | `GET` | `/analytics` | Auth | Aggregated analytics including `my_share` (query: `start_date`, `end_date`) |
-| `GET` | `/insights` | Auth | Smart insights: user-portion-aware recurring payments, trend alerts, anomalies, forecast, weekend vs weekday (dual view), top growing categories, income insights (Solo/Hybrid) |
-| `GET` | `/personal-summary` | Auth | Current user's personal spend for this month (Hybrid mode) |
+| `GET` | `/insights` | Auth | Smart insights: user-portion-aware recurring payments, trend alerts, anomalies, forecast, weekend vs weekday (dual view), top growing categories, income insights (Personal/Blended) |
+| `GET` | `/personal-summary` | Auth | Current user's personal spend for this month (Blended mode) |
 | `GET` | `/my-expense-summary` | Auth | Current user's total expense portion and total shared spend for this month |
 | `GET` | `/config` | Public | Display names and app mode |
 | `GET` | `/settings` | Public | Current app mode |
@@ -337,8 +337,8 @@ All endpoints are prefixed with `/api`.
 | `GET` | `/dismissed-merges` | Auth | List all dismissed merge pairs grouped by category |
 | `POST` | `/undismiss-merge` | Auth | Restore a dismissed merge pair by ID |
 | `GET` | `/export` | Auth | Download filtered expenses as `.xlsx` |
-| `GET` | `/income` | Auth | List income entries (Solo/Hybrid only) |
-| `POST` | `/income` | Auth | Create an income entry (Solo/Hybrid only) |
+| `GET` | `/income` | Auth | List income entries (Personal/Blended only) |
+| `POST` | `/income` | Auth | Create an income entry (Personal/Blended only) |
 | `PUT` | `/income/{id}` | Auth | Update an income entry — owner only |
 | `DELETE` | `/income/{id}` | Auth | Delete an income entry — owner only |
 | `GET` | `/income/monthly-summary` | Auth | Total income and source breakdown for the current month |
@@ -358,7 +358,7 @@ backend/
   auth.py                # Authentication, registration, password reset, account management
   cli_reset_password.py  # CLI tool for last-resort password reset
   migrate_xlsx.py        # Bulk import expenses from .xlsx
-  migrate_income_xlsx.py # Bulk import income from .xlsx (Solo/Hybrid only)
+  migrate_income_xlsx.py # Bulk import income from .xlsx (Personal/Blended only)
   requirements.txt       # Python dependencies
   services/
     audit.py             # Append-only JSONL audit logger
@@ -367,7 +367,7 @@ backend/
   routes/
     expenses.py          # CRUD, balance, monthly summary, description similarity & merge
     analytics.py         # Date-filtered analytics aggregation
-    income.py            # Income CRUD, monthly summary, Sankey data (Solo/Hybrid only)
+    income.py            # Income CRUD, monthly summary, Sankey data (Personal/Blended only)
     insights.py          # Smart insights: recurring detection, trends, anomalies, forecast
     export.py            # .xlsx file generation & download
 
@@ -407,7 +407,7 @@ frontend/
       CreateAccount.jsx  # Account registration with security question
       ForgotPassword.jsx # Security question-based password reset
       AddExpense.jsx     # New/edit expense form
-      AddIncome.jsx      # Log income form (Solo/Hybrid only)
+      AddIncome.jsx      # Log income form (Personal/Blended only)
       Analytics.jsx      # Charts & analytics dashboard
       Calendar.jsx       # Month-view calendar with daily spend totals
       Insights.jsx       # Smart Insights page

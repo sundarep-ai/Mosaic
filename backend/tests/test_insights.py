@@ -39,7 +39,7 @@ def test_insights_empty_db(auth_client_a):
     assert data["anomalies"] == []
     assert data["forecast"]["total_forecast"] == 0
     assert data["top_growing_categories"] == []
-    assert data["mode"] == "duo"
+    assert data["mode"] == "shared"
 
 
 def test_insights_requires_auth(client):
@@ -51,13 +51,13 @@ def test_insights_requires_auth(client):
 
 
 def test_mode_in_response(auth_client_a, db):
-    set_mode(db, "solo")
+    set_mode(db, "personal")
     data = auth_client_a.get("/api/insights").json()
-    assert data["mode"] == "solo"
+    assert data["mode"] == "personal"
 
-    set_mode(db, "hybrid")
+    set_mode(db, "blended")
     data = auth_client_a.get("/api/insights").json()
-    assert data["mode"] == "hybrid"
+    assert data["mode"] == "blended"
 
 
 # ── Payment/Reimbursement exclusion ────────────────────────────────────
@@ -120,7 +120,7 @@ def test_weekend_vs_weekday(auth_client_a):
 
 def test_weekend_weekday_dual_view_personal(auth_client_a, db):
     """Personal expenses: your_expense == shared_expense for the payer."""
-    set_mode(db, "hybrid")
+    set_mode(db, "blended")
     today = date.today()
     days_to_saturday = (5 - today.weekday()) % 7
     if days_to_saturday == 0:
@@ -562,12 +562,12 @@ def test_top_growing_categories(auth_client_a):
             assert "shared_last_3_months" in ent
 
 
-# ── Solo mode ──────────────────────────────────────────────────────────
+# ── Personal mode ─────────────────────────────────────────────────────
 
 
-def test_solo_mode_insights(auth_client_a, db):
-    """In solo mode, all amounts should be at 100% (no splitting)."""
-    set_mode(db, "solo")
+def test_personal_mode_insights(auth_client_a, db):
+    """In personal mode, all amounts should be at 100% (no splitting)."""
+    set_mode(db, "personal")
     today = date.today()
 
     days_to_saturday = (5 - today.weekday()) % 7
@@ -586,10 +586,10 @@ def test_solo_mode_insights(auth_client_a, db):
     )
 
     data = auth_client_a.get("/api/insights").json()
-    assert data["mode"] == "solo"
+    assert data["mode"] == "personal"
 
     ww = data["weekend_vs_weekday"]
-    # In solo mode, your expense == shared expense == full amount
+    # In personal mode, your expense == shared expense == full amount
     assert ww["your_expense"]["weekend"]["total"] == 100.0
     assert ww["shared_expense"]["weekend"]["total"] == 100.0
 
@@ -597,15 +597,15 @@ def test_solo_mode_insights(auth_client_a, db):
 # ── Income insights ───────────────────────────────────────────────────
 
 
-def test_income_insights_none_duo(auth_client_a):
-    """In duo mode, income_insights should be None."""
+def test_income_insights_none_shared(auth_client_a):
+    """In shared mode, income_insights should be None."""
     data = auth_client_a.get("/api/insights").json()
     assert data["income_insights"] is None
 
 
-def test_income_insights_present_hybrid(auth_client_a, db):
-    """In hybrid mode with income data, income_insights should be populated."""
-    set_mode(db, "hybrid")
+def test_income_insights_present_blended(auth_client_a, db):
+    """In blended mode with income data, income_insights should be populated."""
+    set_mode(db, "blended")
     today = date.today()
 
     # Add income entry
@@ -640,7 +640,7 @@ def test_income_insights_present_hybrid(auth_client_a, db):
 
 def test_income_insights_savings_rate(auth_client_a, db):
     """Verify savings rate math: (income - expenses) / income * 100."""
-    set_mode(db, "hybrid")
+    set_mode(db, "blended")
     today = date.today()
 
     auth_client_a.post(
@@ -663,15 +663,15 @@ def test_income_insights_savings_rate(auth_client_a, db):
 
 
 def test_income_insights_no_income_data(auth_client_a, db):
-    """In hybrid mode with no income entries, income_insights should be None."""
-    set_mode(db, "hybrid")
+    """In blended mode with no income entries, income_insights should be None."""
+    set_mode(db, "blended")
     data = auth_client_a.get("/api/insights").json()
     assert data["income_insights"] is None
 
 
 def test_income_insights_by_source(auth_client_a, db):
     """Income by source should break down correctly."""
-    set_mode(db, "hybrid")
+    set_mode(db, "blended")
     today = date.today()
 
     auth_client_a.post(
@@ -695,7 +695,7 @@ def test_income_insights_by_source(auth_client_a, db):
 
 def test_income_vs_expense_surplus(auth_client_a, db):
     """Income vs expense should show correct surplus."""
-    set_mode(db, "hybrid")
+    set_mode(db, "blended")
     today = date.today()
 
     auth_client_a.post(

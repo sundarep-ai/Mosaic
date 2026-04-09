@@ -130,12 +130,12 @@ def test_my_expense_only_current_month(auth_client_a):
     assert data["my_total"] == 50.0
 
 
-# ── Solo mode ──────────────────────────────────────────────────────
+# ── Personal mode ─────────────────────────────────────────────────
 
 
-def test_my_expense_solo_mode(auth_client_a):
-    """In solo mode, my_total equals total personal spend."""
-    auth_client_a.put("/api/settings", json={"app_mode": "solo"})
+def test_my_expense_personal_mode(auth_client_a):
+    """In personal mode, my_total equals total personal spend."""
+    auth_client_a.put("/api/settings", json={"app_mode": "personal"})
     auth_client_a.post("/api/expenses", json=make_expense(
         amount=150, split_method="Personal", paid_by=USER_A,
     ))
@@ -144,12 +144,12 @@ def test_my_expense_solo_mode(auth_client_a):
     assert data["total_shared_spend"] == 0.0
 
 
-# ── Hybrid mode ────────────────────────────────────────────────────
+# ── Blended mode ──────────────────────────────────────────────────
 
 
-def test_my_expense_hybrid_personal_plus_shared(auth_client_a):
-    """Hybrid: personal + shared portion combined correctly."""
-    auth_client_a.put("/api/settings", json={"app_mode": "hybrid"})
+def test_my_expense_blended_personal_plus_shared(auth_client_a):
+    """Blended: personal + shared portion combined correctly."""
+    auth_client_a.put("/api/settings", json={"app_mode": "blended"})
     auth_client_a.post("/api/expenses", json=make_expense(
         amount=40, split_method="Personal", paid_by=USER_A,
     ))

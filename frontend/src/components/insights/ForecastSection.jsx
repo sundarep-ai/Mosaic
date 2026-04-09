@@ -12,7 +12,7 @@ import EmptyState from "./EmptyState";
 
 export default function ForecastSection({ forecast, mode, CHART_COLORS, isDark, tooltipStyle, tooltipItemStyle, tooltipLabelStyle }) {
   const { fmt } = useCurrency();
-  const isSolo = mode === "solo";
+  const isPersonal = mode === "personal";
 
   const now = new Date();
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -34,7 +34,7 @@ export default function ForecastSection({ forecast, mode, CHART_COLORS, isDark, 
             <div className="mt-4 font-headline text-4xl font-extrabold">
               {fmt(forecast.total_forecast)}
             </div>
-            {!isSolo && forecast.shared_total_forecast > 0 && (
+            {!isPersonal && forecast.shared_total_forecast > 0 && (
               <p className="mt-1 text-sm text-on-primary/60">
                 Shared total: {fmt(forecast.shared_total_forecast)}
               </p>

@@ -1,8 +1,8 @@
 """
-Tests for multi-mode support (solo / duo / hybrid).
+Tests for multi-mode support (personal / shared / blended).
 
-Covers: Settings API, mode-aware validation, solo login restriction,
-solo balance stub, personal-summary endpoint, analytics by_split_type,
+Covers: Settings API, mode-aware validation, personal login restriction,
+personal balance stub, personal-summary endpoint, analytics by_split_type,
 and mode switching behaviour.
 """
 
@@ -28,11 +28,11 @@ def _set_mode(auth_client, mode):
 def test_settings_default_mode(auth_client_a):
     resp = auth_client_a.get("/api/settings")
     assert resp.status_code == 200
-    assert resp.json()["app_mode"] == "duo"
+    assert resp.json()["app_mode"] == "shared"
 
 
 def test_settings_update_mode(auth_client_a):
-    for mode in ("solo", "hybrid", "duo"):
+    for mode in ("personal", "blended", "shared"):
         resp = _set_mode(auth_client_a, mode)
         assert resp.json()["app_mode"] == mode
         # Verify it persists on GET
@@ -50,7 +50,7 @@ def test_settings_empty_mode_rejected(auth_client_a):
 
 
 def test_settings_requires_auth(client):
-    resp = client.put("/api/settings", json={"app_mode": "solo"})
+    resp = client.put("/api/settings", json={"app_mode": "personal"})
     assert resp.status_code == 401
 
 
@@ -69,17 +69,17 @@ def test_settings_rejects_extra_fields_only(auth_client_a):
 def test_config_endpoint_includes_mode(auth_client_a):
     """GET /api/config should reflect the current mode."""
     resp = auth_client_a.get("/api/config")
-    assert resp.json()["mode"] == "duo"
+    assert resp.json()["mode"] == "shared"
 
-    _set_mode(auth_client_a, "solo")
+    _set_mode(auth_client_a, "personal")
     resp = auth_client_a.get("/api/config")
-    assert resp.json()["mode"] == "solo"
+    assert resp.json()["mode"] == "personal"
 
 
-# ── Solo Mode: Login Restriction ───────────────────────────────────────
+# ── Personal Mode: Login Restriction ──────────────────────────────────
 
-def test_solo_blocks_user_b_login(auth_client_a, client):
-    _set_mode(auth_client_a, "solo")
+def test_personal_blocks_user_b_login(auth_client_a, client):
+    _set_mode(auth_client_a, "personal")
     resp = client.post("/api/auth/login", json={
         "username": USER_B_LOGIN,
         "password": PASSWORD_B,
@@ -87,8 +87,8 @@ def test_solo_blocks_user_b_login(auth_client_a, client):
     assert resp.status_code == 401
 
 
-def test_solo_allows_user_a_login(auth_client_a, client):
-    _set_mode(auth_client_a, "solo")
+def test_personal_allows_user_a_login(auth_client_a, client):
+    _set_mode(auth_client_a, "personal")
     resp = client.post("/api/auth/login", json={
         "username": USER_A_LOGIN,
         "password": PASSWORD_A,
@@ -96,10 +96,10 @@ def test_solo_allows_user_a_login(auth_client_a, client):
     assert resp.status_code == 200
 
 
-# ── Solo Mode: Validation ──────────────────────────────────────────────
+# ── Personal Mode: Validation ─────────────────────────────────────────
 
-def test_solo_rejects_user_b_as_payer(auth_client_a):
-    _set_mode(auth_client_a, "solo")
+def test_personal_rejects_user_b_as_payer(auth_client_a):
+    _set_mode(auth_client_a, "personal")
     resp = auth_client_a.post("/api/expenses", json=make_expense(
         paid_by=USER_B, split_method="Personal",
     ))
@@ -107,8 +107,8 @@ def test_solo_rejects_user_b_as_payer(auth_client_a):
     assert "paid_by" in resp.json()["detail"]
 
 
-def test_solo_rejects_shared_split(auth_client_a):
-    _set_mode(auth_client_a, "solo")
+def test_personal_rejects_shared_split(auth_client_a):
+    _set_mode(auth_client_a, "personal")
     resp = auth_client_a.post("/api/expenses", json=make_expense(
         split_method="50/50",
     ))
@@ -116,8 +116,8 @@ def test_solo_rejects_shared_split(auth_client_a):
     assert "split_method" in resp.json()["detail"]
 
 
-def test_solo_rejects_100_percent_split(auth_client_a):
-    _set_mode(auth_client_a, "solo")
+def test_personal_rejects_100_percent_split(auth_client_a):
+    _set_mode(auth_client_a, "personal")
     for method in [f"100% {USER_A}", f"100% {USER_B}"]:
         resp = auth_client_a.post("/api/expenses", json=make_expense(
             split_method=method,
@@ -125,29 +125,29 @@ def test_solo_rejects_100_percent_split(auth_client_a):
         assert resp.status_code == 422
 
 
-def test_solo_accepts_personal_expense(auth_client_a):
-    _set_mode(auth_client_a, "solo")
+def test_personal_accepts_personal_expense(auth_client_a):
+    _set_mode(auth_client_a, "personal")
     resp = auth_client_a.post("/api/expenses", json=make_expense(
         paid_by=USER_A, split_method="Personal",
     ))
     assert resp.status_code == 201
 
 
-# ── Solo Mode: Balance ─────────────────────────────────────────────────
+# ── Personal Mode: Balance ────────────────────────────────────────────
 
-def test_solo_balance_returns_zero(auth_client_a):
-    _set_mode(auth_client_a, "solo")
+def test_personal_balance_returns_zero(auth_client_a):
+    _set_mode(auth_client_a, "personal")
     resp = auth_client_a.get("/api/balance")
     assert resp.status_code == 200
     data = resp.json()
     assert data["amount"] == 0
-    assert data["description"] == "Solo mode"
+    assert data["description"] == "Personal mode"
 
 
-# ── Duo Mode: Validation (existing behaviour preserved) ────────────────
+# ── Shared Mode: Validation (existing behaviour preserved) ────────────
 
-def test_duo_accepts_all_split_methods(auth_client_a):
-    """Duo mode should accept 50/50, 100% splits, and Personal."""
+def test_shared_accepts_all_split_methods(auth_client_a):
+    """Shared mode should accept 50/50, 100% splits, and Personal."""
     for method in ["50/50", f"100% {USER_A}", f"100% {USER_B}", "Personal"]:
         resp = auth_client_a.post("/api/expenses", json=make_expense(
             split_method=method,
@@ -155,7 +155,7 @@ def test_duo_accepts_all_split_methods(auth_client_a):
         assert resp.status_code == 201, f"Failed for split_method={method}"
 
 
-def test_duo_accepts_both_payers(auth_client_a):
+def test_shared_accepts_both_payers(auth_client_a):
     for payer in [USER_A, USER_B]:
         resp = auth_client_a.post("/api/expenses", json=make_expense(
             paid_by=payer,
@@ -163,10 +163,10 @@ def test_duo_accepts_both_payers(auth_client_a):
         assert resp.status_code == 201, f"Failed for paid_by={payer}"
 
 
-# ── Hybrid Mode: Validation ───────────────────────────────────────────
+# ── Blended Mode: Validation ──────────────────────────────────────────
 
-def test_hybrid_accepts_personal_and_shared(auth_client_a):
-    _set_mode(auth_client_a, "hybrid")
+def test_blended_accepts_personal_and_shared(auth_client_a):
+    _set_mode(auth_client_a, "blended")
     for method in ["50/50", f"100% {USER_A}", "Personal"]:
         resp = auth_client_a.post("/api/expenses", json=make_expense(
             split_method=method,
@@ -174,8 +174,8 @@ def test_hybrid_accepts_personal_and_shared(auth_client_a):
         assert resp.status_code == 201, f"Failed for split_method={method}"
 
 
-def test_hybrid_accepts_both_payers(auth_client_a):
-    _set_mode(auth_client_a, "hybrid")
+def test_blended_accepts_both_payers(auth_client_a):
+    _set_mode(auth_client_a, "blended")
     for payer in [USER_A, USER_B]:
         resp = auth_client_a.post("/api/expenses", json=make_expense(
             paid_by=payer,
@@ -257,13 +257,13 @@ def test_mode_switch_preserves_data(auth_client_a):
         amount=25, split_method="Personal", description="coffee",
     ))
 
-    # Switch to solo
-    _set_mode(auth_client_a, "solo")
+    # Switch to personal
+    _set_mode(auth_client_a, "personal")
     expenses = auth_client_a.get("/api/expenses").json()
     assert len(expenses) == 2
 
-    # Switch to hybrid
-    _set_mode(auth_client_a, "hybrid")
+    # Switch to blended
+    _set_mode(auth_client_a, "blended")
     expenses = auth_client_a.get("/api/expenses").json()
     assert len(expenses) == 2
     descriptions = {e["description"] for e in expenses}
@@ -271,38 +271,38 @@ def test_mode_switch_preserves_data(auth_client_a):
 
 
 def test_validation_adapts_after_mode_switch(auth_client_a):
-    """After switching to solo, shared splits should be rejected immediately."""
-    # Duo: shared split works
+    """After switching to personal, shared splits should be rejected immediately."""
+    # Shared: shared split works
     resp = auth_client_a.post("/api/expenses", json=make_expense(
         split_method="50/50",
     ))
     assert resp.status_code == 201
 
-    # Switch to solo: same split should fail
-    _set_mode(auth_client_a, "solo")
+    # Switch to personal: same split should fail
+    _set_mode(auth_client_a, "personal")
     resp = auth_client_a.post("/api/expenses", json=make_expense(
         split_method="50/50",
     ))
     assert resp.status_code == 422
 
-    # Switch back to duo: shared split works again
-    _set_mode(auth_client_a, "duo")
+    # Switch back to shared: shared split works again
+    _set_mode(auth_client_a, "shared")
     resp = auth_client_a.post("/api/expenses", json=make_expense(
         split_method="50/50",
     ))
     assert resp.status_code == 201
 
 
-def test_solo_edit_rejects_shared_split(auth_client_a):
-    """Editing an expense in solo mode must also enforce solo validation."""
-    # Create in duo mode
+def test_personal_edit_rejects_shared_split(auth_client_a):
+    """Editing an expense in personal mode must also enforce personal validation."""
+    # Create in shared mode
     resp = auth_client_a.post("/api/expenses", json=make_expense(
         split_method="50/50",
     ))
     expense_id = resp.json()["id"]
 
-    # Switch to solo and try to edit with a shared split
-    _set_mode(auth_client_a, "solo")
+    # Switch to personal and try to edit with a shared split
+    _set_mode(auth_client_a, "personal")
     resp = auth_client_a.put(f"/api/expenses/{expense_id}", json=make_expense(
         split_method="50/50",
     ))
