@@ -211,26 +211,18 @@ def register(data: RegisterRequest, response: Response, session: Session = Depen
             settings = Settings(id=1, app_mode="personal")
         session.add(settings)
 
+    # Second user → automatically switch mode to shared so both users can log in immediately
+    if count == 1:
+        from models import Settings
+        settings = session.get(Settings, 1)
+        if settings:
+            settings.app_mode = "shared"
+        else:
+            settings = Settings(id=1, app_mode="shared")
+        session.add(settings)
+
     session.commit()
     session.refresh(user)
-
-    # If second user registers while in solo mode, don't auto-login
-    is_second_user = count == 1
-    if is_second_user:
-        from config import get_app_mode
-        current_mode = get_app_mode(session)
-        if current_mode == "personal":
-            from users import get_all_users
-            primary = get_all_users(session)[0]
-            return {
-                "username": user.username,
-                "display_name": user.display_name,
-                "personal_mode_notice": True,
-                "message": (
-                    f"Account created! {primary.display_name} needs to switch "
-                    "to Shared or Blended mode before you can sign in."
-                ),
-            }
 
     # Auto-login
     token = _make_token(user.username)
