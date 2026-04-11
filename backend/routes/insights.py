@@ -10,7 +10,6 @@ import statistics
 from calendar import monthrange
 from collections import defaultdict
 from datetime import date, timedelta
-from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Depends
@@ -23,14 +22,9 @@ from database import get_session
 from models import Expense, Income
 from routes.expenses import _resolve_names
 from services.clustering import cluster_descriptions_all
-
 router = APIRouter()
 
 EXCLUDED_CATEGORIES = {"Payment", "Reimbursement"}
-
-
-def _dec(val) -> Decimal:
-    return Decimal(str(val)) if val else Decimal("0")
 
 
 def _month_key(d: date) -> str:

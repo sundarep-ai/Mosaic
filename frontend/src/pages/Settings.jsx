@@ -422,10 +422,11 @@ export default function Settings() {
           ) : (
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div className="flex flex-col">
-                <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2">
+                <label htmlFor="current-password" className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2">
                   Current Password
                 </label>
                 <input
+                  id="current-password"
                   type="password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
@@ -434,10 +435,11 @@ export default function Settings() {
                 />
               </div>
               <div className="flex flex-col">
-                <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2">
+                <label htmlFor="new-password" className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2">
                   New Password
                 </label>
                 <input
+                  id="new-password"
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -447,10 +449,11 @@ export default function Settings() {
                 />
               </div>
               <div className="flex flex-col">
-                <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2">
+                <label htmlFor="confirm-new-password" className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2">
                   Confirm New Password
                 </label>
                 <input
+                  id="confirm-new-password"
                   type="password"
                   value={confirmNewPassword}
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
@@ -549,10 +552,11 @@ export default function Settings() {
 
             <form onSubmit={handleDeleteAccount} className="space-y-4">
               <div className="flex flex-col">
-                <label className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2">
+                <label htmlFor="delete-account-password" className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-semibold mb-2">
                   Password
                 </label>
                 <input
+                  id="delete-account-password"
                   type="password"
                   value={deletePassword}
                   onChange={(e) => setDeletePassword(e.target.value)}

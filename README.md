@@ -158,7 +158,9 @@ The database runs in WAL (Write-Ahead Logging) mode for crash recovery, and an i
 - **Passwords** are stored as bcrypt hashes in the database — plaintext passwords are never stored
 - **Security answers** are normalized (lowercased, trimmed) and bcrypt-hashed before storage
 - **Session cookies** are HMAC-SHA256 signed with a required `SECRET_KEY` — the app refuses to start without one
-- **Avatar uploads** are validated with magic byte checks and path traversal protection
+- **Session invalidation** — changing your password increments a `session_version` counter embedded in the token; all existing sessions are invalidated immediately
+- **Forgot-password brute-force protection** — the reset endpoint rate-limits to 5 attempts per 5-minute window per username
+- **Avatar uploads** are validated with magic byte checks and path traversal protection; file writes are atomic (write-to-temp + rename) to prevent corruption on crash
 - **Personal mode** blocks login for the second user at the auth layer — not just hidden in UI
 - **Search queries** escape SQL LIKE wildcards to prevent injection
 - **Account creation** is capped at 2 users — enforced server-side with uniqueness constraints
@@ -313,7 +315,7 @@ All endpoints are prefixed with `/api`.
 | `DELETE` | `/auth/account` | Auth | Delete account (with data action choice) |
 | `POST` | `/auth/avatar` | Auth | Upload profile picture |
 | `GET` | `/auth/avatar/{username}` | Auth | Get profile picture |
-| `GET` | `/expenses` | Auth | List expenses (query: `search`, `paid_by`, `category`, `limit`, `sort`) |
+| `GET` | `/expenses` | Auth | List expenses (query: `search`, `paid_by`, `category`, `filter_type` (`personal`/`shared`), `limit`, `sort`) |
 | `POST` | `/expenses` | Auth | Create a new expense |
 | `GET` | `/expenses/{id}` | Auth | Get a single expense |
 | `PUT` | `/expenses/{id}` | Auth | Update an expense |

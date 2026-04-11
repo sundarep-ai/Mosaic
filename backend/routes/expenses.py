@@ -1,9 +1,12 @@
+import logging
 from datetime import date
 from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field as PydanticField
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import case, func, or_
 from sqlmodel import Session, select
 
@@ -83,6 +86,7 @@ def list_expenses(
     search: Optional[str] = None,
     paid_by: Optional[str] = None,
     category: Optional[str] = None,
+    filter_type: Optional[str] = None,
     limit: Optional[int] = None,
     sort: Optional[str] = "desc",
     sort_by: Optional[str] = "date",
@@ -94,7 +98,7 @@ def list_expenses(
     statement = select(Expense)
 
     if search:
-        escaped = _escape_like(search)
+        escaped = escape_like(search)
         statement = statement.where(
             or_(
                 Expense.description.like(f"%{escaped}%", escape="\\"),
@@ -106,6 +110,10 @@ def list_expenses(
         statement = statement.where(Expense.paid_by == paid_by)
     if category:
         statement = statement.where(Expense.category == category)
+    if filter_type == "personal":
+        statement = statement.where(Expense.split_method == "Personal")
+    elif filter_type == "shared":
+        statement = statement.where(Expense.split_method != "Personal")
     if start_date:
         statement = statement.where(Expense.date >= start_date)
     if end_date:
@@ -197,9 +205,6 @@ def delete_expense(
     return {"ok": True}
 
 
-_escape_like = escape_like
-
-
 @router.get("/suggest-category")
 def suggest_category(
     description: str = "",
@@ -215,7 +220,7 @@ def suggest_category(
     if not keywords:
         return {"category": None}
 
-    conditions = [Expense.description.ilike(f"%{_escape_like(kw)}%", escape="\\") for kw in keywords]
+    conditions = [Expense.description.ilike(f"%{escape_like(kw)}%", escape="\\") for kw in keywords]
     matches = session.exec(
         select(Expense)
         .where(or_(*conditions))
@@ -304,7 +309,11 @@ def similar_descriptions(
         descriptions = [d for d, _ in items]
         counts = {d: c for d, c in items}
 
-        clusters = cluster_descriptions(descriptions, threshold)
+        try:
+            clusters = cluster_descriptions(descriptions, threshold)
+        except Exception:
+            logger.warning("Embedding model unavailable for category '%s'; skipping similarity clustering", category)
+            continue
         groups = []
         for cluster_indices in clusters:
             cluster_descs = [descriptions[k] for k in cluster_indices]
@@ -329,9 +338,9 @@ def similar_descriptions(
 
 
 class MergeRequest(BaseModel):
-    target: str
-    sources: list[str]
-    category: str
+    target: str = PydanticField(min_length=1, max_length=500)
+    sources: list[str] = PydanticField(min_length=1)
+    category: str = PydanticField(min_length=1, max_length=100)
 
 
 class MergePayload(BaseModel):

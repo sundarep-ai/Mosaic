@@ -7,7 +7,6 @@ Used by:
 """
 
 import threading
-from typing import Optional
 
 import numpy as np
 
@@ -24,6 +23,41 @@ def get_embedding_model():
                 from fastembed import TextEmbedding
                 _embedding_model = TextEmbedding()
     return _embedding_model
+
+
+def _run_clustering(descriptions: list[str], threshold: float) -> list[list[int]]:
+    """Core greedy embedding clustering. Returns all clusters including singletons.
+
+    Each candidate j must be similar to ALL current cluster members (not just
+    the seed) before it is admitted, preventing incoherent transitive groupings.
+    """
+    model = get_embedding_model()
+    embeddings = list(model.embed(descriptions))
+    emb_matrix = np.array(embeddings)
+
+    # Cosine similarity matrix
+    norms = np.linalg.norm(emb_matrix, axis=1, keepdims=True)
+    norms[norms == 0] = 1
+    normalized = emb_matrix / norms
+    sim_matrix = normalized @ normalized.T
+
+    # Greedy clustering — j must be similar to every current member
+    visited: set[int] = set()
+    clusters: list[list[int]] = []
+    for i in range(len(descriptions)):
+        if i in visited:
+            continue
+        cluster = [i]
+        visited.add(i)
+        for j in range(i + 1, len(descriptions)):
+            if j in visited:
+                continue
+            if all(sim_matrix[m][j] >= threshold for m in cluster):
+                cluster.append(j)
+                visited.add(j)
+        clusters.append(cluster)
+
+    return clusters
 
 
 def cluster_descriptions(
@@ -43,35 +77,7 @@ def cluster_descriptions(
     """
     if len(descriptions) < 2:
         return []
-
-    model = get_embedding_model()
-    embeddings = list(model.embed(descriptions))
-    emb_matrix = np.array(embeddings)
-
-    # Cosine similarity matrix
-    norms = np.linalg.norm(emb_matrix, axis=1, keepdims=True)
-    norms[norms == 0] = 1
-    normalized = emb_matrix / norms
-    sim_matrix = normalized @ normalized.T
-
-    # Greedy clustering
-    visited: set[int] = set()
-    clusters: list[list[int]] = []
-    for i in range(len(descriptions)):
-        if i in visited:
-            continue
-        cluster = [i]
-        visited.add(i)
-        for j in range(i + 1, len(descriptions)):
-            if j in visited:
-                continue
-            if sim_matrix[i][j] >= threshold:
-                cluster.append(j)
-                visited.add(j)
-        if len(cluster) >= 2:
-            clusters.append(cluster)
-
-    return clusters
+    return [c for c in _run_clustering(descriptions, threshold) if len(c) >= 2]
 
 
 def cluster_descriptions_all(
@@ -87,29 +93,4 @@ def cluster_descriptions_all(
         return []
     if len(descriptions) == 1:
         return [[0]]
-
-    model = get_embedding_model()
-    embeddings = list(model.embed(descriptions))
-    emb_matrix = np.array(embeddings)
-
-    norms = np.linalg.norm(emb_matrix, axis=1, keepdims=True)
-    norms[norms == 0] = 1
-    normalized = emb_matrix / norms
-    sim_matrix = normalized @ normalized.T
-
-    visited: set[int] = set()
-    clusters: list[list[int]] = []
-    for i in range(len(descriptions)):
-        if i in visited:
-            continue
-        cluster = [i]
-        visited.add(i)
-        for j in range(i + 1, len(descriptions)):
-            if j in visited:
-                continue
-            if sim_matrix[i][j] >= threshold:
-                cluster.append(j)
-                visited.add(j)
-        clusters.append(cluster)
-
-    return clusters
+    return _run_clustering(descriptions, threshold)

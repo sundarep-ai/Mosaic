@@ -11,6 +11,7 @@ from auth import get_current_user
 from config import get_app_mode
 from database import get_session
 from models import Expense, Income, IncomeCreate, IncomeUpdate
+from utils import to_decimal
 
 router = APIRouter()
 
@@ -25,10 +26,6 @@ def _require_income_mode(session: Session) -> None:
             status_code=403,
             detail="Income tracking is not available in Shared mode. Switch to Personal or Blended.",
         )
-
-
-def _dec(val) -> Decimal:
-    return Decimal(str(val)) if val else Decimal("0")
 
 
 # ---------------------------------------------------------------------------
@@ -131,8 +128,8 @@ def get_monthly_income_summary(
         .group_by(Income.source)
     ).all()
 
-    total = sum(_dec(r.amount) for r in rows)
-    by_source = [{"source": r.source, "amount": float(_dec(r.amount))} for r in rows]
+    total = sum(to_decimal(r.amount) for r in rows)
+    by_source = [{"source": r.source, "amount": float(to_decimal(r.amount))} for r in rows]
     return {"total": float(total), "count": len(rows), "by_source": by_source}
 
 
@@ -179,7 +176,7 @@ def get_income_sankey(
         income_stmt = income_stmt.where(Income.date <= end_date)
 
     income_rows = session.exec(income_stmt).all()
-    by_source = [{"source": r.source, "amount": float(_dec(r.amount))} for r in income_rows]
+    by_source = [{"source": r.source, "amount": float(to_decimal(r.amount))} for r in income_rows]
     income_total = sum(r["amount"] for r in by_source)
 
     # --- Expense side: current user's share, excluding Payment + Reimbursement ---
@@ -201,7 +198,7 @@ def get_income_sankey(
     expense_rows = session.exec(expense_stmt).all()
     # Filter out zero-amount categories and sort descending
     by_category = sorted(
-        [{"category": r.category, "amount": float(_dec(r.amount))} for r in expense_rows if _dec(r.amount) > 0],
+        [{"category": r.category, "amount": float(to_decimal(r.amount))} for r in expense_rows if to_decimal(r.amount) > 0],
         key=lambda x: x["amount"],
         reverse=True,
     )

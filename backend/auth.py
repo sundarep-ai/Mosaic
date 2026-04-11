@@ -1,8 +1,11 @@
+import collections
 import hashlib
 import hmac
 import json
 import os
 import re
+import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -35,7 +38,7 @@ MAGIC_BYTES = {
 }
 
 _SAFE_USERNAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
-_SAFE_DISPLAY_NAME_RE = re.compile(r"^[a-zA-Z0-9 ]+$")
+_SAFE_DISPLAY_NAME_RE = re.compile(r"^[a-zA-Z0-9 '\-\.À-ÖØ-öø-ÿ]+$")
 
 SECURITY_QUESTIONS = [
     "What was the name of your first pet?",
@@ -96,13 +99,13 @@ def _sign(payload: str) -> str:
     return hmac.new(SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
 
-def _make_token(username: str, persist: bool = False) -> str:
-    payload = json.dumps({"user": username, "ts": int(time.time()), "persist": persist})
+def _make_token(username: str, persist: bool = False, session_version: int = 0) -> str:
+    payload = json.dumps({"user": username, "ts": int(time.time()), "persist": persist, "sv": session_version})
     sig = _sign(payload)
     return f"{payload}|{sig}"
 
 
-def _verify_token(token: str) -> str | None:
+def _verify_token(token: str, session: Session | None = None) -> str | None:
     parts = token.rsplit("|", 1)
     if len(parts) != 2:
         return None
@@ -118,11 +121,16 @@ def _verify_token(token: str) -> str | None:
     if not username:
         return None
 
-    # Check if user still exists in DB
-    with Session(database.engine) as session:
+    # Check if user still exists in DB and validate session version
+    if session is not None:
         user = get_user_by_username(session, username)
-        if not user:
-            return None
+    else:
+        with Session(database.engine) as s:
+            user = get_user_by_username(s, username)
+    if not user:
+        return None
+    if data.get("sv", 0) != user.session_version:
+        return None
 
     # Skip TTL check for persistent tokens
     if not data.get("persist", False):
@@ -132,15 +140,42 @@ def _verify_token(token: str) -> str | None:
     return username
 
 
-def get_current_user(request: Request) -> str:
+def get_current_user(request: Request, session: Session = Depends(get_session)) -> str:
     """Returns the login username of the authenticated user."""
     token = request.cookies.get(SESSION_COOKIE)
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    username = _verify_token(token)
+    username = _verify_token(token, session=session)
     if not username:
         raise HTTPException(status_code=401, detail="Invalid session")
     return username
+
+
+# ── Forgot-password rate limiter (CR-2) ──────────────────────────────
+
+_reset_attempts: dict[str, list[float]] = collections.defaultdict(list)
+_reset_lock = threading.Lock()
+RESET_MAX_ATTEMPTS = 5
+RESET_WINDOW_SECONDS = 300  # 5 minutes
+
+
+def _check_reset_rate_limit(username: str) -> None:
+    now = time.time()
+    with _reset_lock:
+        attempts = [t for t in _reset_attempts[username] if now - t < RESET_WINDOW_SECONDS]
+        _reset_attempts[username] = attempts
+        if len(attempts) >= RESET_MAX_ATTEMPTS:
+            raise HTTPException(status_code=429, detail="Too many attempts. Try again in 5 minutes.")
+
+
+def _record_reset_failure(username: str) -> None:
+    with _reset_lock:
+        _reset_attempts[username].append(time.time())
+
+
+def _clear_reset_attempts(username: str) -> None:
+    with _reset_lock:
+        _reset_attempts.pop(username, None)
 
 
 # ── Registration ──────────────────────────────────────────────────────
@@ -164,7 +199,7 @@ def register(data: RegisterRequest, response: Response, session: Session = Depen
 
     # Validate display name format
     if not _SAFE_DISPLAY_NAME_RE.match(data.display_name):
-        raise HTTPException(status_code=422, detail="Display name must be alphanumeric (spaces allowed)")
+        raise HTTPException(status_code=422, detail="Display name may only contain letters, numbers, spaces, apostrophes, hyphens, and periods")
     if len(data.display_name) < 2 or len(data.display_name) > 100:
         raise HTTPException(status_code=422, detail="Display name must be 2-100 characters")
 
@@ -225,7 +260,7 @@ def register(data: RegisterRequest, response: Response, session: Session = Depen
     session.refresh(user)
 
     # Auto-login
-    token = _make_token(user.username)
+    token = _make_token(user.username, session_version=user.session_version)
     response.set_cookie(
         key=SESSION_COOKIE,
         value=token,
@@ -276,7 +311,7 @@ def login(data: LoginRequest, response: Response, session: Session = Depends(get
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     persist = user.stay_signed_in
-    token = _make_token(data.username, persist=persist)
+    token = _make_token(data.username, persist=persist, session_version=user.session_version)
     ttl = PERSISTENT_TTL if persist else SESSION_TTL
 
     response.set_cookie(
@@ -302,7 +337,7 @@ def logout(response: Response):
 
 @router.get("/auth/me")
 def get_me(request: Request, session: Session = Depends(get_session)):
-    username = get_current_user(request)
+    username = get_current_user(request, session)
     user = get_user_by_username(session, username)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -325,7 +360,7 @@ class ForgotPasswordQuestionRequest(BaseModel):
 def forgot_password_question(data: ForgotPasswordQuestionRequest, session: Session = Depends(get_session)):
     user = get_user_by_username(session, data.username)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        return {"security_question": None}
     return {"security_question": user.security_question}
 
 
@@ -337,17 +372,23 @@ class ForgotPasswordResetRequest(BaseModel):
 
 @router.post("/auth/forgot-password/reset")
 def forgot_password_reset(data: ForgotPasswordResetRequest, session: Session = Depends(get_session)):
+    _check_reset_rate_limit(data.username)
+
     user = get_user_by_username(session, data.username)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     if not _check_answer(data.security_answer, user.security_answer_hash):
+        _record_reset_failure(data.username)
         raise HTTPException(status_code=401, detail="Incorrect security answer")
+
+    _clear_reset_attempts(data.username)
 
     if len(data.new_password) < 6:
         raise HTTPException(status_code=422, detail="Password must be at least 6 characters")
 
     user.password_hash = hash_password(data.new_password)
+    user.session_version = (user.session_version or 0) + 1
     session.add(user)
     session.commit()
     return {"ok": True}
@@ -365,9 +406,10 @@ class ChangePasswordRequest(BaseModel):
 def change_password(
     data: ChangePasswordRequest,
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
 ):
-    username = get_current_user(request)
+    username = get_current_user(request, session)
     user = get_user_by_username(session, username)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -379,8 +421,21 @@ def change_password(
         raise HTTPException(status_code=422, detail="Password must be at least 6 characters")
 
     user.password_hash = hash_password(data.new_password)
+    user.session_version = (user.session_version or 0) + 1
     session.add(user)
     session.commit()
+
+    # Reissue a fresh token so the current session survives the version bump
+    token = _make_token(username, persist=user.stay_signed_in, session_version=user.session_version)
+    ttl = PERSISTENT_TTL if user.stay_signed_in else SESSION_TTL
+    response.set_cookie(
+        key=SESSION_COOKIE,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=not IS_DEV,
+        max_age=ttl,
+    )
     return {"ok": True}
 
 
@@ -398,7 +453,7 @@ def update_stay_signed_in(
     response: Response,
     session: Session = Depends(get_session),
 ):
-    username = get_current_user(request)
+    username = get_current_user(request, session)
     user = get_user_by_username(session, username)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -408,7 +463,7 @@ def update_stay_signed_in(
     session.commit()
 
     # Reissue token with updated persistence
-    token = _make_token(username, persist=data.enabled)
+    token = _make_token(username, persist=data.enabled, session_version=user.session_version)
     ttl = PERSISTENT_TTL if data.enabled else SESSION_TTL
     response.set_cookie(
         key=SESSION_COOKIE,
@@ -436,7 +491,7 @@ def delete_account(
     response: Response,
     session: Session = Depends(get_session),
 ):
-    username = get_current_user(request)
+    username = get_current_user(request, session)
     user = get_user_by_username(session, username)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -520,8 +575,12 @@ def _find_avatar(username: str) -> str | None:
 
 
 @router.post("/auth/avatar")
-async def upload_avatar(request: Request, file: UploadFile = File(...)):
-    username = get_current_user(request)
+async def upload_avatar(
+    request: Request,
+    session: Session = Depends(get_session),
+    file: UploadFile = File(...),
+):
+    username = get_current_user(request, session)
 
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -544,14 +603,24 @@ async def upload_avatar(request: Request, file: UploadFile = File(...)):
     if dest_path.parent != Path(AVATARS_DIR).resolve():
         raise HTTPException(status_code=400, detail="Invalid file path.")
 
-    # Remove any existing avatar for this user
-    existing = _find_avatar(username)
-    if existing:
-        os.remove(existing)
+    # Atomic write: write to a temp file then rename over the destination
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=AVATARS_DIR)
+    try:
+        with os.fdopen(tmp_fd, "wb") as f:
+            f.write(contents)
+        os.replace(tmp_path, str(dest_path))
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
-    dest = str(dest_path)
-    with open(dest, "wb") as f:
-        f.write(contents)
+    # Clean up any stale avatar with a different extension
+    for old_ext in ALLOWED_EXTENSIONS:
+        old = os.path.join(AVATARS_DIR, f"{username}{old_ext}")
+        if old != str(dest_path) and os.path.isfile(old):
+            os.remove(old)
 
     return {"ok": True}
 

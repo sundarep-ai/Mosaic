@@ -58,6 +58,7 @@ export default function History() {
   const [filterCategory, setFilterCategory] = useState(prefill.category || "");
   const [sortAmount, setSortAmount] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const [fetchError, setFetchError] = useState(null);
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [filterType, setFilterType] = useState("");  // "" | "Personal" | "Shared"
@@ -78,7 +79,8 @@ export default function History() {
         params.sort_by = "amount";
         params.sort = sortAmount;
       }
-      params.limit = 100;
+      if (filterType === "Personal") params.filter_type = "personal";
+      else if (filterType === "Shared") params.filter_type = "shared";
       const data = await getExpenses(params);
       setExpenses(data);
     } catch (err) {
@@ -86,7 +88,7 @@ export default function History() {
     } finally {
       setLoading(false);
     }
-  }, [appliedSearch, filterPaidBy, filterCategory, dateRange, sortAmount]);
+  }, [appliedSearch, filterPaidBy, filterCategory, dateRange, sortAmount, filterType]);
 
   useEffect(() => {
     fetchExpenses();
@@ -98,12 +100,13 @@ export default function History() {
   };
 
   const handleDeleteConfirm = async () => {
+    setDeleteError("");
     try {
       await deleteExpense(deleteTarget.id);
       setDeleteTarget(null);
       fetchExpenses();
-    } catch (err) {
-      console.error("Failed to delete expense:", err);
+    } catch {
+      setDeleteError("Failed to delete. Please try again.");
     }
   };
 
@@ -296,103 +299,92 @@ export default function History() {
             No expenses found.
           </div>
         ) : (
-          (() => {
-            const filteredExpenses = filterType
-              ? expenses.filter((e) =>
-                  filterType === "Personal"
-                    ? e.split_method === "Personal"
-                    : e.split_method !== "Personal"
-                )
-              : expenses;
-            return (
-              <>
-                {/* Table Header (Desktop) */}
-                <div className={`hidden md:grid ${isPersonal ? "md:grid-cols-8" : "md:grid-cols-12"} gap-4 px-8 py-5 bg-surface-container-highest border-b border-outline-variant/10 text-on-surface-variant font-label font-bold uppercase tracking-widest text-[11px]`}>
-                  <div className="col-span-1">Date</div>
-                  <div className={isPersonal ? "col-span-3" : "col-span-4"}>Description</div>
-                  <div className="col-span-2">Amount</div>
-                  {!isPersonal && <div className="col-span-2 text-center">Paid By</div>}
-                  {!isPersonal && <div className="col-span-2 text-center">Type</div>}
-                  <div className="col-span-1 text-right">Actions</div>
-                </div>
+          <>
+            {/* Table Header (Desktop) */}
+            <div className={`hidden md:grid ${isPersonal ? "md:grid-cols-8" : "md:grid-cols-12"} gap-4 px-8 py-5 bg-surface-container-highest border-b border-outline-variant/10 text-on-surface-variant font-label font-bold uppercase tracking-widest text-[11px]`}>
+              <div className="col-span-1">Date</div>
+              <div className={isPersonal ? "col-span-3" : "col-span-4"}>Description</div>
+              <div className="col-span-2">Amount</div>
+              {!isPersonal && <div className="col-span-2 text-center">Paid By</div>}
+              {!isPersonal && <div className="col-span-2 text-center">Type</div>}
+              <div className="col-span-1 text-right">Actions</div>
+            </div>
 
-                {/* Rows */}
-                <div className="flex flex-col gap-3 p-3 md:p-4">
-                  {filteredExpenses.map((expense) => (
+            {/* Rows */}
+            <div className="flex flex-col gap-3 p-3 md:p-4">
+              {expenses.map((expense) => (
+                <div
+                  key={expense.id}
+                  className={`bg-surface-container-lowest rounded-2xl md:rounded-none md:bg-transparent md:hover:bg-surface-container transition-colors grid grid-cols-1 ${isPersonal ? "md:grid-cols-8" : "md:grid-cols-12"} gap-4 items-center px-6 py-6 group`}
+                >
+                  <div className="col-span-1 text-on-surface-variant font-medium md:text-sm whitespace-pre-line">
+                    {formatDate(expense.date)}
+                  </div>
+                  <div className={`${isPersonal ? "col-span-3" : "col-span-4"} flex items-center gap-4`}>
                     <div
-                      key={expense.id}
-                      className={`bg-surface-container-lowest rounded-2xl md:rounded-none md:bg-transparent md:hover:bg-surface-container transition-colors grid grid-cols-1 ${isPersonal ? "md:grid-cols-8" : "md:grid-cols-12"} gap-4 items-center px-6 py-6 group`}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center ${CATEGORY_BG[expense.category] || CATEGORY_BG.Other}`}
                     >
-                      <div className="col-span-1 text-on-surface-variant font-medium md:text-sm whitespace-pre-line">
-                        {formatDate(expense.date)}
-                      </div>
-                      <div className={`${isPersonal ? "col-span-3" : "col-span-4"} flex items-center gap-4`}>
-                        <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center ${CATEGORY_BG[expense.category] || CATEGORY_BG.Other}`}
-                        >
-                          <span className="material-symbols-outlined">
-                            {CATEGORY_ICONS[expense.category] || "more_horiz"}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-bold text-on-surface">
-                            {expense.description}
-                          </p>
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full font-label font-bold uppercase tracking-tighter ${CATEGORY_BG[expense.category] || CATEGORY_BG.Other}`}
-                          >
-                            {expense.category}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="col-span-2 text-xl font-headline font-bold text-on-surface">
-                        {fmt(expense.amount)}
-                      </div>
-                      {!isPersonal && (
-                        <div className="col-span-2 flex justify-center">
-                          <div className="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full">
-                            <Avatar user={expense.paid_by} size="sm" />
-                            <span className="text-xs font-bold text-on-surface">
-                              {expense.paid_by}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      {!isPersonal && (
-                        <div className="col-span-2 flex justify-center">
-                          {getSplitBadge(expense.split_method)}
-                        </div>
-                      )}
-                      <div className="col-span-1 flex justify-end gap-2">
-                        <button
-                          onClick={() => navigate(`/edit/${expense.id}`)}
-                          className="p-2 rounded-lg hover:bg-surface-container-high text-outline transition-colors"
-                          aria-label="Edit expense"
-                        >
-                          <span className="material-symbols-outlined" aria-hidden="true">edit</span>
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(expense)}
-                          className="p-2 rounded-lg hover:bg-error-container/20 text-outline hover:text-error transition-colors"
-                          aria-label="Delete expense"
-                        >
-                          <span className="material-symbols-outlined" aria-hidden="true">delete</span>
-                        </button>
+                      <span className="material-symbols-outlined">
+                        {CATEGORY_ICONS[expense.category] || "more_horiz"}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-bold text-on-surface">
+                        {expense.description}
+                      </p>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-label font-bold uppercase tracking-tighter ${CATEGORY_BG[expense.category] || CATEGORY_BG.Other}`}
+                      >
+                        {expense.category}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="col-span-2 text-xl font-headline font-bold text-on-surface">
+                    {fmt(expense.amount)}
+                  </div>
+                  {!isPersonal && (
+                    <div className="col-span-2 flex justify-center">
+                      <div className="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full">
+                        <Avatar user={expense.paid_by} size="sm" />
+                        <span className="text-xs font-bold text-on-surface">
+                          {expense.paid_by}
+                        </span>
                       </div>
                     </div>
-                  ))}
+                  )}
+                  {!isPersonal && (
+                    <div className="col-span-2 flex justify-center">
+                      {getSplitBadge(expense.split_method)}
+                    </div>
+                  )}
+                  <div className="col-span-1 flex justify-end gap-2">
+                    <button
+                      onClick={() => navigate(`/edit/${expense.id}`)}
+                      className="p-2 rounded-lg hover:bg-surface-container-high text-outline transition-colors"
+                      aria-label="Edit expense"
+                    >
+                      <span className="material-symbols-outlined" aria-hidden="true">edit</span>
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(expense)}
+                      className="p-2 rounded-lg hover:bg-error-container/20 text-outline hover:text-error transition-colors"
+                      aria-label="Delete expense"
+                    >
+                      <span className="material-symbols-outlined" aria-hidden="true">delete</span>
+                    </button>
+                  </div>
                 </div>
+              ))}
+            </div>
 
-                {/* Footer */}
-                <div className="p-6 bg-surface-container border-t border-outline-variant/10 flex items-center justify-between">
-                  <p className="text-xs font-medium text-on-surface-variant">
-                    Showing {filteredExpenses.length} expense
-                    {filteredExpenses.length !== 1 ? "s" : ""}
-                  </p>
-                </div>
-              </>
-            );
-          })()
+            {/* Footer */}
+            <div className="p-6 bg-surface-container border-t border-outline-variant/10 flex items-center justify-between">
+              <p className="text-xs font-medium text-on-surface-variant">
+                Showing {expenses.length} expense
+                {expenses.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+          </>
         )}
       </div>
 
@@ -424,9 +416,12 @@ export default function History() {
                 undone.
               </p>
             </div>
+            {deleteError && (
+              <p className="text-error text-sm text-center mb-4">{deleteError}</p>
+            )}
             <div className="flex gap-3">
               <button
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => { setDeleteTarget(null); setDeleteError(""); }}
                 className="flex-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold rounded-full px-4 py-3 transition-colors"
               >
                 Cancel

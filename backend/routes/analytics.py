@@ -10,13 +10,9 @@ from auth import get_current_user
 from database import get_session
 from models import Expense
 from routes.expenses import _resolve_names, _my_portion_expr
+from utils import to_decimal
 
 router = APIRouter()
-
-
-def _dec(val) -> Decimal:
-    """Safely convert a SQL result to Decimal."""
-    return Decimal(str(val)) if val else Decimal("0")
 
 
 def _date_filters(statement, start_date, end_date, *, exclude_categories=("Payment",)):
@@ -54,8 +50,8 @@ def get_analytics(
             end_date,
         )
     ).one()
-    total_spend = _dec(total_row[0])
-    total_shared_spend = _dec(total_row[1])
+    total_spend = to_decimal(total_row[0])
+    total_shared_spend = to_decimal(total_row[1])
 
     # Spend by category (exclude Payment and Reimbursement from distribution)
     cat_rows = session.exec(
@@ -68,16 +64,16 @@ def get_analytics(
             exclude_categories=("Payment", "Reimbursement"),
         )
     ).all()
-    cat_total = sum(_dec(total) for _, total in cat_rows)
+    cat_total = sum(to_decimal(total) for _, total in cat_rows)
     category_data = [
-        {"category": cat, "amount": float(round(_dec(total), 2))}
+        {"category": cat, "amount": float(round(to_decimal(total), 2))}
         for cat, total in cat_rows
     ]
     distribution = [
         {
             "category": cat,
-            "amount": float(round(_dec(total), 2)),
-            "percentage": float(round(_dec(total) / cat_total * 100, 1)) if cat_total > 0 else 0,
+            "amount": float(round(to_decimal(total), 2)),
+            "percentage": float(round(to_decimal(total) / cat_total * 100, 1)) if cat_total > 0 else 0,
         }
         for cat, total in cat_rows
     ]
@@ -97,7 +93,7 @@ def get_analytics(
         )
     ).all()
     time_data = [
-        {"month": month, "amount": float(round(_dec(total), 2)), "count": cnt}
+        {"month": month, "amount": float(round(to_decimal(total), 2)), "count": cnt}
         for month, total, cnt in month_rows
     ]
 
@@ -117,7 +113,7 @@ def get_analytics(
         )
     ).all()
     payer_data = [
-        {"payer": payer, "amount": float(round(_dec(total), 2)), "count": cnt}
+        {"payer": payer, "amount": float(round(to_decimal(total), 2)), "count": cnt}
         for payer, total, cnt in payer_rows
     ]
 
@@ -136,7 +132,7 @@ def get_analytics(
         )
     ).all()
     split_data = [
-        {"method": method, "amount": float(round(_dec(total), 2)), "count": cnt}
+        {"method": method, "amount": float(round(to_decimal(total), 2)), "count": cnt}
         for method, total, cnt in split_rows
     ]
 
@@ -156,7 +152,7 @@ def get_analytics(
             end_date,
         )
     ).one()
-    my_share = _dec(my_share_result)
+    my_share = to_decimal(my_share_result)
 
     # Top 5 largest expenses (exclude Payment and Reimbursement)
     top_stmt = _date_filters(
