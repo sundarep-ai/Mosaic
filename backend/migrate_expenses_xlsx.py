@@ -2,7 +2,7 @@
 Migrate expenses from an existing .xlsx file into the Mosaic SQLite database.
 
 Usage:
-    python migrate_xlsx.py path/to/your/expenses.xlsx
+    python migrate_expenses_xlsx.py path/to/your/expenses.xlsx
 
 Expected columns (header matching is case-insensitive and flexible):
     Date, Description, Amount, Category, Paid By, Split Method
@@ -18,6 +18,7 @@ from sqlmodel import Session, select
 
 from database import engine, create_db_and_tables
 from models import Expense
+from users import get_all_users
 
 
 def normalize(header: str) -> str:
@@ -56,6 +57,26 @@ def migrate(filepath: str) -> None:
         sys.exit(1)
 
     with Session(engine) as session:
+        # Validate that every paid_by value in the sheet matches a registered display name
+        registered_display_names = {u.display_name for u in get_all_users(session)}
+        if not registered_display_names:
+            print("ERROR: No registered users found in the database. Please set up your account(s) before migrating.")
+            sys.exit(1)
+
+        sheet_paid_by = {
+            str(row[col_map["paid_by"]]).strip()
+            for row in ws.iter_rows(min_row=2, values_only=True)
+            if row and row[col_map["paid_by"]] is not None
+        }
+        unknown = sheet_paid_by - registered_display_names
+        if unknown:
+            print("ERROR: The following 'Paid By' values in the sheet do not match any registered user display name:")
+            for name in sorted(unknown):
+                print(f"  - {name!r}")
+            print(f"Registered display names: {sorted(registered_display_names)}")
+            print("Fix the sheet or register the missing users before migrating.")
+            sys.exit(1)
+
         existing_count = session.exec(select(func.count(Expense.id))).one()
         if existing_count > 0:
             answer = input(
@@ -104,6 +125,6 @@ def migrate(filepath: str) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python migrate_xlsx.py <path_to_xlsx>")
+        print("Usage: python migrate_expenses_xlsx.py <path_to_xlsx>")
         sys.exit(1)
     migrate(sys.argv[1])

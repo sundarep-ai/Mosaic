@@ -5,7 +5,7 @@ Usage:
     python migrate_income_xlsx.py path/to/your/income.xlsx
 
 Expected columns (header matching is case-insensitive and flexible):
-    Date, Amount, Source, User ID
+    Date, Amount, Source, Display Name
     Notes  (optional)
 
 Valid sources: "Salary / Wages", "Freelance / Side Income", "Other"
@@ -21,6 +21,7 @@ from sqlmodel import Session, select
 
 from database import engine, create_db_and_tables
 from models import Income, VALID_INCOME_SOURCES
+from users import get_all_users
 
 
 def normalize(header: str) -> str:
@@ -44,12 +45,12 @@ def migrate(filepath: str) -> None:
             col_map.setdefault("amount", i)
         elif "source" in h:
             col_map.setdefault("source", i)
-        elif "user" in h or "user_id" in h:
-            col_map.setdefault("user_id", i)
+        elif "display" in h or "user" in h:
+            col_map.setdefault("display_name", i)
         elif "note" in h:
             col_map.setdefault("notes", i)
 
-    required = {"date", "amount", "source", "user_id"}
+    required = {"date", "amount", "source", "display_name"}
     missing = required - col_map.keys()
     if missing:
         print(f"ERROR: Could not map columns: {missing}")
@@ -59,6 +60,30 @@ def migrate(filepath: str) -> None:
     valid_sources = sorted(VALID_INCOME_SOURCES)
 
     with Session(engine) as session:
+        # Validate that every display name in the sheet matches a registered user
+        all_users = get_all_users(session)
+        if not all_users:
+            print("ERROR: No registered users found in the database. Please set up your account(s) before migrating.")
+            sys.exit(1)
+
+        registered_display_names = {u.display_name for u in all_users}
+        # Build a lookup from display_name → username for use during row insertion
+        display_name_to_username = {u.display_name: u.username for u in all_users}
+
+        sheet_display_names = {
+            str(row[col_map["display_name"]]).strip()
+            for row in ws.iter_rows(min_row=2, values_only=True)
+            if row and row[col_map["display_name"]] is not None
+        }
+        unknown = sheet_display_names - registered_display_names
+        if unknown:
+            print("ERROR: The following 'Display Name' values in the sheet do not match any registered user:")
+            for name in sorted(unknown):
+                print(f"  - {name!r}")
+            print(f"Registered display names: {sorted(registered_display_names)}")
+            print("Fix the sheet or register the missing users before migrating.")
+            sys.exit(1)
+
         existing_count = session.exec(select(func.count(Income.id))).one()
         if existing_count > 0:
             answer = input(
@@ -112,12 +137,18 @@ def migrate(filepath: str) -> None:
                 skipped += 1
                 continue
 
-            # --- User ID ---
-            user_id_val = str(row[col_map["user_id"]]).strip().lower()
-            if not user_id_val:
-                print(f"WARNING: Row {row_num} — skipping row with empty user_id")
+            # --- Display Name → resolve to username ---
+            raw_display = row[col_map["display_name"]]
+            if raw_display is None:
+                print(f"WARNING: Row {row_num} — skipping row with empty display name")
                 skipped += 1
                 continue
+            display_name_val = str(raw_display).strip()
+            if not display_name_val:
+                print(f"WARNING: Row {row_num} — skipping row with empty display name")
+                skipped += 1
+                continue
+            user_id_val = display_name_to_username[display_name_val]
 
             # --- Notes (optional) ---
             notes_val = None
