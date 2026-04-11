@@ -1,5 +1,5 @@
 """
-Migrate income entries from an existing .xlsx file into the MosaicTally SQLite database.
+Migrate income entries from an existing .xlsx file into the Mosaic SQLite database.
 
 Usage:
     python migrate_income_xlsx.py path/to/your/income.xlsx
@@ -135,7 +135,7 @@ def migrate(filepath: str) -> None:
             count += 1
 
         session.commit()
-        print(f"Successfully migrated {count} income entries into tallyus.db")
+        print(f"Successfully migrated {count} income entries into mosaic.db")
         if skipped:
             print(f"Skipped {skipped} rows due to validation errors (see warnings above).")
 

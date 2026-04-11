@@ -5,7 +5,7 @@ from pathlib import Path
 
 from models import Expense
 
-logger = logging.getLogger("tallyus")
+logger = logging.getLogger("mosaic")
 
 
 def expense_to_dict(expense: Expense) -> dict:

@@ -1,6 +1,6 @@
-# MosaicTally — Setup Instructions
+# Mosaic — Setup Instructions
 
-Step-by-step guide to get MosaicTally running from scratch on a fresh machine.
+Step-by-step guide to get Mosaic running from scratch on a fresh machine.
 
 ---
 
@@ -27,7 +27,7 @@ git --version
 
 ```bash
 git clone <your-repo-url>
-cd MosaicTally
+cd Mosaic
 ```
 
 ---
@@ -74,7 +74,7 @@ USER_B_PASSWORD=<bcrypt hash>
 SECRET_KEY=<long random string>
 
 # Optional: set to a OneDrive/cloud folder for cloud-synced backups
-# BACKUP_PATH=C:/Users/yourname/OneDrive/MosaicTally-Backups
+# BACKUP_PATH=C:/Users/yourname/OneDrive/Mosaic-Backups
 ```
 
 > **Important:** Never commit `.env` — it's already in `.gitignore`.
@@ -102,7 +102,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 Copy the output into `.env` as the `SECRET_KEY` value.
 
-**To enable OneDrive backups**, uncomment `BACKUP_PATH` and set it to any folder that is synced to the cloud (OneDrive, Google Drive, Dropbox, etc.). On each startup, MosaicTally will copy both the database and the audit log there.
+**To enable OneDrive backups**, uncomment `BACKUP_PATH` and set it to any folder that is synced to the cloud (OneDrive, Google Drive, Dropbox, etc.). On each startup, Mosaic will copy both the database and the audit log there.
 
 ---
 
@@ -151,12 +151,12 @@ This installs: FastAPI, Uvicorn, SQLModel, openpyxl, python-multipart, fastembed
 
 There is **no manual database setup required**. Here's how it works:
 
-- MosaicTally uses **SQLite**, a file-based database that requires no separate server or installation — it ships with Python.
-- The database file `tallyus.db` is created automatically in the `backend/` directory the first time the backend starts.
+- Mosaic uses **SQLite**, a file-based database that requires no separate server or installation — it ships with Python.
+- The database file `mosaic.db` is created automatically in the `backend/` directory the first time the backend starts.
 - The `Expense` table schema is managed by **SQLModel**. On startup, the app calls `SQLModel.metadata.create_all()` which creates any missing tables.
 - The database runs in **WAL mode** (Write-Ahead Logging) for crash recovery and safe concurrent access.
 - **Indexes** on `date`, `category`, and `paid_by` are created automatically on startup for faster queries.
-- To inspect the database manually, you can use any SQLite browser (e.g., [DB Browser for SQLite](https://sqlitebrowser.org/)) and open `backend/tallyus.db`.
+- To inspect the database manually, you can use any SQLite browser (e.g., [DB Browser for SQLite](https://sqlitebrowser.org/)) and open `backend/mosaic.db`.
 
 You do not need to run any migration commands or create the database yourself — just start the server.
 
@@ -179,7 +179,7 @@ INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 INFO:     Started reloader process
 ```
 
-At this point `backend/tallyus.db` exists, the `Expense` table is ready, database indexes have been created, and a backup snapshot has been created in `backend/data/backups/` (or your configured `BACKUP_PATH`).
+At this point `backend/mosaic.db` exists, the `Expense` table is ready, database indexes have been created, and a backup snapshot has been created in `backend/data/backups/` (or your configured `BACKUP_PATH`).
 
 > **Note:** If you see `RuntimeError: SECRET_KEY environment variable is not set`, make sure you've created `backend/.env` with a valid `SECRET_KEY` (see step 3b).
 
@@ -212,7 +212,7 @@ The app is now live at **http://localhost:5173**.
 
 1. Open http://localhost:5173 in your browser.
 2. Log in with one of the usernames and passwords you configured in step 3.
-3. You should see the MosaicTally dashboard (empty state — "All settled up!").
+3. You should see the Mosaic dashboard (empty state — "All settled up!").
 4. Click **Add Expense** and log a test expense. As you type a description, you should see:
    - A **"Did you mean?"** dropdown suggesting similar existing descriptions (fuzzy matching).
    - The **category auto-filling** instantly based on the closest historical match.
@@ -250,7 +250,7 @@ Supported date formats: `YYYY-MM-DD`, `MM/DD/YYYY`, `DD/MM/YYYY`, `MM-DD-YYYY`.
 
 The script prints a count on success:
 ```
-Successfully migrated 42 expenses into tallyus.db
+Successfully migrated 42 expenses into mosaic.db
 ```
 
 If a column can't be detected, it prints an error listing the missing fields and the headers it found.
@@ -288,16 +288,16 @@ To start fresh, delete the database file and restart the backend:
 
 ```bash
 cd backend
-del tallyus.db                 # Windows
-# rm tallyus.db                # macOS / Linux
+del mosaic.db                 # Windows
+# rm mosaic.db                # macOS / Linux
 uvicorn main:app --reload      # recreates an empty database
 ```
 
-> **Note:** Deleting `tallyus.db` does not delete the audit log or backups in `backend/data/`. Those are preserved independently. If you want a full reset, also delete `backend/data/`.
+> **Note:** Deleting `mosaic.db` does not delete the audit log or backups in `backend/data/`. Those are preserved independently. If you want a full reset, also delete `backend/data/`.
 
 ## 11. Restoring from a Backup
 
-Backups are stored in timestamped subdirectories (e.g., `backend/data/backups/2026-03-29T143000/`), each containing a `tallyus.db` snapshot and an `audit.jsonl` snapshot.
+Backups are stored in timestamped subdirectories (e.g., `backend/data/backups/2026-03-29T143000/`), each containing a `mosaic.db` snapshot and an `audit.jsonl` snapshot.
 
 To restore:
 
@@ -306,8 +306,8 @@ To restore:
 cd backend
 
 # Replace the database with a backup
-copy data\backups\2026-03-29T143000\tallyus.db tallyus.db   # Windows
-# cp data/backups/2026-03-29T143000/tallyus.db tallyus.db   # macOS / Linux
+copy data\backups\2026-03-29T143000\mosaic.db mosaic.db   # Windows
+# cp data/backups/2026-03-29T143000/mosaic.db mosaic.db   # macOS / Linux
 
 # Restart the backend
 uvicorn main:app --reload

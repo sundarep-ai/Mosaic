@@ -7,7 +7,7 @@ from pathlib import Path
 
 _TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{6}$")
 
-logger = logging.getLogger("tallyus")
+logger = logging.getLogger("mosaic")
 
 
 class BackupManager:
@@ -37,7 +37,7 @@ class BackupManager:
 
         # Backup database using the SQLite online backup API
         src_conn = sqlite3.connect(str(self.db_path))
-        dst_conn = sqlite3.connect(str(dest / "tallyus.db"))
+        dst_conn = sqlite3.connect(str(dest / "mosaic.db"))
         try:
             src_conn.backup(dst_conn)
         finally:
