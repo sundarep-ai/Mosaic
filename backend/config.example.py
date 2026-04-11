@@ -21,4 +21,4 @@ def get_app_mode(session) -> str:
     row = session.get(Settings, 1)
     if row and row.app_mode in VALID_MODES:
         return row.app_mode
-    return "shared"
+    return "personal"

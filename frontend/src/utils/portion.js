@@ -8,7 +8,8 @@
 export function calcMyPortion(expense, me, other) {
   const { amount, split_method, paid_by, category } = expense;
 
-  if (category === "Payment" || category === "Reimbursement") return 0;
+  if (category === "Payment") return 0;
+  // Reimbursement flows through — its negative amount naturally reduces the total
 
   if (split_method === "Personal") return paid_by === me ? amount : 0;
   if (split_method === "50/50") return amount / 2;

@@ -60,8 +60,19 @@ describe("calcMyPortion", () => {
       .toBe(0);
   });
 
-  it("returns 0 for Reimbursement category", () => {
-    expect(calcMyPortion(makeExpense({ category: "Reimbursement", amount: -30 }), ME, OTHER))
+  it("returns negative portion for Reimbursement (reduces net total)", () => {
+    // 50/50 split on -$30 reimbursement → each user's share is -$15
+    expect(calcMyPortion(makeExpense({ category: "Reimbursement", split_method: "50/50", amount: -30 }), ME, OTHER))
+      .toBe(-15);
+  });
+
+  it("returns full negative amount for Reimbursement with Personal split", () => {
+    expect(calcMyPortion(makeExpense({ category: "Reimbursement", split_method: "Personal", paid_by: ME, amount: -30 }), ME, OTHER))
+      .toBe(-30);
+  });
+
+  it("returns 0 for Reimbursement with Personal split paid by other", () => {
+    expect(calcMyPortion(makeExpense({ category: "Reimbursement", split_method: "Personal", paid_by: OTHER, amount: -30 }), ME, OTHER))
       .toBe(0);
   });
 });
@@ -80,12 +91,12 @@ describe("sumMyPortion", () => {
     expect(sumMyPortion([], ME, OTHER)).toBe(0);
   });
 
-  it("excludes Payment and Reimbursement from sum", () => {
+  it("excludes Payment but includes Reimbursement in sum", () => {
     const expenses = [
-      makeExpense({ split_method: "50/50", amount: 100 }),     // 50
-      makeExpense({ category: "Payment", amount: 200 }),       // 0
-      makeExpense({ category: "Reimbursement", amount: -50 }), // 0
+      makeExpense({ split_method: "50/50", amount: 100 }),                              // +50
+      makeExpense({ category: "Payment", amount: 200 }),                                // 0 (excluded)
+      makeExpense({ category: "Reimbursement", split_method: "50/50", amount: -50 }),  // -25
     ];
-    expect(sumMyPortion(expenses, ME, OTHER)).toBe(50);
+    expect(sumMyPortion(expenses, ME, OTHER)).toBe(25);
   });
 });

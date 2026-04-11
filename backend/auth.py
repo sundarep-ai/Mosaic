@@ -586,7 +586,9 @@ async def upload_avatar(
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"File type not allowed. Use: {', '.join(ALLOWED_EXTENSIONS)}")
 
-    contents = await file.read()
+    # Read one byte beyond the limit so we can distinguish "exactly at limit" from "over limit"
+    # without loading an arbitrarily large file into memory first.
+    contents = await file.read(MAX_FILE_SIZE + 1)
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 2 MB.")
 

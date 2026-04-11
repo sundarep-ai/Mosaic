@@ -13,8 +13,6 @@ import {
   BarChart,
   Bar,
   Sankey,
-  Layer,
-  Rectangle,
 } from "recharts";
 import { getAnalytics, getExpenses } from "../api/expenses";
 import { getIncomeSankey } from "../api/income";

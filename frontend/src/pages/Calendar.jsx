@@ -82,13 +82,13 @@ export default function Calendar() {
   }
 
   // Aggregate daily portions (user's share) and shared totals
-  // Exclude Payment and Reimbursement from calendar display
+  // Exclude Payment from calendar display; Reimbursement is included (negative amount reduces total)
   const dailyTotals = {};
   let monthTotal = 0;
   let monthSharedTotal = 0;
   let monthCount = 0;
   for (const e of expenses) {
-    if (e.category === "Payment" || e.category === "Reimbursement") continue;
+    if (e.category === "Payment") continue;
     const portion = calcMyPortion(e, me, other);
     dailyTotals[e.date] = (dailyTotals[e.date] || 0) + portion;
     monthTotal += portion;

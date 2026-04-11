@@ -7,6 +7,7 @@ import { useIncomeMode } from "../hooks/useIncomeMode";
 import { useDateFormat } from "../DateFormatContext";
 import { API_BASE } from "../config";
 import { fetchWithAuth } from "../api/fetchWithAuth";
+import { DATE_FORMATS } from "../constants/dateFormats";
 
 const MODES = [
   {
@@ -27,13 +28,6 @@ const MODES = [
     icon: "diversity_3",
     description: "Track personal expenses and split shared ones",
   },
-];
-
-const DATE_FORMATS = [
-  { value: "DD/MM/YYYY", label: "DD/MM/YYYY", example: "25/12/2025" },
-  { value: "MM/DD/YYYY", label: "MM/DD/YYYY", example: "12/25/2025" },
-  { value: "YYYY/MM/DD", label: "YYYY/MM/DD", example: "2025/12/25" },
-  { value: "YYYY/DD/MM", label: "YYYY/DD/MM", example: "2025/25/12" },
 ];
 
 export default function Settings() {

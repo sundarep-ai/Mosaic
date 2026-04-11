@@ -9,7 +9,14 @@ from sqlmodel import SQLModel, Field, Column
 
 
 class User(SQLModel, table=True):
-    """Registered user account."""
+    """Registered user account.
+
+    Constraint: display_name must be treated as immutable after creation.
+    Expense.paid_by stores display_name values directly (no FK). Changing a
+    display_name would orphan all historical Expense rows for that user with
+    no cascade mechanism. There is intentionally no "change display name"
+    feature exposed in the app.
+    """
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(max_length=50, unique=True, index=True)
     display_name: str = Field(max_length=100, unique=True, index=True)

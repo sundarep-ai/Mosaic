@@ -224,7 +224,7 @@ function CustomMergeTab({ onMerge, processing }) {
     })();
   }, []);
 
-  const getFilteredSuggestions = (input, field) => {
+  const getFilteredSuggestions = (input) => {
     if (!input || input.length < 2) return [];
     const lower = input.toLowerCase();
     return allDescriptions
