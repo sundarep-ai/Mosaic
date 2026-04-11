@@ -1,6 +1,6 @@
 <div align="center">
 
-# MosaicTally
+# Mosaic
 
 **A flexible, local-first expense tracker — solo, shared, or both.**
 
@@ -14,7 +14,7 @@
 
 ---
 
-MosaicTally tracks expenses — personal, shared between two people, or both — calculates who owes whom, and provides visual analytics. Everything runs locally with zero cloud dependencies. Choose from three modes to match how you want to track spending:
+Mosaic tracks expenses — personal, shared between two people, or both — calculates who owes whom, and provides visual analytics. Everything runs locally with zero cloud dependencies. Choose from three modes to match how you want to track spending:
 
 | Mode | Description | Income Tracking |
 |---|---|---|
@@ -26,7 +26,7 @@ Switch modes anytime from the Settings page (gear icon in the top bar). Mode cha
 
 ### How "Your Expense" Is Calculated
 
-Across Home, Analytics, Calendar, and Smart Insights, MosaicTally shows each user their personal expense burden — not the raw total of all expenses. The calculation depends on the split method:
+Across Home, Analytics, Calendar, and Smart Insights, Mosaic shows each user their personal expense burden — not the raw total of all expenses. The calculation depends on the split method:
 
 | Split Method | Your Portion |
 |---|---|
@@ -133,7 +133,7 @@ Each user can upload a profile picture from the Settings page (gear icon → Pro
 
 ## Data Protection
 
-MosaicTally protects your expense data in two ways:
+Mosaic protects your expense data in two ways:
 
 ### Audit Log
 
@@ -144,7 +144,7 @@ Every mutation (create, update, delete, description merge) is appended to `backe
 On every startup, the app creates a timestamped backup of both the database and the audit log. Backups are stored in `backend/data/backups/` by default and rotated to keep the 10 most recent. For cloud redundancy, set `BACKUP_PATH` in `backend/.env` to a OneDrive (or any synced) folder:
 
 ```env
-BACKUP_PATH=C:/Users/yourname/OneDrive/MosaicTally-Backups
+BACKUP_PATH=C:/Users/yourname/OneDrive/Mosaic-Backups
 ```
 
 Backups use the SQLite online backup API — consistent snapshots safe to create while the app is running.
@@ -184,7 +184,7 @@ The database runs in WAL (Write-Ahead Logging) mode for crash recovery, and an i
 
 ```bash
 git clone <your-repo-url>
-cd MosaicTally
+cd Mosaic
 ```
 
 ### 2. Configure the backend
@@ -202,7 +202,7 @@ Create **`backend/.env`** with your session secret:
 SECRET_KEY=<long random string>
 
 # Optional: set to a OneDrive/cloud folder for cloud-synced backups
-# BACKUP_PATH=C:/Users/yourname/OneDrive/MosaicTally-Backups
+# BACKUP_PATH=C:/Users/yourname/OneDrive/Mosaic-Backups
 ```
 
 **SECRET_KEY** is required — the app will refuse to start without one. Generate a strong key:
@@ -228,7 +228,7 @@ uvicorn main:app --reload
 ```
 
 The API will be available at **http://localhost:8000**.
-The SQLite database (`tallyus.db`) is created automatically on first run.
+The SQLite database (`mosaic.db`) is created automatically on first run.
 
 > **Tip:** Interactive API docs are available at http://localhost:8000/docs (Swagger UI).
 

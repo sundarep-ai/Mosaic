@@ -87,7 +87,7 @@ def _validate_magic(data: bytes, ext: str) -> bool:
     return False
 
 
-SESSION_COOKIE = "tallyus_session"
+SESSION_COOKIE = "mosaic_session"
 SESSION_TTL = 60 * 60 * 8  # 8 hours
 PERSISTENT_TTL = 60 * 60 * 24 * 365  # 1 year
 

@@ -236,7 +236,7 @@ export default function Analytics() {
                 Where your money comes from and where it goes
               </p>
               {sankeyData ? (
-                <ResponsiveContainer width="100%" height={320}>
+                <ResponsiveContainer width="100%" height={460}>
                   <Sankey
                     data={sankeyData}
                     nodePadding={20}
@@ -508,9 +508,82 @@ export default function Analytics() {
             )}
           </div>
 
+          {/* Spending Velocity Chart */}
+          <div className="md:col-span-12 bg-primary text-on-primary p-8 rounded-[2rem] overflow-hidden relative">
+            <div className="relative z-10">
+              <h3 className="font-headline text-xl font-bold mb-2">
+                Spending Velocity
+              </h3>
+              <p className="text-on-primary/70 text-sm font-medium">
+                {selectedCategory ? `${selectedCategory} — monthly trend` : "Monthly spending trend"}
+              </p>
+            </div>
+            <div className="mt-8 relative z-10">
+              {(categoryVelocityData ?? data.over_time)?.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart
+                    data={categoryVelocityData ?? data.over_time}
+                    onClick={(chartData) => {
+                      if (!chartData?.activePayload?.[0]) return;
+                      const month = chartData.activePayload[0].payload.month;
+                      const [y, m] = month.split("-");
+                      navigate("/history", {
+                        state: {
+                          month,
+                          start_date: `${y}-${m}-01`,
+                          end_date: new Date(y, m, 0).toISOString().split("T")[0],
+                          ...(selectedCategory ? { category: selectedCategory } : {}),
+                        },
+                      });
+                    }}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 11, fill: "rgba(224,255,254,0.6)" }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(val) => {
+                        const [y, m] = val.split("-");
+                        return new Date(y, m - 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+                      }}
+                    />
+                    <YAxis hide />
+                    <Tooltip
+                      formatter={(val, name, props) => [
+                        `${fmt(val)} (${props.payload.count} expense${props.payload.count !== 1 ? "s" : ""})`,
+                        "Spend",
+                      ]}
+                      labelFormatter={(label) => {
+                        const [y, m] = label.split("-");
+                        return new Date(y, m - 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+                      }}
+                      contentStyle={tooltipStyle}
+                      itemStyle={tooltipItemStyle}
+                      labelStyle={tooltipLabelStyle}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="amount"
+                      stroke="white"
+                      strokeWidth={3}
+                      dot={{ fill: "white", r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-on-primary/60 text-sm text-center py-12">
+                  {selectedCategory ? `No trend data for ${selectedCategory}` : "No trend data available"}
+                </p>
+              )}
+            </div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-on-primary/10 blur-[80px] rounded-full -mr-20 -mt-20"></div>
+          </div>
+
           {/* Payer Breakdown */}
           {!isPersonal && (
-            <div className="md:col-span-5 bg-surface-container-lowest p-8 rounded-[2rem]">
+            <div className={`${isBlended ? "md:col-span-6" : "md:col-span-12"} bg-surface-container-lowest p-8 rounded-[2rem]`}>
               <h3 className="font-headline text-xl font-bold mb-2">
                 Payer Breakdown
               </h3>
@@ -573,9 +646,9 @@ export default function Analytics() {
             </div>
           )}
 
-          {/* Personal vs Shared (hybrid only) */}
+          {/* Personal vs Shared (blended only) */}
           {isBlended && data.by_split_type && (
-            <div className={`${isPersonal ? "md:col-span-12" : "md:col-span-5"} bg-surface-container-lowest p-8 rounded-[2rem]`}>
+            <div className="md:col-span-6 bg-surface-container-lowest p-8 rounded-[2rem]">
               <h3 className="font-headline text-xl font-bold mb-2">Personal vs Shared</h3>
               <p className="text-on-surface-variant text-sm font-medium mb-8">How your spending breaks down</p>
               <div className="space-y-6">
@@ -607,79 +680,6 @@ export default function Analytics() {
               </div>
             </div>
           )}
-
-          {/* Spending Velocity Chart */}
-          <div className={`${isPersonal ? "md:col-span-12" : "md:col-span-7"} bg-primary text-on-primary p-8 rounded-[2rem] overflow-hidden relative`}>
-            <div className="relative z-10">
-              <h3 className="font-headline text-xl font-bold mb-2">
-                Spending Velocity
-              </h3>
-              <p className="text-on-primary/70 text-sm font-medium">
-                {selectedCategory ? `${selectedCategory} — monthly trend` : "Monthly spending trend"}
-              </p>
-            </div>
-            <div className="mt-8 relative z-10">
-              {(categoryVelocityData ?? data.over_time)?.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart
-                    data={categoryVelocityData ?? data.over_time}
-                    onClick={(chartData) => {
-                      if (!chartData?.activePayload?.[0]) return;
-                      const month = chartData.activePayload[0].payload.month;
-                      const [y, m] = month.split("-");
-                      navigate("/history", {
-                        state: {
-                          month,
-                          start_date: `${y}-${m}-01`,
-                          end_date: new Date(y, m, 0).toISOString().split("T")[0],
-                          ...(selectedCategory ? { category: selectedCategory } : {}),
-                        },
-                      });
-                    }}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <XAxis
-                      dataKey="month"
-                      tick={{ fontSize: 11, fill: "rgba(224,255,254,0.6)" }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(val) => {
-                        const [y, m] = val.split("-");
-                        return new Date(y, m - 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-                      }}
-                    />
-                    <YAxis hide />
-                    <Tooltip
-                      formatter={(val, name, props) => [
-                        `${fmt(val)} (${props.payload.count} expense${props.payload.count !== 1 ? "s" : ""})`,
-                        "Spend",
-                      ]}
-                      labelFormatter={(label) => {
-                        const [y, m] = label.split("-");
-                        return new Date(y, m - 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-                      }}
-                      contentStyle={tooltipStyle}
-                      itemStyle={tooltipItemStyle}
-                      labelStyle={tooltipLabelStyle}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="amount"
-                      stroke="white"
-                      strokeWidth={3}
-                      dot={{ fill: "white", r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-on-primary/60 text-sm text-center py-12">
-                  {selectedCategory ? `No trend data for ${selectedCategory}` : "No trend data available"}
-                </p>
-              )}
-            </div>
-            <div className="absolute top-0 right-0 w-64 h-64 bg-on-primary/10 blur-[80px] rounded-full -mr-20 -mt-20"></div>
-          </div>
 
           {/* Top Expenses Table */}
           <div className="md:col-span-12 bg-surface-container-lowest p-8 rounded-[2rem]">

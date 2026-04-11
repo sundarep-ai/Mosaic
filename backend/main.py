@@ -16,7 +16,7 @@ from auth import router as auth_router
 from services.audit import audit_logger
 from services.backup import BackupManager
 
-logger = logging.getLogger("tallyus")
+logger = logging.getLogger("mosaic")
 logging.basicConfig(level=logging.INFO)
 
 # Backup location: use BACKUP_PATH from config if set, otherwise default to backend/data/backups/
@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="MosaicTally API", lifespan=lifespan)
+app = FastAPI(title="Mosaic API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,5 +1,5 @@
 """
-Migrate expenses from an existing .xlsx file into the MosaicTally SQLite database.
+Migrate expenses from an existing .xlsx file into the Mosaic SQLite database.
 
 Usage:
     python migrate_xlsx.py path/to/your/expenses.xlsx
@@ -99,7 +99,7 @@ def migrate(filepath: str) -> None:
             count += 1
 
         session.commit()
-        print(f"Successfully migrated {count} expenses into tallyus.db")
+        print(f"Successfully migrated {count} expenses into mosaic.db")
 
 
 if __name__ == "__main__":

@@ -4,10 +4,10 @@ from pathlib import Path
 from sqlalchemy import event, text
 from sqlmodel import create_engine, SQLModel, Session
 
-logger = logging.getLogger("tallyus")
+logger = logging.getLogger("mosaic")
 
 DB_DIR = Path(__file__).parent
-DB_PATH = DB_DIR / "tallyus.db"
+DB_PATH = DB_DIR / "mosaic.db"
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})

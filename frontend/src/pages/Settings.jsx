@@ -186,7 +186,7 @@ export default function Settings() {
           Settings
         </h1>
         <p className="text-on-surface-variant font-medium">
-          Configure how you use MosaicTally.
+          Configure how you use Mosaic.
         </p>
       </header>
 

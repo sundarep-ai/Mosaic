@@ -1,7 +1,7 @@
 export const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
 const config = {
-  appName: "MosaicTally",
+  appName: "Mosaic",
 };
 
 export default config;

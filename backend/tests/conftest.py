@@ -1,5 +1,5 @@
 """
-MosaicTally backend test configuration.
+Mosaic backend test configuration.
 
 Bootstraps a mock config module and in-memory SQLite database
 so tests run without .env files. Users are seeded in the DB.
