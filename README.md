@@ -250,7 +250,7 @@ If you have expenses in an `.xlsx` file:
 
 ```bash
 cd backend
-python migrate_xlsx.py path/to/expenses.xlsx
+python migrate_expenses_xlsx.py path/to/expenses.xlsx
 ```
 
 The script auto-detects columns by header keywords and supports multiple date formats (`YYYY-MM-DD`, `MM/DD/YYYY`, `DD/MM/YYYY`).
@@ -280,7 +280,7 @@ python migrate_income_xlsx.py path/to/income.xlsx
 | Date | Yes | 2026-01-15 |
 | Amount | Yes | 3500.00 |
 | Source | Yes | Salary / Wages, Freelance / Side Income, Other |
-| User ID | Yes | Must match a registered user's login username |
+| Display Name | Yes | Must match a registered user's display name |
 | Notes | No | Year-end bonus |
 
 Rows with unrecognised sources, non-positive amounts, or unparseable dates are skipped with a warning — the rest are still imported.
@@ -359,8 +359,8 @@ backend/
   users.py               # Dynamic user resolution (replaces hardcoded config constants)
   auth.py                # Authentication, registration, password reset, account management
   cli_reset_password.py  # CLI tool for last-resort password reset
-  migrate_xlsx.py        # Bulk import expenses from .xlsx
-  migrate_income_xlsx.py # Bulk import income from .xlsx (Personal/Blended only)
+  migrate_expenses_xlsx.py # Bulk import expenses from .xlsx
+  migrate_income_xlsx.py   # Bulk import income from .xlsx (Personal/Blended only)
   requirements.txt       # Python dependencies
   services/
     audit.py             # Append-only JSONL audit logger
