@@ -215,82 +215,6 @@ export default function Settings() {
         </section>
       )}
 
-      {/* Stay Signed In */}
-      <section className="space-y-4">
-        <h2 className="font-headline text-xl font-bold text-on-surface">
-          Stay Signed In
-        </h2>
-        <div className="bg-surface-container p-6 rounded-2xl flex items-start justify-between gap-6">
-          <div className="flex items-start gap-4">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${staySignedIn ? "bg-tertiary-container" : "bg-surface-container-high"}`}>
-              <span
-                className={`material-symbols-outlined text-xl ${staySignedIn ? "text-tertiary" : "text-on-surface-variant"}`}
-                style={staySignedIn ? { fontVariationSettings: "'FILL' 1" } : undefined}
-              >
-                lock_open
-              </span>
-            </div>
-            <div>
-              <p className="font-bold text-on-surface mb-1">Keep me signed in</p>
-              <p className="text-sm text-on-surface-variant leading-relaxed">
-                Stay logged in for up to a year instead of 8 hours. Convenient for a locally hosted app.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={staySignedIn}
-            disabled={staySignedInLoading}
-            onClick={() => handleToggleStaySignedIn(!staySignedIn)}
-            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${staySignedIn ? "bg-tertiary" : "bg-surface-container-high"}`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${staySignedIn ? "translate-x-5" : "translate-x-0"}`}
-            />
-          </button>
-        </div>
-      </section>
-
-      {/* Date Format */}
-      <section className="space-y-4">
-        <h2 className="font-headline text-xl font-bold text-on-surface">
-          Date Format
-        </h2>
-        <div className="bg-surface-container p-6 rounded-2xl space-y-4">
-          <p className="text-sm text-on-surface-variant leading-relaxed">
-            Choose how dates are displayed and entered throughout the app.
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {DATE_FORMATS.map((f) => {
-              const isActive = dateFormat === f.value;
-              return (
-                <button
-                  key={f.value}
-                  onClick={() => setDateFormat(f.value)}
-                  className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
-                    isActive
-                      ? "bg-primary-container/30 border-primary/30"
-                      : "bg-surface-container-high border-transparent hover:border-outline-variant/20"
-                  }`}
-                >
-                  <span
-                    className={`font-bold text-sm mb-1 ${
-                      isActive ? "text-primary" : "text-on-surface"
-                    }`}
-                  >
-                    {f.label}
-                  </span>
-                  <span className="text-xs text-on-surface-variant">
-                    {f.example}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
       {/* Income Tracking — Solo and Hybrid only */}
       {canUseIncome && (
         <section className="space-y-4">
@@ -394,6 +318,82 @@ export default function Settings() {
             Blended mode.
           </p>
         )}
+      </section>
+
+      {/* Date Format */}
+      <section className="space-y-4">
+        <h2 className="font-headline text-xl font-bold text-on-surface">
+          Date Format
+        </h2>
+        <div className="bg-surface-container p-6 rounded-2xl space-y-4">
+          <p className="text-sm text-on-surface-variant leading-relaxed">
+            Choose how dates are displayed and entered throughout the app.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {DATE_FORMATS.map((f) => {
+              const isActive = dateFormat === f.value;
+              return (
+                <button
+                  key={f.value}
+                  onClick={() => setDateFormat(f.value)}
+                  className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
+                    isActive
+                      ? "bg-primary-container/30 border-primary/30"
+                      : "bg-surface-container-high border-transparent hover:border-outline-variant/20"
+                  }`}
+                >
+                  <span
+                    className={`font-bold text-sm mb-1 ${
+                      isActive ? "text-primary" : "text-on-surface"
+                    }`}
+                  >
+                    {f.label}
+                  </span>
+                  <span className="text-xs text-on-surface-variant">
+                    {f.example}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Stay Signed In */}
+      <section className="space-y-4">
+        <h2 className="font-headline text-xl font-bold text-on-surface">
+          Stay Signed In
+        </h2>
+        <div className="bg-surface-container p-6 rounded-2xl flex items-start justify-between gap-6">
+          <div className="flex items-start gap-4">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${staySignedIn ? "bg-tertiary-container" : "bg-surface-container-high"}`}>
+              <span
+                className={`material-symbols-outlined text-xl ${staySignedIn ? "text-tertiary" : "text-on-surface-variant"}`}
+                style={staySignedIn ? { fontVariationSettings: "'FILL' 1" } : undefined}
+              >
+                lock_open
+              </span>
+            </div>
+            <div>
+              <p className="font-bold text-on-surface mb-1">Keep me signed in</p>
+              <p className="text-sm text-on-surface-variant leading-relaxed">
+                Stay logged in for up to a year instead of 8 hours.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={staySignedIn}
+            disabled={staySignedInLoading}
+            onClick={() => handleToggleStaySignedIn(!staySignedIn)}
+            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${staySignedIn ? "bg-tertiary" : "bg-surface-container-high"}`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${staySignedIn ? "translate-x-5" : "translate-x-0"}`}
+            />
+          </button>
+        </div>
       </section>
 
       {/* Security — Change Password */}

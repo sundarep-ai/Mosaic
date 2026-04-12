@@ -10,13 +10,14 @@ import { useDateFormat } from "../DateFormatContext";
  *   max       — optional max ISO date (e.g. today)
  *   name      — form field name
  *   required  — HTML required
- *   className — passed to the <input>
+ *   className — passed to the text <input>
  */
 export default function DateInput({ value, onChange, max, name, required, className }) {
   const { dateFormat, formatDate, parseInputToISO, placeholder, separatorPositions } = useDateFormat();
   const [display, setDisplay] = useState(() => (value ? formatDate(value) : ""));
   const [error, setError] = useState("");
   const inputRef = useRef(null);
+  const hiddenDateRef = useRef(null);
 
   // Sync display when value or format changes from outside
   useEffect(() => {
@@ -78,21 +79,61 @@ export default function DateInput({ value, onChange, max, name, required, classN
     }
   };
 
+  const handleCalendarChange = (e) => {
+    const iso = e.target.value; // native date input always gives YYYY-MM-DD
+    if (!iso) return;
+    if (max && iso > max) {
+      setError("Date cannot be in the future");
+      return;
+    }
+    setError("");
+    onChange(iso);
+  };
+
+  const openCalendar = () => {
+    try {
+      hiddenDateRef.current?.showPicker();
+    } catch {
+      hiddenDateRef.current?.click();
+    }
+  };
+
   return (
     <div className="flex-1">
-      <input
-        ref={inputRef}
-        type="text"
-        inputMode="numeric"
-        name={name}
-        value={display}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        placeholder={placeholder}
-        required={required}
-        className={className}
-        autoComplete="off"
-      />
+      <div className="flex items-center gap-1">
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          name={name}
+          value={display}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          placeholder={placeholder}
+          required={required}
+          className={className}
+          autoComplete="off"
+        />
+        <button
+          type="button"
+          onClick={openCalendar}
+          className="flex-shrink-0 text-on-surface-variant/60 hover:text-primary transition-colors p-0.5"
+          tabIndex={-1}
+          aria-label="Open calendar"
+        >
+          <span className="material-symbols-outlined text-[20px]">calendar_month</span>
+        </button>
+        <input
+          ref={hiddenDateRef}
+          type="date"
+          value={value || ""}
+          max={max}
+          onChange={handleCalendarChange}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </div>
       {error && (
         <p className="text-error text-xs mt-1 ml-1">{error}</p>
       )}

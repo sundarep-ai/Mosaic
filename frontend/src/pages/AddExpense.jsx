@@ -19,7 +19,8 @@ export default function AddExpense() {
   const { id } = useParams();
   const location = useLocation();
   const isEdit = Boolean(id);
-  const today = new Date().toISOString().split("T")[0];
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const { userA, userB, mode } = useUsers();
   const isPersonal = mode === "personal";
   const { user: authUser } = useAuth();
@@ -293,9 +294,6 @@ export default function AddExpense() {
                 Date
               </label>
               <div className="bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-surface-container-lowest transition-colors">
-                <span className="material-symbols-outlined text-primary/60 mr-3">
-                  calendar_today
-                </span>
                 <DateInput
                   name="date"
                   value={form.date}

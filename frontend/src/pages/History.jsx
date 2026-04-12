@@ -312,7 +312,7 @@ export default function History() {
 
             {/* Rows */}
             <div className="flex flex-col gap-3 p-3 md:p-4">
-              {expenses.map((expense) => (
+              {expenses.slice(0, 100).map((expense) => (
                 <div
                   key={expense.id}
                   className={`bg-surface-container-lowest rounded-2xl md:rounded-none md:bg-transparent md:hover:bg-surface-container transition-colors grid grid-cols-1 ${isPersonal ? "md:grid-cols-8" : "md:grid-cols-12"} gap-4 items-center px-6 py-6 group`}
@@ -380,8 +380,9 @@ export default function History() {
             {/* Footer */}
             <div className="p-6 bg-surface-container border-t border-outline-variant/10 flex items-center justify-between">
               <p className="text-xs font-medium text-on-surface-variant">
-                Showing {expenses.length} expense
-                {expenses.length !== 1 ? "s" : ""}
+                {expenses.length > 100
+                  ? `Showing 100 of ${expenses.length} expenses`
+                  : `Showing ${expenses.length} expense${expenses.length !== 1 ? "s" : ""}`}
               </p>
             </div>
           </>

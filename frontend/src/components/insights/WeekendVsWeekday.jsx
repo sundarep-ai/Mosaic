@@ -47,24 +47,24 @@ function WeekendPanel({ data, title, fmt, isDark, CHART_COLORS, tooltipStyle, to
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-surface-container-lowest p-4 rounded-2xl">
           <span className="font-label text-xs uppercase tracking-[0.15em] text-on-surface-variant font-bold">
-            Weekday
+            Weekday avg
           </span>
           <div className="mt-1 font-headline text-2xl font-extrabold text-on-surface">
-            {fmt(data.weekday.total)}
+            {data.weekday.count > 0 ? fmt(data.weekday.total / data.weekday.count) : fmt(0)}
           </div>
           <p className="text-xs text-on-surface-variant mt-0.5">
-            {data.weekday.count} expenses
+            per transaction · {data.weekday.count} total
           </p>
         </div>
         <div className="bg-surface-container-lowest p-4 rounded-2xl">
           <span className="font-label text-xs uppercase tracking-[0.15em] text-on-surface-variant font-bold">
-            Weekend
+            Weekend avg
           </span>
           <div className="mt-1 font-headline text-2xl font-extrabold text-on-surface">
-            {fmt(data.weekend.total)}
+            {data.weekend.count > 0 ? fmt(data.weekend.total / data.weekend.count) : fmt(0)}
           </div>
           <p className="text-xs text-on-surface-variant mt-0.5">
-            {data.weekend.count} expenses
+            per transaction · {data.weekend.count} total
           </p>
         </div>
       </div>

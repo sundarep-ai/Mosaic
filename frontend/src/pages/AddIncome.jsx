@@ -8,7 +8,8 @@ import DateInput from "../components/DateInput";
 export default function AddIncome() {
   const navigate = useNavigate();
   const { incomeEnabled } = useIncomeMode();
-  const today = new Date().toISOString().split("T")[0];
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
   const [form, setForm] = useState({
     date: today,
@@ -113,9 +114,6 @@ export default function AddIncome() {
                 Date
               </label>
               <div className="bg-surface-container-high rounded-xl px-4 py-3 flex items-center focus-within:bg-surface-container-lowest transition-colors">
-                <span className="material-symbols-outlined text-tertiary/60 mr-3">
-                  calendar_today
-                </span>
                 <DateInput
                   name="date"
                   value={form.date}
