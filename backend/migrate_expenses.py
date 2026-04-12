@@ -1,16 +1,19 @@
 """
-Migrate expenses from an existing .xlsx file into the Mosaic SQLite database.
+Migrate expenses from an existing .xlsx or .csv file into the Mosaic SQLite database.
 
 Usage:
-    python migrate_expenses_xlsx.py path/to/your/expenses.xlsx
+    python migrate_expenses.py path/to/your/expenses.xlsx
+    python migrate_expenses.py path/to/your/expenses.csv
 
 Expected columns (header matching is case-insensitive and flexible):
     Date, Description, Amount, Category, Paid By, Split Method
 """
 
+import csv
 import sys
 from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
 
 import openpyxl
 from sqlalchemy import func
@@ -25,13 +28,33 @@ def normalize(header: str) -> str:
     return header.strip().lower().replace(" ", "_").replace("-", "_")
 
 
+def _load_rows(filepath: str) -> tuple[list[str], list[tuple]]:
+    """Return (normalized_headers, list_of_value_tuples) for .xlsx or .csv."""
+    suffix = Path(filepath).suffix.lower()
+    if suffix == ".csv":
+        with open(filepath, newline="", encoding="utf-8-sig") as fh:
+            reader = csv.reader(fh)
+            raw_headers = next(reader)
+            headers = [normalize(h) for h in raw_headers]
+            rows = [tuple(row) for row in reader]
+        return headers, rows
+    else:
+        wb = openpyxl.load_workbook(filepath)
+        ws = wb.active
+        headers = [normalize(str(cell.value)) for cell in ws[1]]
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        return headers, rows
+
+
 def migrate(filepath: str) -> None:
     create_db_and_tables()
 
-    wb = openpyxl.load_workbook(filepath)
-    ws = wb.active
+    suffix = Path(filepath).suffix.lower()
+    if suffix not in (".xlsx", ".csv"):
+        print(f"ERROR: Unsupported file type '{suffix}'. Use .xlsx or .csv.")
+        sys.exit(1)
 
-    headers = [normalize(str(cell.value)) for cell in ws[1]]
+    headers, rows = _load_rows(filepath)
 
     # Map header keywords to field names
     col_map: dict[str, int] = {}
@@ -65,8 +88,8 @@ def migrate(filepath: str) -> None:
 
         sheet_paid_by = {
             str(row[col_map["paid_by"]]).strip()
-            for row in ws.iter_rows(min_row=2, values_only=True)
-            if row and row[col_map["paid_by"]] is not None
+            for row in rows
+            if row and row[col_map["paid_by"]] not in (None, "")
         }
         unknown = sheet_paid_by - registered_display_names
         if unknown:
@@ -88,8 +111,8 @@ def migrate(filepath: str) -> None:
                 sys.exit(0)
 
         count = 0
-        for row in ws.iter_rows(min_row=2, values_only=True):
-            if not row or row[col_map["date"]] is None:
+        for row in rows:
+            if not row or row[col_map["date"]] in (None, ""):
                 continue
 
             date_val = row[col_map["date"]]
@@ -125,6 +148,6 @@ def migrate(filepath: str) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python migrate_expenses_xlsx.py <path_to_xlsx>")
+        print("Usage: python migrate_expenses.py <path_to_xlsx_or_csv>")
         sys.exit(1)
     migrate(sys.argv[1])

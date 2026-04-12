@@ -1,5 +1,5 @@
 """
-Tests for migrate_expenses_xlsx and migrate_income_xlsx.
+Tests for migrate_expenses and migrate_income.
 
 Each test spins up its own in-memory SQLite engine so migrations are fully
 isolated from the shared API test database.
@@ -15,8 +15,8 @@ import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
-import migrate_expenses_xlsx
-import migrate_income_xlsx
+import migrate_expenses
+import migrate_income
 from models import Expense, Income, User
 
 # ── Shared test credentials ───────────────────────────────────────────────────
@@ -77,17 +77,17 @@ def _write_income_xlsx(path: Path, rows: list[dict]) -> None:
     wb.save(path)
 
 
-# ── migrate_expenses_xlsx ─────────────────────────────────────────────────────
+# ── migrate_expenses ──────────────────────────────────────────────────────────
 
 class TestMigrateExpenses:
 
     def _run(self, engine, xlsx_path: Path):
         """Patch the module-level engine and run migrate()."""
         with (
-            patch.object(migrate_expenses_xlsx, "engine", engine),
-            patch.object(migrate_expenses_xlsx, "create_db_and_tables", lambda: None),
+            patch.object(migrate_expenses, "engine", engine),
+            patch.object(migrate_expenses, "create_db_and_tables", lambda: None),
         ):
-            migrate_expenses_xlsx.migrate(str(xlsx_path))
+            migrate_expenses.migrate(str(xlsx_path))
 
     def test_happy_path(self, tmp_path):
         engine = _make_engine()
@@ -260,17 +260,17 @@ class TestMigrateExpenses:
         assert len(expenses) == 2
 
 
-# ── migrate_income_xlsx ───────────────────────────────────────────────────────
+# ── migrate_income ────────────────────────────────────────────────────────────
 
 class TestMigrateIncome:
 
     def _run(self, engine, xlsx_path: Path):
         """Patch the module-level engine and run migrate()."""
         with (
-            patch.object(migrate_income_xlsx, "engine", engine),
-            patch.object(migrate_income_xlsx, "create_db_and_tables", lambda: None),
+            patch.object(migrate_income, "engine", engine),
+            patch.object(migrate_income, "create_db_and_tables", lambda: None),
         ):
-            migrate_income_xlsx.migrate(str(xlsx_path))
+            migrate_income.migrate(str(xlsx_path))
 
     def test_happy_path(self, tmp_path):
         engine = _make_engine()
