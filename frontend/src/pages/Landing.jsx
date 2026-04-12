@@ -196,10 +196,6 @@ export default function Landing() {
                 {fmt(myExpense.my_total)}
               </span>
             </div>
-            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary-container text-on-secondary-container text-sm font-bold">
-              <span className="material-symbols-outlined text-[16px]">person</span>
-              {isBlended ? "Personal + your share of shared expenses" : "Your share of shared expenses"}
-            </div>
           </div>
         )}
 
