@@ -1,16 +1,26 @@
-<div align="center">
+<p align="center">
+  <img src="assets/logo.png" alt="Mosaic Logo" width="120" height="120" />
+</p>
 
-# Mosaic
+<h1 align="center">Mosaic</h1>
 
-**Your finances, on your machine.**
+<p align="center"><b>Your finances, on your machine.</b></p>
 
-![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
-![Tailwind](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white" alt="Python" />
+  &nbsp;
+  <img src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
+  &nbsp;
+  <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React" />
+  &nbsp;
+  <img src="https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind" />
+  &nbsp;
+  <img src="https://img.shields.io/badge/License-MIT-yellow" alt="License" />
+</p>
 
-</div>
+<p align="center">
+  <a href="#why-mosaic">Why Mosaic</a>&nbsp;&bull;&nbsp;<a href="#features-at-a-glance">Features</a>&nbsp;&bull;&nbsp;<a href="#setup">Setup</a>&nbsp;&bull;&nbsp;<a href="FEATURES.md">Full Docs</a>&nbsp;&bull;&nbsp;<a href="CONTRIBUTING.md">Contributing</a>
+</p>
 
 ---
 
