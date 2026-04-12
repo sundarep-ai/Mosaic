@@ -1,4 +1,4 @@
-# Mosaic — Features
+# Mosaic Features
 
 Full reference for all features across every page and mode.
 
@@ -19,7 +19,7 @@ Predicts next month's total expense, broken down into recurring (predictable) an
 
 ### Unusual Expenses (Anomalies)
 
-Cards highlighting individual expenses that are statistically unusual — much higher or lower than the category average. Shows the expense description, amount, category mean, and date.
+Cards highlighting individual expenses that are statistically unusual, much higher or lower than the category average. Shows the expense description, amount, category mean, and date.
 
 ### Recurring Expenses
 

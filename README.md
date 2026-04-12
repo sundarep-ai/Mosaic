@@ -2,9 +2,10 @@
   <img src="assets/logo.png" alt="Mosaic Logo" width="120" height="120" />
 </p>
 
-<h1 align="center">Mosaic</h1>
+<h1 align="center" style="margin-bottom: 0; border-bottom: none;">Mosaic</h1>
+<p align="center"><i>Local First Expense Tracker</i></p>
 
-<p align="center"><b>Your finances, on your machine.</b></p>
+<br>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white" alt="Python" />
@@ -24,26 +25,26 @@
 
 ---
 
-Mosaic is a personal expense tracker that runs entirely on your own machine. No accounts to create, no subscriptions, no data sent anywhere. Log expenses, understand your spending patterns, and get automated analysis — all locally. When you're ready, it scales to two: a Blended mode lets couples track personal and shared expenses side by side without mixing them up.
+Mosaic is a personal expense tracker that runs entirely on your own machine. No subscriptions, no data sent anywhere. Log expenses, understand your spending patterns, and get automated analysis all locally. Mosaic also scales to two: a Blended mode lets couples track personal and shared expenses side by side without mixing them up.
 
 ---
 
 ## Why Mosaic
 
-**Runs locally — your data stays yours.**
-Everything lives in a SQLite database on your machine. Mosaic never phones home. No third-party access, no cloud sync unless you explicitly configure it.
-
 **Insights that actually tell you something.**
-Mosaic analyses your spending automatically: it detects recurring expenses, flags anomalies, alerts you when a category spikes above its 3-month average, and forecasts next month's spending. No manual setup — it works from the data you've already logged.
+Mosaic analyses your spending automatically: it detects recurring expenses, flags anomalies, alerts you when a category spikes above its 3-month average, and forecasts next month's spending. No manual setup, it works from the data you've already logged.
 
 **AI-powered description clean-up, on your device.**
-Tracked the same grocery store as "Foodbasics", "Food Basics", and "food basics"? The Clean Up tool uses local ONNX embeddings to find description variants that refer to the same thing and lets you merge them in bulk — no API calls, no data leaving your machine.
+Tracked the same grocery store as "Foodbasics", "Food Basics", and "food basics"? The Clean Up tool uses local ONNX embeddings to find description variants that refer to the same thing and lets you merge them in bulk. No API calls, no data leaving your machine.
 
 **A calendar that shows where your money goes.**
-A monthly heat-map calendar colours each day by spending intensity using a logarithmic scale, so one large expense like rent doesn't drown out everything else. Click any day to drill into its expenses.
+A monthly heat-map calendar colours each day by spending intensity, making it easy to spot heavy spending days at a glance. Click any day to see exactly what you bought.
+
+**Runs locally, your data stays yours.**
+Everything lives in a local database on your machine. Mosaic never leaves home. No third-party access, no cloud sync unless you explicitly configure it (for OneDrive backups).
 
 **Scales to two when you need it.**
-Blended mode lets couples log personal expenses alongside shared ones. Mosaic tracks the balance, calculates each person's real share based on how each expense was split, and keeps personal spending private.
+Couples can log personal and shared expenses side by side. Mosaic tracks who owes what, splits costs fairly, and keeps each person's private spending to themselves.
 
 ---
 
