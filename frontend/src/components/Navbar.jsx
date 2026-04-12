@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../ThemeContext";
 import { useCurrency } from "../CurrencyContext";
 import Avatar from "./Avatar";
+import HelpModal from "./HelpModal";
 import config from "../config";
 import { useUsers } from "../ConfigContext";
 
@@ -30,6 +32,7 @@ export default function Navbar() {
   const { currency, setCurrency, currencies } = useCurrency();
   const { mode } = useUsers();
   const modeLabel = mode === "personal" ? "Personal" : mode === "blended" ? "Blended" : "Shared";
+  const [showHelp, setShowHelp] = useState(false);
 
   return (
     <>
@@ -71,6 +74,15 @@ export default function Navbar() {
           </nav>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowHelp(true)}
+              className="p-2 rounded-full hover:bg-surface-container transition-colors active:scale-95 duration-200"
+              aria-label="App guide"
+            >
+              <span className="material-symbols-outlined text-primary" aria-hidden="true">
+                help
+              </span>
+            </button>
             <Link
               to="/settings"
               className="p-2 rounded-full hover:bg-surface-container transition-colors active:scale-95 duration-200"
@@ -160,6 +172,8 @@ export default function Navbar() {
           );
         })}
       </nav>
+
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </>
   );
 }
