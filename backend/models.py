@@ -25,8 +25,8 @@ class User(SQLModel, table=True):
     security_answer_hash: str = Field(max_length=200)
     stay_signed_in: bool = Field(default=False)
     session_version: int = Field(default=0)
-    created_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
     )
 
 

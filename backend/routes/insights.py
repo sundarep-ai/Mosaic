@@ -340,21 +340,34 @@ def _detect_anomalies(expenses: list[Expense], me: str, other: str) -> list[dict
     """Flag recent expenses with unusually high/low amounts per category (z-score > 2).
 
     Z-score detection runs on full amounts; each anomaly includes the user's portion.
+    Statistics prefer the last 12 months so old price levels don't create false
+    positives, but fall back to all-time data for categories that are sparse in
+    the recent window (fewer than 5 samples).
     """
     today = date.today()
     cutoff = today - timedelta(days=60)
+    stats_cutoff = _months_back(today, 12)
 
-    # Group all amounts by category
-    cat_amounts: dict[str, list[float]] = defaultdict(list)
+    # Build two buckets per category: last-12-months and all-time
+    cat_amounts_recent: dict[str, list[float]] = defaultdict(list)
+    cat_amounts_all: dict[str, list[float]] = defaultdict(list)
     for e in expenses:
-        cat_amounts[e.category].append(float(e.amount))
+        amt = float(e.amount)
+        cat_amounts_all[e.category].append(amt)
+        if e.date >= stats_cutoff:
+            cat_amounts_recent[e.category].append(amt)
+
+    def _stat_amounts(category: str) -> list[float]:
+        """Return recent window if it has enough samples, else fall back to all-time."""
+        recent = cat_amounts_recent.get(category, [])
+        return recent if len(recent) >= 5 else cat_amounts_all.get(category, [])
 
     anomalies = []
     for e in expenses:
         if e.date < cutoff:
             continue
 
-        amounts = cat_amounts.get(e.category, [])
+        amounts = _stat_amounts(e.category)
         if len(amounts) < 5:
             continue
 

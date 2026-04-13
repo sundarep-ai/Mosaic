@@ -1,6 +1,6 @@
 """Tests for balance calculation and monthly summary."""
 
-from conftest import make_expense, USER_A, USER_B
+from conftest import make_expense, USER_A, USER_B, set_mode
 
 
 # ── Balance ─────────────────────────────────────────────────────────
@@ -102,14 +102,42 @@ def test_balance_settlement_zeroes_out(auth_client_a):
 
 
 def test_monthly_summary(auth_client_a):
+    # Default make_expense uses split_method="50/50" paid by Alice.
+    # Monthly summary now returns each user's *portion*, so Alice sees half.
     auth_client_a.post("/api/expenses", json=make_expense(category="Groceries", amount=80))
     auth_client_a.post("/api/expenses", json=make_expense(category="Dining", amount=45))
     auth_client_a.post("/api/expenses", json=make_expense(category="Groceries", amount=120))
 
     data = auth_client_a.get("/api/monthly-summary").json()
     cats = {item["category"]: item["amount"] for item in data}
+    assert cats["Groceries"] == 100.0   # Alice's 50% of 200
+    assert cats["Dining"] == 22.5       # Alice's 50% of 45
+
+
+def test_monthly_summary_personal_mode(auth_client_a, db):
+    # In personal mode all expenses are Personal-split by the sole user,
+    # so portion == full amount.
+    set_mode(db, "personal")
+    auth_client_a.post("/api/expenses", json=make_expense(
+        category="Groceries", amount=80, split_method="Personal",
+    ))
+    auth_client_a.post("/api/expenses", json=make_expense(
+        category="Groceries", amount=120, split_method="Personal",
+    ))
+
+    data = auth_client_a.get("/api/monthly-summary").json()
+    cats = {item["category"]: item["amount"] for item in data}
     assert cats["Groceries"] == 200.0
-    assert cats["Dining"] == 45.0
+
+
+def test_monthly_summary_excludes_other_users_personal(auth_client_a, auth_client_b):
+    # Alice fronts an expense that is 100% Bob's — should not appear in Alice's summary.
+    auth_client_a.post("/api/expenses", json=make_expense(
+        category="Groceries", amount=100, paid_by=USER_A, split_method=f"100% {USER_B}",
+    ))
+    data = auth_client_a.get("/api/monthly-summary").json()
+    cats = {item["category"]: item["amount"] for item in data}
+    assert cats.get("Groceries", 0) == 0.0
 
 
 def test_monthly_summary_excludes_payment(auth_client_a):

@@ -16,7 +16,7 @@ BACKUP_PATH = os.getenv("BACKUP_PATH")
 VALID_MODES = {"personal", "shared", "blended"}
 
 def get_app_mode(session) -> str:
-    """Read app_mode from the Settings table. Returns 'shared' as default."""
+    """Read app_mode from the Settings table. Returns 'personal' as default."""
     from models import Settings
     row = session.get(Settings, 1)
     if row and row.app_mode in VALID_MODES:

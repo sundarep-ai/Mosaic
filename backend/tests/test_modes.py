@@ -147,12 +147,33 @@ def test_personal_balance_returns_zero(auth_client_a):
 # ── Shared Mode: Validation (existing behaviour preserved) ────────────
 
 def test_shared_accepts_all_split_methods(auth_client_a):
-    """Shared mode should accept 50/50, 100% splits, and Personal."""
-    for method in ["50/50", f"100% {USER_A}", f"100% {USER_B}", "Personal"]:
-        resp = auth_client_a.post("/api/expenses", json=make_expense(
-            split_method=method,
-        ))
+    """Shared mode should accept 50/50, 100% (cross-payer) splits, and Personal."""
+    # 50/50 and Personal: payer = Alice (default)
+    for method in ["50/50", "Personal"]:
+        resp = auth_client_a.post("/api/expenses", json=make_expense(split_method=method))
         assert resp.status_code == 201, f"Failed for split_method={method}"
+    # 100% Alice: Bob must be the payer (Bob fronts, Alice owes it all)
+    resp = auth_client_a.post("/api/expenses", json=make_expense(
+        paid_by=USER_B, split_method=f"100% {USER_A}",
+    ))
+    assert resp.status_code == 201, "100% Alice paid by Bob should be accepted"
+    # 100% Bob: Alice must be the payer (Alice fronts, Bob owes it all)
+    resp = auth_client_a.post("/api/expenses", json=make_expense(
+        paid_by=USER_A, split_method=f"100% {USER_B}",
+    ))
+    assert resp.status_code == 201, "100% Bob paid by Alice should be accepted"
+
+
+def test_shared_rejects_100pct_self(auth_client_a):
+    """split_method=100% <payer> is invalid — payer can't owe 100% to themselves."""
+    resp = auth_client_a.post("/api/expenses", json=make_expense(
+        paid_by=USER_A, split_method=f"100% {USER_A}",
+    ))
+    assert resp.status_code == 422
+    resp = auth_client_a.post("/api/expenses", json=make_expense(
+        paid_by=USER_B, split_method=f"100% {USER_B}",
+    ))
+    assert resp.status_code == 422
 
 
 def test_shared_accepts_both_payers(auth_client_a):
@@ -167,11 +188,14 @@ def test_shared_accepts_both_payers(auth_client_a):
 
 def test_blended_accepts_personal_and_shared(auth_client_a):
     _set_mode(auth_client_a, "blended")
-    for method in ["50/50", f"100% {USER_A}", "Personal"]:
-        resp = auth_client_a.post("/api/expenses", json=make_expense(
-            split_method=method,
-        ))
+    for method in ["50/50", "Personal"]:
+        resp = auth_client_a.post("/api/expenses", json=make_expense(split_method=method))
         assert resp.status_code == 201, f"Failed for split_method={method}"
+    # 100% Alice requires a cross-payer (Bob fronts, Alice owes)
+    resp = auth_client_a.post("/api/expenses", json=make_expense(
+        paid_by=USER_B, split_method=f"100% {USER_A}",
+    ))
+    assert resp.status_code == 201, "100% Alice paid by Bob should be accepted in blended"
 
 
 def test_blended_accepts_both_payers(auth_client_a):

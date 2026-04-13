@@ -132,10 +132,9 @@ def _verify_token(token: str, session: Session | None = None) -> str | None:
     if data.get("sv", 0) != user.session_version:
         return None
 
-    # Skip TTL check for persistent tokens
-    if not data.get("persist", False):
-        if time.time() - data.get("ts", 0) > SESSION_TTL:
-            return None
+    ttl = PERSISTENT_TTL if data.get("persist", False) else SESSION_TTL
+    if time.time() - data.get("ts", 0) > ttl:
+        return None
 
     return username
 
@@ -206,6 +205,8 @@ def register(data: RegisterRequest, response: Response, session: Session = Depen
     # Validate password
     if len(data.password) < 6:
         raise HTTPException(status_code=422, detail="Password must be at least 6 characters")
+    if len(data.password) > 128:
+        raise HTTPException(status_code=422, detail="Password must be 128 characters or fewer")
 
     # Validate security question
     if not data.security_question or len(data.security_question) > 300:
@@ -360,7 +361,9 @@ class ForgotPasswordQuestionRequest(BaseModel):
 def forgot_password_question(data: ForgotPasswordQuestionRequest, session: Session = Depends(get_session)):
     user = get_user_by_username(session, data.username)
     if not user:
-        return {"security_question": None}
+        # Return a plausible placeholder instead of null so attackers can't
+        # enumerate valid usernames by checking whether this field is non-null.
+        return {"security_question": SECURITY_QUESTIONS[0]}
     return {"security_question": user.security_question}
 
 
@@ -376,7 +379,10 @@ def forgot_password_reset(data: ForgotPasswordResetRequest, session: Session = D
 
     user = get_user_by_username(session, data.username)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        # Record a failure and return 401 (same as wrong answer) so attackers
+        # can't enumerate valid usernames via 404 vs 401 differences.
+        _record_reset_failure(data.username)
+        raise HTTPException(status_code=401, detail="Incorrect security answer")
 
     if not _check_answer(data.security_answer, user.security_answer_hash):
         _record_reset_failure(data.username)
@@ -386,6 +392,8 @@ def forgot_password_reset(data: ForgotPasswordResetRequest, session: Session = D
 
     if len(data.new_password) < 6:
         raise HTTPException(status_code=422, detail="Password must be at least 6 characters")
+    if len(data.new_password) > 128:
+        raise HTTPException(status_code=422, detail="Password must be 128 characters or fewer")
 
     user.password_hash = hash_password(data.new_password)
     user.session_version = (user.session_version or 0) + 1
@@ -419,6 +427,8 @@ def change_password(
 
     if len(data.new_password) < 6:
         raise HTTPException(status_code=422, detail="Password must be at least 6 characters")
+    if len(data.new_password) > 128:
+        raise HTTPException(status_code=422, detail="Password must be 128 characters or fewer")
 
     user.password_hash = hash_password(data.new_password)
     user.session_version = (user.session_version or 0) + 1
@@ -548,8 +558,10 @@ def delete_account(
     # Delete the user
     session.delete(user)
 
-    # If remaining users drops to 1 or 0, auto-switch to personal
-    remaining = get_user_count(session) - 1  # haven't committed yet
+    # Count remaining users before the commit. The deleted user is still in the
+    # DB at this point (session.delete queues the deletion; the row goes away on
+    # commit), so we subtract 1 to get the post-commit count.
+    remaining = get_user_count(session) - 1
     if remaining <= 1:
         settings = session.get(Settings, 1)
         if settings:

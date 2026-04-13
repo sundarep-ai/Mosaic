@@ -37,8 +37,13 @@ def _resolve_names(current_user: str, session: Session) -> tuple:
 
 
 def _my_portion_expr(me: str, other: str):
-    """SQL CASE expression returning the current user's portion of each expense."""
+    """SQL CASE expression returning the current user's portion of each expense.
+
+    Payment is always 0 — callers also filter it at query level, but guarding
+    it here prevents incorrect results if the filter is ever omitted.
+    """
     return case(
+        (Expense.category == "Payment", 0),
         (
             (Expense.split_method == "Personal") & (Expense.paid_by == me),
             Expense.amount,
@@ -73,11 +78,13 @@ def _validate_expense(data: ExpenseBase, session: Session) -> None:
     if data.date > date.today():
         raise HTTPException(status_code=422, detail="date cannot be in the future")
     if data.category not in VALID_CATEGORIES:
-        raise HTTPException(status_code=422, detail=f"category must be one of: {', '.join(sorted(VALID_CATEGORIES))}")
+        raise HTTPException(status_code=422, detail="invalid category")
     if data.paid_by not in valid_paid_by:
         raise HTTPException(status_code=422, detail=f"paid_by must be one of: {', '.join(valid_paid_by)}")
     if data.split_method not in valid_split_methods:
         raise HTTPException(status_code=422, detail=f"split_method must be one of: {', '.join(valid_split_methods)}")
+    if data.split_method == f"100% {data.paid_by}":
+        raise HTTPException(status_code=422, detail="split_method cannot assign 100% to the payer themselves")
 
 
 @router.get("/expenses")
@@ -537,22 +544,29 @@ def get_monthly_summary(
     session: Session = Depends(get_session),
     current_user: str = Depends(get_current_user),
 ):
-    """Return category spend totals for the current month via SQL aggregation."""
+    """Return the current user's portion of spend per category for the current month.
+
+    Uses _my_portion_expr so each user sees their own share rather than
+    household totals. Categories where the user's portion is zero are omitted.
+    """
     today = date.today()
     first_of_month = today.replace(day=1)
+    me, other = _resolve_names(current_user, session)
+    portion = _my_portion_expr(me, other)
 
     rows = session.exec(
-        select(Expense.category, func.sum(Expense.amount).label("total"))
+        select(Expense.category, func.sum(portion).label("total"))
         .where(Expense.date >= first_of_month)
         .where(Expense.category != "Payment")
         .where(Expense.category != "Reimbursement")
         .group_by(Expense.category)
-        .order_by(func.sum(Expense.amount).desc())
+        .order_by(func.sum(portion).desc())
     ).all()
 
     return [
         {"category": cat, "amount": float(round(Decimal(str(total)), 2))}
         for cat, total in rows
+        if total and float(total) > 0
     ]
 
 
