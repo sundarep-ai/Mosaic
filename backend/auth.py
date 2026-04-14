@@ -24,7 +24,16 @@ from users import get_user_by_username, get_user_count, build_user_map, is_prima
 
 IS_DEV = os.getenv("ENV", "development") == "development"
 
-AVATARS_DIR = os.path.join(os.path.dirname(__file__), "uploads", "avatars")
+# COOKIE_SECURE: override the automatic dev/prod detection when needed.
+# Set COOKIE_SECURE=false explicitly for production HTTP (local network) deployments.
+_cookie_secure_env = os.getenv("COOKIE_SECURE")
+if _cookie_secure_env is not None:
+    COOKIE_SECURE = _cookie_secure_env.lower() in ("true", "1", "yes")
+else:
+    COOKIE_SECURE = not IS_DEV
+
+from database import DATA_DIR as _DATA_DIR
+AVATARS_DIR = str(_DATA_DIR / "uploads" / "avatars")
 os.makedirs(AVATARS_DIR, exist_ok=True)
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 MAX_FILE_SIZE = 2 * 1024 * 1024  # 2 MB
@@ -267,7 +276,7 @@ def register(data: RegisterRequest, response: Response, session: Session = Depen
         value=token,
         httponly=True,
         samesite="lax",
-        secure=not IS_DEV,
+        secure=COOKIE_SECURE,
         max_age=SESSION_TTL,
     )
     return {
@@ -320,7 +329,7 @@ def login(data: LoginRequest, response: Response, session: Session = Depends(get
         value=token,
         httponly=True,
         samesite="lax",
-        secure=not IS_DEV,
+        secure=COOKIE_SECURE,
         max_age=ttl,
     )
     return {
@@ -443,7 +452,7 @@ def change_password(
         value=token,
         httponly=True,
         samesite="lax",
-        secure=not IS_DEV,
+        secure=COOKIE_SECURE,
         max_age=ttl,
     )
     return {"ok": True}
@@ -480,7 +489,7 @@ def update_stay_signed_in(
         value=token,
         httponly=True,
         samesite="lax",
-        secure=not IS_DEV,
+        secure=COOKIE_SECURE,
         max_age=ttl,
     )
     return {"ok": True, "stay_signed_in": data.enabled}

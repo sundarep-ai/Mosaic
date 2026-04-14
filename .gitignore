@@ -32,9 +32,11 @@ backend/uploads/
 # Audit logs and backups
 backend/data/
 
-# Env
+# Env — local secrets, never commit these
 .env
 .env.local
+# Docker env file (generated from .env.docker.example)
+.env.docker
 
 # Claude
 .claude/
@@ -43,5 +45,5 @@ claude.md
 # Excel
 *.xlsx
 
-#reports
+# Reports
 code-review-reports

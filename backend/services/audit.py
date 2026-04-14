@@ -47,5 +47,7 @@ class AuditLogger:
 
 # Module-level singleton -- initialized with default path.
 # Import and use directly: from services.audit import audit_logger, expense_to_dict
-_default_dir = Path(__file__).parent.parent / "data" / "audit"
+import os as _os
+_data_dir = Path(_os.getenv("DATA_DIR", str(Path(__file__).parent.parent)))
+_default_dir = _data_dir / "audit"
 audit_logger = AuditLogger(_default_dir)

@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 from sqlalchemy import event, text
@@ -6,8 +7,11 @@ from sqlmodel import create_engine, SQLModel, Session
 
 logger = logging.getLogger("mosaic")
 
-DB_DIR = Path(__file__).parent
-DB_PATH = DB_DIR / "mosaic.db"
+# DATA_DIR: where the database, backups, audit logs, and uploads are stored.
+# Defaults to the backend/ directory (unchanged local behaviour).
+# Set DATA_DIR=/app/data in Docker to persist everything in a mounted volume.
+DATA_DIR = Path(os.getenv("DATA_DIR", str(Path(__file__).parent)))
+DB_PATH = DATA_DIR / "mosaic.db"
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False})

@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - ENV=production
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      - DATA_DIR=/app/data
+      # Empty CORS_ORIGINS disables CORS headers — nginx handles same-origin routing
+      - CORS_ORIGINS=
+    volumes:
+      - mosaic-data:/app/data
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - "${MOSAIC_PORT:-80}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mosaic-data:

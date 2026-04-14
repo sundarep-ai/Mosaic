@@ -1,16 +1,19 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from auth import get_current_user
 from config import BACKUP_PATH, VALID_MODES, get_app_mode
 from users import get_display_names, get_user_count
-from database import create_db_and_tables, check_db_integrity, ensure_indexes, DB_PATH, get_session
+from database import create_db_and_tables, check_db_integrity, ensure_indexes, DB_PATH, DATA_DIR, get_session
 from routes import expenses, analytics, export, insights, income
 from auth import router as auth_router
 from services.audit import audit_logger
@@ -19,8 +22,18 @@ from services.backup import BackupManager
 logger = logging.getLogger("mosaic")
 logging.basicConfig(level=logging.INFO)
 
-# Backup location: use BACKUP_PATH from config if set, otherwise default to backend/data/backups/
-BACKUP_DIR = Path(BACKUP_PATH) if BACKUP_PATH else Path(__file__).parent / "data" / "backups"
+# Backup location: use BACKUP_PATH from config if set, otherwise default to DATA_DIR/backups/
+BACKUP_DIR = Path(BACKUP_PATH) if BACKUP_PATH else DATA_DIR / "backups"
+
+# CORS_ORIGINS: comma-separated list of allowed origins.
+# Defaults to localhost:5173 for dev. Set to empty string when serving behind a
+# same-origin reverse proxy (nginx) or when FastAPI serves the frontend directly.
+_cors_raw = os.getenv("CORS_ORIGINS", "http://localhost:5173")
+CORS_ORIGINS = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+
+# Frontend dist directory — present after `npm run build` (Method 1: git clone).
+# Absent in Docker (nginx serves static files instead).
+FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 
 
 @asynccontextmanager
@@ -47,7 +60,7 @@ app = FastAPI(title="Mosaic API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -142,3 +155,17 @@ def update_user_preferences(
     session.add(row)
     session.commit()
     return {"date_format": row.date_format}
+
+
+# ── Static file serving (Method 1: git clone + npm run build) ────────────────
+# Only activates when frontend/dist/ exists. API routes above take priority.
+# In Docker, nginx serves the frontend and this block is never reached.
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        file_path = FRONTEND_DIST / full_path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
+        return FileResponse(str(FRONTEND_DIST / "index.html"))

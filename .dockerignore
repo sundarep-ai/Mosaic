@@ -1,0 +1,28 @@
+.git
+.github
+.claude
+.pytest_cache
+*.md
+FEATURES.md
+CONTRIBUTING.md
+
+# Python
+backend/.venv
+backend/venv
+backend/__pycache__
+backend/**/__pycache__
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+backend/data/
+backend/uploads/
+backend/.env
+
+# Node
+frontend/node_modules
+frontend/dist
+
+# Misc
+code-review-reports
+*.xlsx
+assets/
