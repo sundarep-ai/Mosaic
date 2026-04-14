@@ -18,12 +18,67 @@
 </p>
 
 <p align="center">
-  <a href="#why-mosaic">Why Mosaic</a>&nbsp;&bull;&nbsp;<a href="#features-at-a-glance">Features</a>&nbsp;&bull;&nbsp;<a href="#setup">Setup</a>&nbsp;&bull;&nbsp;<a href="#method-3-docker">Docker</a>&nbsp;&bull;&nbsp;<a href="FEATURES.md">Full Docs</a>&nbsp;&bull;&nbsp;<a href="CONTRIBUTING.md">Contributing</a>
+  <a href="#screenshots">Screenshots</a>&nbsp;&bull;&nbsp;<a href="#why-mosaic">Why Mosaic</a>&nbsp;&bull;&nbsp;<a href="#features-at-a-glance">Features</a>&nbsp;&bull;&nbsp;<a href="#setup">Setup</a>&nbsp;&bull;&nbsp;<a href="#method-2-docker">Docker</a>&nbsp;&bull;&nbsp;<a href="FEATURES.md">Full Docs</a>&nbsp;&bull;&nbsp;<a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
 ---
 
 Mosaic is a personal expense tracker that runs entirely on your own machine. No subscriptions, no data sent anywhere. Log expenses, understand your spending patterns, and get automated analysis all locally. Mosaic also scales to two: a Blended mode lets couples track personal and shared expenses side by side without mixing them up.
+
+---
+
+## Screenshots
+
+<table>
+  <thead>
+    <tr>
+      <th align="center">Light</th>
+      <th align="center">Dark</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center"><strong>Dashboard</strong> — balance, category breakdown, recent activity</td>
+      <td align="center"></td>
+    </tr>
+    <tr>
+      <td><img src="screenshots/home_lightmode.png" alt="Dashboard light mode" /></td>
+      <td><img src="screenshots/home_darkmode.png" alt="Dashboard dark mode" /></td>
+    </tr>
+    <tr>
+      <td align="center"><strong>Analytics</strong> — category distribution, spending velocity</td>
+      <td align="center"></td>
+    </tr>
+    <tr>
+      <td><img src="screenshots/analytics_lightmode.png" alt="Analytics light mode" /></td>
+      <td><img src="screenshots/analytics_darkmode.png" alt="Analytics dark mode" /></td>
+    </tr>
+    <tr>
+      <td align="center"><strong>Calendar</strong> — heat-map view, click any day to drill down</td>
+      <td align="center"></td>
+    </tr>
+    <tr>
+      <td><img src="screenshots/calendar_lightmode.png" alt="Calendar light mode" /></td>
+      <td><img src="screenshots/calendar_darkmode.png" alt="Calendar dark mode" /></td>
+    </tr>
+    <tr>
+      <td align="center"><strong>Add Expense</strong> — split methods, category auto-suggest</td>
+      <td align="center"></td>
+    </tr>
+    <tr>
+      <td><img src="screenshots/add_lightmode.png" alt="Add expense light mode" /></td>
+      <td><img src="screenshots/add_darkmode.png" alt="Add expense dark mode" /></td>
+    </tr>
+    <tr>
+      <td align="center"><strong>Clean Up</strong> — AI deduplication, bulk merge</td>
+      <td align="center"></td>
+    </tr>
+    <tr>
+      <td><img src="screenshots/cleanup_lightmode.png" alt="Clean up light mode" /></td>
+      <td><img src="screenshots/cleanup_darkmode.png" alt="Clean up dark mode" /></td>
+    </tr>
+  </tbody>
+</table>
 
 ---
 
@@ -78,65 +133,15 @@ Choose the method that fits your situation:
 
 | Method | Best for | Requirements |
 |---|---|---|
-| [Development](#method-1-development) | Local dev, experimenting | Python 3.10+, Node.js 18+ |
-| [Git clone (production)](#method-2-git-clone-production) | Self-hosting on a machine you control | Python 3.10+, Node.js 18+ |
-| [Docker](#method-3-docker) | Cleanest self-hosting, no Python/Node needed on host | Docker Desktop |
+| [Production](#method-1-production) | Self-hosting on a machine you control | Python 3.10+, Node.js 18+ |
+| [Docker](#method-2-docker) | Cleanest self-hosting, no Python/Node needed on host | Docker Desktop |
+| [Development](#method-3-development) | Local dev, experimenting | Python 3.10+, Node.js 18+ |
 
 The database (`mosaic.db`) is created automatically on first start — no manual setup required. Create up to 2 user accounts through the web UI after launching.
 
 ---
 
-### Method 1: Development
-
-Run the backend and frontend as separate dev servers. The frontend proxies API calls to the backend automatically.
-
-**Prerequisites:** Python 3.10+, Node.js 18+
-
-```bash
-git clone https://github.com/sundarep-ai/Mosaic.git
-cd Mosaic
-```
-
-**Backend:**
-
-```bash
-cd backend
-cp config.example.py config.py
-python -m venv venv
-venv\Scripts\activate          # Windows
-# source venv/bin/activate     # macOS / Linux
-pip install -r requirements.txt
-```
-
-Create `backend/.env`:
-
-```env
-SECRET_KEY=<long random string>
-# Generate with: python -c "import secrets; print(secrets.token_urlsafe(48))"
-
-# Optional: path to a cloud-synced folder for off-site backups
-# BACKUP_PATH=C:/Users/yourname/OneDrive/Mosaic-Backups
-```
-
-```bash
-uvicorn main:app --reload
-```
-
-**Frontend** (new terminal):
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open **http://localhost:5173**.
-
-> **First run:** The first time you use the Description Clean Up feature, `fastembed` downloads an embedding model (~45 MB). One-time, cached locally.
-
----
-
-### Method 2: Git clone (production)
+### Method 1: Production
 
 FastAPI serves both the API and the built frontend from a single process. No Docker, no reverse proxy.
 
@@ -196,7 +201,7 @@ cd ../backend && uvicorn main:app --host 0.0.0.0 --port 8000
 
 ---
 
-### Method 3: Docker
+### Method 2: Docker
 
 Two containers — nginx serves the frontend and proxies the API, the backend runs uvicorn. All data persists in a Docker named volume across restarts and rebuilds.
 
@@ -250,6 +255,56 @@ Your data (database, audit logs, backups, avatars) is stored in the `mosaic-data
 ```bash
 docker compose down
 ```
+
+---
+
+### Method 3: Development
+
+Run the backend and frontend as separate dev servers. The frontend proxies API calls to the backend automatically.
+
+**Prerequisites:** Python 3.10+, Node.js 18+
+
+```bash
+git clone https://github.com/sundarep-ai/Mosaic.git
+cd Mosaic
+```
+
+**Backend:**
+
+```bash
+cd backend
+cp config.example.py config.py
+python -m venv venv
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # macOS / Linux
+pip install -r requirements.txt
+```
+
+Create `backend/.env`:
+
+```env
+SECRET_KEY=<long random string>
+# Generate with: python -c "import secrets; print(secrets.token_urlsafe(48))"
+
+# Optional: path to a cloud-synced folder for off-site backups
+# BACKUP_PATH=C:/Users/yourname/OneDrive/Mosaic-Backups
+```
+
+```bash
+uvicorn main:app --reload
+```
+
+**Frontend** (new terminal):
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open **http://localhost:5173**.
+
+> **First run:** The first time you use the Description Clean Up feature, `fastembed` downloads an embedding model (~45 MB). One-time, cached locally.
 
 ---
 
