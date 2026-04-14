@@ -156,7 +156,8 @@ cd Mosaic
 
 ```bash
 cd backend
-cp config.example.py config.py
+copy config.example.py config.py # Windows
+# cp config.example.py config.py # macOS / Linux
 python -m venv venv
 venv\Scripts\activate          # Windows
 # source venv/bin/activate     # macOS / Linux
@@ -177,7 +178,8 @@ COOKIE_SECURE=false
 **Build the frontend:**
 
 ```bash
-cd ../frontend
+cd ..
+cd frontend
 npm install
 npm run build
 ```
@@ -185,7 +187,8 @@ npm run build
 **Run:**
 
 ```bash
-cd ../backend
+cd ..
+cd backend
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
@@ -196,7 +199,8 @@ Open **http://localhost:8000** (or `http://<your-machine-ip>:8000` from other de
 ```bash
 git pull origin main
 cd frontend && npm install && npm run build
-cd ../backend && uvicorn main:app --host 0.0.0.0 --port 8000
+cd ..
+cd backend && uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 ---
@@ -215,7 +219,8 @@ cd Mosaic
 Create a `.env` file (Docker Compose reads this automatically):
 
 ```bash
-cp .env.docker.example .env
+copy .env.docker.example .env # Windows
+# cp .env.docker.example .env # Linux
 ```
 
 Edit `.env` and set your secret key:
@@ -273,7 +278,8 @@ cd Mosaic
 
 ```bash
 cd backend
-cp config.example.py config.py
+copy config.example.py config.py # Windows
+# cp config.example.py config.py # macOS / Linux
 python -m venv venv
 venv\Scripts\activate          # Windows
 # source venv/bin/activate     # macOS / Linux
