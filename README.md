@@ -8,11 +8,11 @@
 <br>
 
 <p align="center">
-  <img src="https://img.shields.io/github/actions/workflow/status/sundarep-ai/Mosaic/tests.yml?branch=main&label=Release" alt="Build" />
+  <a href="https://github.com/sundarep-ai/Mosaic/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/sundarep-ai/Mosaic/tests.yml?branch=main&label=Release" alt="Build" /></a>
   &nbsp;
-  <img src="https://img.shields.io/github/v/release/sundarep-ai/Mosaic?label=release" alt="Release" />
+  <a href="https://github.com/sundarep-ai/Mosaic/releases"><img src="https://img.shields.io/github/v/release/sundarep-ai/Mosaic?label=release" alt="Release" /></a>
   &nbsp;
-  <img src="https://img.shields.io/docker/pulls/srpraveen97/mosaic?label=docker+pulls" alt="Docker Pulls" />
+  <a href="https://hub.docker.com/r/srpraveen97/mosaic"><img src="https://img.shields.io/docker/pulls/srpraveen97/mosaic?label=docker+pulls" alt="Docker Pulls" /></a>
   &nbsp;
   <img src="https://img.shields.io/badge/License-MIT-yellow" alt="License" />
 </p>
