@@ -7,12 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field as PydanticField
 
 logger = logging.getLogger(__name__)
-from sqlalchemy import case, func, or_
+from sqlalchemy import Numeric, case, cast, func, or_
 from sqlmodel import Session, select
 
 from auth import get_current_user
 from database import get_session
-from models import Expense, ExpenseBase, ExpenseCreate, ExpenseUpdate, DismissedMerge
+from models import Expense, ExpenseBase, ExpenseCreate, ExpenseUpdate, DismissedMerge, UserPreference, CURRENCY_SYMBOLS
 from services.audit import audit_logger, expense_to_dict
 from users import resolve_names, get_display_names
 
@@ -30,10 +30,12 @@ VALID_CATEGORIES = {
     "Parking", "Tenant Insurance", "Reimbursement",
 }
 
-
-def _resolve_names(current_user: str, session: Session) -> tuple:
-    """Return (my_display_name, other_display_name) for the logged-in user."""
-    return resolve_names(session, current_user)
+# Case-insensitive lookup so a custom category can't silently fragment
+# analytics into a second bucket (e.g. "groceries" vs "Groceries"), and so a
+# custom category can't collide with a reserved name (e.g. "payment") and
+# inherit its money-math semantics (forced 100% split, negative-amount
+# exemption, exclusion from analytics/balance) under the user's back.
+_VALID_CATEGORIES_CASEFOLD = {c.casefold(): c for c in VALID_CATEGORIES}
 
 
 def _my_portion_expr(me: str, other: str):
@@ -41,22 +43,45 @@ def _my_portion_expr(me: str, other: str):
 
     Payment is always 0 — callers also filter it at query level, but guarding
     it here prevents incorrect results if the filter is ever omitted.
+
+    Explicitly cast to Numeric(10, 2) (matching Expense.amount's own column
+    type) rather than leaving the CASE's result type to inference: with a
+    bare literal `0` as the *first* branch's THEN value, SQLAlchemy infers a
+    generic/untyped result instead of Numeric, so aggregate SUMs come back as
+    plain Python floats instead of scale-aware Decimals. That silently
+    diverges from get_balance's equivalent CASE (whose first branch is a
+    Numeric column expression, so it keeps its type) by a cent on splits
+    that land near a half-cent boundary — e.g. a $100.01 50/50 expense
+    reports $50.01 via balance but $50.00 via _my_portion_expr's SUM,
+    entirely because of this incidental branch-ordering difference.
     """
-    return case(
-        (Expense.category == "Payment", 0),
-        (
-            (Expense.split_method == "Personal") & (Expense.paid_by == me),
-            Expense.amount,
+    return cast(
+        case(
+            (Expense.category == "Payment", 0),
+            (
+                (Expense.split_method == "Personal") & (Expense.paid_by == me),
+                Expense.amount,
+            ),
+            (Expense.split_method == "50/50", Expense.amount / 2),
+            (Expense.split_method == f"100% {me}", Expense.amount),
+            (Expense.split_method == f"100% {other}", 0),
+            (
+                (Expense.split_method == "Personal") & (Expense.paid_by == other),
+                0,
+            ),
+            else_=0,
         ),
-        (Expense.split_method == "50/50", Expense.amount / 2),
-        (Expense.split_method == f"100% {me}", Expense.amount),
-        (Expense.split_method == f"100% {other}", 0),
-        (
-            (Expense.split_method == "Personal") & (Expense.paid_by == other),
-            0,
-        ),
-        else_=0,
+        Numeric(10, 2),
     )
+
+
+def _get_currency_symbol(session: Session, username: str) -> str:
+    """Return the display symbol for the current user's currency preference (default CAD)."""
+    pref = session.exec(
+        select(UserPreference).where(UserPreference.username == username)
+    ).first()
+    code = pref.currency if pref else "CAD"
+    return CURRENCY_SYMBOLS.get(code, "$")
 
 
 def _get_valid_sets(session: Session):
@@ -69,22 +94,57 @@ def _get_valid_sets(session: Session):
     return {a, b}, {"50/50", f"100% {a}", f"100% {b}", "Personal"}
 
 
-def _validate_expense(data: ExpenseBase, session: Session) -> None:
-    valid_paid_by, valid_split_methods = _get_valid_sets(session)
+def _get_ever_valid_sets(session: Session):
+    """Return (valid_paid_by, valid_split_methods) covering every mode this
+    household has ever used, not just the currently active one.
+
+    A row created while in shared/blended mode (e.g. a 50/50 split) must stay
+    editable after switching to personal mode — otherwise a mode switch makes
+    historical rows permanently uneditable. Used for updates only; creating a
+    *new* expense still must satisfy the current mode's rules (_get_valid_sets).
+    """
+    a, b = get_display_names(session)
+    valid_paid_by = {a, b} if b else {a}
+    valid_split_methods = {"Personal", "50/50", f"100% {a}"}
+    if b:
+        valid_split_methods.add(f"100% {b}")
+    return valid_paid_by, valid_split_methods
+
+
+def _validate_expense(data: ExpenseBase, session: Session, is_update: bool = False) -> None:
+    if is_update:
+        valid_paid_by, valid_split_methods = _get_ever_valid_sets(session)
+    else:
+        valid_paid_by, valid_split_methods = _get_valid_sets(session)
     if data.amount == 0:
         raise HTTPException(status_code=422, detail="amount cannot be zero")
     if data.amount < 0 and data.category != "Reimbursement":
         raise HTTPException(status_code=422, detail="negative amounts are only allowed for Reimbursement")
     if data.date > date.today():
         raise HTTPException(status_code=422, detail="date cannot be in the future")
-    if data.category not in VALID_CATEGORIES:
-        raise HTTPException(status_code=422, detail="invalid category")
+    category = data.category.strip()
+    if not category:
+        raise HTTPException(status_code=422, detail="category cannot be empty")
+    canonical = _VALID_CATEGORIES_CASEFOLD.get(category.casefold())
+    if canonical and canonical != category:
+        raise HTTPException(
+            status_code=422,
+            detail=f"'{canonical}' already exists — select it from the category list",
+        )
     if data.paid_by not in valid_paid_by:
         raise HTTPException(status_code=422, detail=f"paid_by must be one of: {', '.join(valid_paid_by)}")
     if data.split_method not in valid_split_methods:
         raise HTTPException(status_code=422, detail=f"split_method must be one of: {', '.join(valid_split_methods)}")
     if data.split_method == f"100% {data.paid_by}":
         raise HTTPException(status_code=422, detail="split_method cannot assign 100% to the payer themselves")
+    if data.category == "Payment" and not data.split_method.startswith("100% "):
+        # A Payment only means one thing: settling a debt in full. A 50/50 or
+        # Personal split on a Payment moves the balance by the wrong amount
+        # (e.g. only half the settlement), quietly corrupting it forever.
+        raise HTTPException(
+            status_code=422,
+            detail="Payment must use a 100% split to the person being paid",
+        )
 
 
 @router.get("/expenses")
@@ -157,6 +217,7 @@ def create_expense(
     current_user: str = Depends(get_current_user),
 ):
     _validate_expense(data, session)
+    data.category = data.category.strip()
     expense = Expense.model_validate(data)
     expense.user_id = current_user
     session.add(expense)
@@ -176,16 +237,18 @@ def update_expense(
     expense = session.get(Expense, expense_id)
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
-    # Allow edit if legacy row (no owner) or if current user owns it
-    if expense.user_id is not None and expense.user_id != current_user:
-        raise HTTPException(status_code=403, detail="Not authorized to modify this expense")
 
-    _validate_expense(data, session)
+    # Either partner may edit either person's expense (e.g. fixing a typo) —
+    # the audit trail (below) is the accountability mechanism, not a lock.
+    # `user_id` is deliberately left untouched: editing must not transfer
+    # ownership, or the other partner would silently lose the ability to
+    # edit it back.
+    _validate_expense(data, session, is_update=True)
+    data.category = data.category.strip()
     before = expense_to_dict(expense)
     update_data = data.model_dump()
     for key, value in update_data.items():
         setattr(expense, key, value)
-    expense.user_id = current_user
 
     session.add(expense)
     session.commit()
@@ -528,13 +591,17 @@ def get_balance(
         select(balance_expr).where(Expense.split_method != "Personal")
     ).one()
     balance = Decimal(str(result))
+    symbol = _get_currency_symbol(session, current_user)
 
+    # SQLite stores amounts as REAL, so the halving above is float math — this
+    # threshold absorbs sub-cent dust from that so a fully-settled balance
+    # doesn't show as owing $0.0000000001. Do not remove/shrink it.
     if abs(balance) < Decimal("0.01"):
         description = "All settled up!"
     elif balance > 0:
-        description = f"{a} owes {b} ${abs(balance):.2f}"
+        description = f"{a} owes {b} {symbol}{abs(balance):.2f}"
     else:
-        description = f"{b} owes {a} ${abs(balance):.2f}"
+        description = f"{b} owes {a} {symbol}{abs(balance):.2f}"
 
     return {"amount": float(round(balance, 2)), "description": description}
 
@@ -547,18 +614,21 @@ def get_monthly_summary(
     """Return the current user's portion of spend per category for the current month.
 
     Uses _my_portion_expr so each user sees their own share rather than
-    household totals. Categories where the user's portion is zero are omitted.
+    household totals. Categories where the user's portion is exactly zero are
+    omitted (e.g. a category entirely "100% other"). Reimbursement nets into
+    its own category line (usually negative) rather than being excluded, so
+    this list sums to the same total as my-expense-summary's my_total for the
+    same month — see the Reimbursement convention note in CLAUDE.md.
     """
     today = date.today()
     first_of_month = today.replace(day=1)
-    me, other = _resolve_names(current_user, session)
+    me, other = resolve_names(session, current_user)
     portion = _my_portion_expr(me, other)
 
     rows = session.exec(
         select(Expense.category, func.sum(portion).label("total"))
         .where(Expense.date >= first_of_month)
         .where(Expense.category != "Payment")
-        .where(Expense.category != "Reimbursement")
         .group_by(Expense.category)
         .order_by(func.sum(portion).desc())
     ).all()
@@ -566,7 +636,7 @@ def get_monthly_summary(
     return [
         {"category": cat, "amount": float(round(Decimal(str(total)), 2))}
         for cat, total in rows
-        if total and float(total) > 0
+        if total and float(total) != 0
     ]
 
 
@@ -576,7 +646,7 @@ def get_personal_summary(
     current_user: str = Depends(get_current_user),
 ):
     """Return total personal spend this month for the current user."""
-    me, _ = _resolve_names(current_user, session)
+    me, _ = resolve_names(session, current_user)
     display_name = me
     today = date.today()
     first_of_month = today.replace(day=1)
@@ -587,7 +657,6 @@ def get_personal_summary(
         .where(Expense.paid_by == display_name)
         .where(Expense.date >= first_of_month)
         .where(Expense.category != "Payment")
-        .where(Expense.category != "Reimbursement")
     ).one()
 
     return {"amount": float(round(Decimal(str(result)), 2))}
@@ -607,7 +676,7 @@ def get_my_expense_summary(
 
     today = date.today()
     first_of_month = today.replace(day=1)
-    me, other = _resolve_names(current_user, session)
+    me, other = resolve_names(session, current_user)
 
     base_filters = (
         select(func.coalesce(func.sum(_my_portion_expr(me, other)), 0))

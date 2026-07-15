@@ -1,16 +1,25 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useCurrency } from "../CurrencyContext";
 import { useDateFormat } from "../DateFormatContext";
+import { useToast } from "../ToastContext";
 import {
   getExpenses,
   deleteExpense,
   exportExpenses,
+  getSimilarDescriptions,
 } from "../api/expenses";
 import { CATEGORIES, CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
 import Avatar from "../components/Avatar";
 import MergeDescriptionsModal from "../components/MergeDescriptionsModal";
+import {
+  buildExpenseParams,
+  filtersToSearchParams,
+  filtersFromSearchParams,
+} from "../utils/expenseFilters";
+
+const PAGE_SIZE = 100;
 
 function getSplitBadge(method) {
   if (method === "50/50") {
@@ -40,59 +49,114 @@ function getSplitBadge(method) {
 export default function History() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { userA, userB, mode } = useUsers();
   const isPersonal = mode === "personal";
   const isBlended = mode === "blended";
   const { fmt } = useCurrency();
   const { formatDate } = useDateFormat();
+  const { showToast } = useToast();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const searchRef = useRef(null);
-  const [appliedSearch, setAppliedSearch] = useState("");
   const prefill = location.state || {};
-  const [monthFilter, setMonthFilter] = useState(prefill.month || null);
-  const [dateRange, setDateRange] = useState(
-    prefill.start_date ? { start_date: prefill.start_date, end_date: prefill.end_date } : null
-  );
-  const [filterPaidBy, setFilterPaidBy] = useState("");
-  const [filterCategory, setFilterCategory] = useState(prefill.category || "");
-  const [sortAmount, setSortAmount] = useState("");
+
+  // A fresh drill-down navigation (from Calendar/Analytics) always wins over
+  // whatever filters happen to already be sitting in the URL; otherwise we
+  // restore from the URL so filters survive an edit-and-return round trip.
+  const initialFilters =
+    prefill.start_date || prefill.month || prefill.category
+      ? {
+          appliedSearch: "",
+          filterPaidBy: "",
+          filterCategory: prefill.category || "",
+          filterType: "",
+          sortAmount: "",
+          monthFilter: prefill.month || null,
+          dateRange: prefill.start_date
+            ? { start_date: prefill.start_date, end_date: prefill.end_date }
+            : null,
+        }
+      : filtersFromSearchParams(searchParams);
+
+  const [appliedSearch, setAppliedSearch] = useState(initialFilters.appliedSearch);
+  const [monthFilter, setMonthFilter] = useState(initialFilters.monthFilter);
+  const [dateRange, setDateRange] = useState(initialFilters.dateRange);
+  const [filterPaidBy, setFilterPaidBy] = useState(initialFilters.filterPaidBy);
+  const [filterCategory, setFilterCategory] = useState(initialFilters.filterCategory);
+  const [sortAmount, setSortAmount] = useState(initialFilters.sortAmount);
+  const [filterType, setFilterType] = useState(initialFilters.filterType);  // "" | "Personal" | "Shared"
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   const [showMergeModal, setShowMergeModal] = useState(false);
-  const [filterType, setFilterType] = useState("");  // "" | "Personal" | "Shared"
+  const [suggestionCount, setSuggestionCount] = useState(0);
 
-  const fetchExpenses = useCallback(async () => {
+  // Keep the URL in sync with the active filters (replace, not push, so
+  // every keystroke/select doesn't spam browser history) so they survive
+  // navigating away (e.g. to edit a row) and back.
+  useEffect(() => {
+    setSearchParams(
+      filtersToSearchParams({
+        appliedSearch,
+        filterPaidBy,
+        filterCategory,
+        filterType,
+        sortAmount,
+        monthFilter,
+        dateRange,
+      }),
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedSearch, filterPaidBy, filterCategory, filterType, sortAmount, monthFilter, dateRange]);
+
+  const fetchExpenses = useCallback(async (signal) => {
     setLoading(true);
     setFetchError(null);
     try {
-      const params = {};
-      if (appliedSearch) params.search = appliedSearch;
-      if (filterPaidBy) params.paid_by = filterPaidBy;
-      if (filterCategory) params.category = filterCategory;
-      if (dateRange) {
-        params.start_date = dateRange.start_date;
-        params.end_date = dateRange.end_date;
-      }
-      if (sortAmount) {
-        params.sort_by = "amount";
-        params.sort = sortAmount;
-      }
-      if (filterType === "Personal") params.filter_type = "personal";
-      else if (filterType === "Shared") params.filter_type = "shared";
-      const data = await getExpenses(params);
+      const params = buildExpenseParams({
+        appliedSearch,
+        filterPaidBy,
+        filterCategory,
+        dateRange,
+        sortAmount,
+        filterType,
+      });
+      const data = await getExpenses(params, { signal });
+      if (signal?.aborted) return;
       setExpenses(data);
+      setVisibleCount(PAGE_SIZE);
     } catch (err) {
+      if (err.name === "AbortError") return;
       setFetchError("Failed to load expenses. Please check the server.");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [appliedSearch, filterPaidBy, filterCategory, dateRange, sortAmount, filterType]);
 
+  // AbortController so rapid preset/filter clicks can't render stale data
+  // from an earlier, slower-to-resolve request.
   useEffect(() => {
-    fetchExpenses();
+    const controller = new AbortController();
+    fetchExpenses(controller.signal);
+    return () => controller.abort();
   }, [fetchExpenses]);
+
+  const refreshSuggestionCount = useCallback(async () => {
+    try {
+      const results = await getSimilarDescriptions();
+      setSuggestionCount(results.reduce((sum, c) => sum + c.groups.length, 0));
+    } catch {
+      // Non-critical — badge just won't show
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshSuggestionCount();
+  }, [refreshSuggestionCount]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -100,27 +164,41 @@ export default function History() {
   };
 
   const handleDeleteConfirm = async () => {
+    if (deleting) return;
     setDeleteError("");
+    setDeleting(true);
     try {
       await deleteExpense(deleteTarget.id);
       setDeleteTarget(null);
+      showToast("Expense deleted.", "success");
       fetchExpenses();
     } catch {
       setDeleteError("Failed to delete. Please try again.");
+    } finally {
+      setDeleting(false);
     }
   };
 
   const handleExport = async () => {
     try {
-      const params = {};
-      const currentSearch = searchRef.current?.value || "";
-      if (currentSearch) params.search = currentSearch;
-      if (filterPaidBy) params.paid_by = filterPaidBy;
-      if (filterCategory) params.category = filterCategory;
+      const params = buildExpenseParams({
+        appliedSearch,
+        filterPaidBy,
+        filterCategory,
+        dateRange,
+        sortAmount,
+        filterType,
+      });
       await exportExpenses(params);
     } catch {
-      alert("Export failed. Please try again.");
+      showToast("Export failed. Please try again.", "error");
     }
+  };
+
+  const clearDrilldownFilter = () => {
+    setMonthFilter(null);
+    setDateRange(null);
+    setFilterCategory("");
   };
 
   return (
@@ -138,11 +216,23 @@ export default function History() {
         <div className="flex gap-3">
           <button
             onClick={() => setShowMergeModal(true)}
-            className="bg-surface-container-high text-on-surface px-6 py-3 rounded-full font-headline font-bold flex items-center gap-2 hover:bg-surface-container-highest transition-colors active:scale-95"
-            title="Clean up similar descriptions"
+            className="relative bg-surface-container-high text-on-surface px-6 py-3 rounded-full font-headline font-bold flex items-center gap-2 hover:bg-surface-container-highest transition-colors active:scale-95"
+            title={
+              suggestionCount > 0
+                ? `Clean up similar descriptions (${suggestionCount} suggestion${suggestionCount !== 1 ? "s" : ""} waiting)`
+                : "Clean up similar descriptions"
+            }
           >
             <span className="material-symbols-outlined">merge</span>
             Clean Up
+            {suggestionCount > 0 && (
+              <span
+                className="absolute -top-1.5 -right-1.5 bg-tertiary text-on-tertiary text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 shadow-sm"
+                aria-label={`${suggestionCount} cleanup suggestions waiting`}
+              >
+                {suggestionCount > 99 ? "99+" : suggestionCount}
+              </span>
+            )}
           </button>
           <button
             onClick={handleExport}
@@ -166,26 +256,28 @@ export default function History() {
         </div>
       </header>
 
-      {/* Analytics drill-down filter pill */}
-      {monthFilter && (
+      {/* Drill-down filter pill — from Analytics (month) or Calendar (date range) */}
+      {(monthFilter || dateRange) && (
         <div className="flex items-center gap-3">
           <div className="inline-flex items-center gap-2 bg-primary-container text-on-primary-container px-4 py-2 rounded-full text-sm font-bold">
             <span className="material-symbols-outlined text-[16px]">filter_alt</span>
-            {new Date(monthFilter + "-02").toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+            {monthFilter
+              ? new Date(monthFilter + "-02").toLocaleDateString(undefined, { month: "long", year: "numeric" })
+              : dateRange.start_date === dateRange.end_date
+                ? formatDate(dateRange.start_date)
+                : `${formatDate(dateRange.start_date)} – ${formatDate(dateRange.end_date)}`}
             {filterCategory && <><span className="opacity-50">·</span>{filterCategory}</>}
             <button
-              onClick={() => {
-                setMonthFilter(null);
-                setDateRange(null);
-                setFilterCategory("");
-              }}
+              onClick={clearDrilldownFilter}
               className="ml-1 hover:opacity-70 transition-opacity"
               aria-label="Clear filter"
             >
               <span className="material-symbols-outlined text-[16px]">close</span>
             </button>
           </div>
-          <span className="text-xs text-on-surface-variant font-medium">from Analytics</span>
+          <span className="text-xs text-on-surface-variant font-medium">
+            {monthFilter ? "from Analytics" : "from Calendar"}
+          </span>
         </div>
       )}
 
@@ -203,7 +295,7 @@ export default function History() {
             id="expense-search"
             type="text"
             ref={searchRef}
-            defaultValue=""
+            defaultValue={appliedSearch}
             placeholder="Search transactions..."
             className="bg-transparent border-none focus:ring-0 w-full text-on-surface font-medium placeholder:text-outline"
           />
@@ -312,7 +404,7 @@ export default function History() {
 
             {/* Rows */}
             <div className="flex flex-col gap-3 p-3 md:p-4">
-              {expenses.slice(0, 100).map((expense) => (
+              {expenses.slice(0, visibleCount).map((expense) => (
                 <div
                   key={expense.id}
                   className={`bg-surface-container-lowest rounded-2xl md:rounded-none md:bg-transparent md:hover:bg-surface-container transition-colors grid grid-cols-1 ${isPersonal ? "md:grid-cols-8" : "md:grid-cols-12"} gap-4 items-center px-6 py-6 group`}
@@ -359,7 +451,11 @@ export default function History() {
                   )}
                   <div className="col-span-1 flex justify-end gap-2">
                     <button
-                      onClick={() => navigate(`/edit/${expense.id}`)}
+                      onClick={() =>
+                        navigate(`/edit/${expense.id}`, {
+                          state: { returnTo: `/history${location.search}` },
+                        })
+                      }
                       className="p-2 rounded-lg hover:bg-surface-container-high text-outline transition-colors"
                       aria-label="Edit expense"
                     >
@@ -378,12 +474,20 @@ export default function History() {
             </div>
 
             {/* Footer */}
-            <div className="p-6 bg-surface-container border-t border-outline-variant/10 flex items-center justify-between">
+            <div className="p-6 bg-surface-container border-t border-outline-variant/10 flex flex-col sm:flex-row items-center justify-between gap-3">
               <p className="text-xs font-medium text-on-surface-variant">
-                {expenses.length > 100
-                  ? `Showing 100 of ${expenses.length} expenses`
+                {visibleCount < expenses.length
+                  ? `Showing ${visibleCount} of ${expenses.length} expenses`
                   : `Showing ${expenses.length} expense${expenses.length !== 1 ? "s" : ""}`}
               </p>
+              {visibleCount < expenses.length && (
+                <button
+                  onClick={() => setVisibleCount((v) => v + PAGE_SIZE)}
+                  className="bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold text-xs px-5 py-2.5 rounded-full transition-colors active:scale-95"
+                >
+                  Load {Math.min(PAGE_SIZE, expenses.length - visibleCount)} more
+                </button>
+              )}
             </div>
           </>
         )}
@@ -392,8 +496,14 @@ export default function History() {
       {/* Merge Descriptions Modal */}
       {showMergeModal && (
         <MergeDescriptionsModal
-          onClose={() => setShowMergeModal(false)}
-          onMerged={fetchExpenses}
+          onClose={() => {
+            setShowMergeModal(false);
+            refreshSuggestionCount();
+          }}
+          onMerged={() => {
+            fetchExpenses();
+            refreshSuggestionCount();
+          }}
         />
       )}
 
@@ -423,15 +533,17 @@ export default function History() {
             <div className="flex gap-3">
               <button
                 onClick={() => { setDeleteTarget(null); setDeleteError(""); }}
-                className="flex-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold rounded-full px-4 py-3 transition-colors"
+                disabled={deleting}
+                className="flex-1 bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-bold rounded-full px-4 py-3 transition-colors disabled:opacity-60"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="flex-1 bg-error hover:bg-error-dim text-on-error font-bold rounded-full px-4 py-3 transition-colors"
+                disabled={deleting}
+                className="flex-1 bg-error hover:bg-error-dim text-on-error font-bold rounded-full px-4 py-3 transition-colors disabled:opacity-60"
               >
-                Delete
+                {deleting ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>

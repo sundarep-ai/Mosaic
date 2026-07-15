@@ -213,6 +213,20 @@ def test_income_monthly_summary(auth_client_a, db):
     assert abs(sources["Freelance / Side Income"] - 500.0) < 0.01
 
 
+def test_income_monthly_summary_count_is_entries_not_sources(auth_client_a, db):
+    """`count` must be the number of income entries, not the number of
+    distinct sources — two entries under the same source must count as 2."""
+    set_mode(db, "personal")
+    auth_client_a.post("/api/income", json=make_income(amount=1000, source="Salary / Wages"))
+    auth_client_a.post("/api/income", json=make_income(amount=500, source="Salary / Wages"))
+    auth_client_a.post("/api/income", json=make_income(amount=200, source="Other"))
+
+    resp = auth_client_a.get("/api/income/monthly-summary")
+    data = resp.json()
+    assert data["count"] == 3
+    assert len(data["by_source"]) == 2  # still only 2 distinct sources
+
+
 def test_monthly_summary_excludes_past_months(auth_client_a, db):
     set_mode(db, "personal")
     last_month = str(date.today().replace(day=1) - timedelta(days=1))
@@ -269,8 +283,9 @@ def test_income_sankey_with_savings(auth_client_a, db):
     assert any(c["category"] == "Rent" for c in data["by_category"])
 
 
-def test_income_sankey_no_savings_when_expenses_exceed_income(auth_client_a, db):
-    """Savings should be 0 when expenses exceed income."""
+def test_income_sankey_negative_savings_when_expenses_exceed_income(auth_client_a, db):
+    """An overspend month must show the actual deficit, not a clamped-to-zero
+    'savings: 0' that hides the shortfall from the user."""
     set_mode(db, "personal")
 
     auth_client_a.post("/api/income", json=make_income(amount=500))
@@ -280,7 +295,7 @@ def test_income_sankey_no_savings_when_expenses_exceed_income(auth_client_a, db)
     )
 
     data = auth_client_a.post("/api/income/sankey", json={}).json()
-    assert data["savings"] == 0.0
+    assert data["savings"] == -500.0
 
 
 def test_income_sankey_excludes_payment_category(auth_client_a, db):

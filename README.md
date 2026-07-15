@@ -357,6 +357,7 @@ python cli_reset_password.py
 | CORS errors in the browser | Make sure the backend is running on `localhost:8000` before opening the frontend (dev only) |
 | `.db-shm` / `.db-wal` files appeared | Normal — SQLite WAL mode working files, managed automatically |
 | Docker: `failed to connect to docker API` | Open Docker Desktop and wait for it to fully start |
+| Login appears to succeed, then you're immediately signed out / 401s on the next request | You're serving over plain HTTP (e.g. LAN, no TLS) with `ENV=production` and `COOKIE_SECURE` unset — it defaults to `true` in production, so the browser silently refuses to store the session cookie over HTTP. Set `COOKIE_SECURE=false` in `backend/.env` (Method 1) or the compose environment (Docker) and restart. The backend also logs a startup warning (`Insecure cookie configuration detected...`) when it detects this combination. |
 
 ---
 

@@ -41,7 +41,13 @@ class ExpenseBase(SQLModel):
     @field_validator("amount", mode="before")
     @classmethod
     def round_amount(cls, v):
-        """Ensure amounts are stored with exactly 2 decimal places."""
+        """Ensure amounts are stored with exactly 2 decimal places.
+
+        Decimal.quantize's default rounding mode is ROUND_HALF_EVEN (banker's
+        rounding): a value exactly at the half-cent (e.g. 10.005) rounds to
+        the nearest *even* cent (10.00, not 10.01). This only matters for
+        inputs landing exactly on a half-cent, which is rare in practice.
+        """
         return Decimal(str(v)).quantize(Decimal("0.01"))
 
     @field_serializer("amount")
@@ -130,12 +136,36 @@ class DismissedMerge(SQLModel, table=True):
 
 VALID_DATE_FORMATS = {"MM/DD/YYYY", "DD/MM/YYYY", "YYYY/MM/DD", "YYYY/DD/MM"}
 
+VALID_CURRENCIES = {"USD", "EUR", "GBP", "CAD", "AUD", "INR", "JPY", "CNY", "CHF", "SGD"}
+
+# Mirrors the CURRENCIES table in frontend/src/UserPreferencesContext.jsx — keep in sync.
+CURRENCY_SYMBOLS = {
+    "USD": "$",
+    "EUR": "€",
+    "GBP": "£",
+    "CAD": "C$",
+    "AUD": "A$",
+    "INR": "₹",
+    "JPY": "¥",
+    "CNY": "¥",
+    "CHF": "CHF",
+    "SGD": "S$",
+}
+
 
 class UserPreference(SQLModel, table=True):
-    """Per-user preferences (e.g. date display format)."""
+    """Per-user preferences (date display format, currency, income tracking toggle).
+
+    New columns added to this table after its first release will not appear in
+    already-deployed SQLite databases (SQLModel.metadata.create_all() only
+    creates missing tables, it never alters existing ones) — see
+    database.ensure_user_preference_columns(), which ALTERs them in on startup.
+    """
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(max_length=100, unique=True, index=True)
     date_format: str = Field(default="DD/MM/YYYY", max_length=20)
+    currency: str = Field(default="CAD", max_length=10)
+    income_mode_enabled: bool = Field(default=False)
 
 
 class IncomeCreate(IncomeBase):
@@ -144,3 +174,33 @@ class IncomeCreate(IncomeBase):
 
 class IncomeUpdate(IncomeBase):
     pass
+
+
+class SeriesAlertState(SQLModel, table=True):
+    """Persisted state for a recurring-series alert (price step or new
+    subscription), keyed by series identity -- see
+    routes/insights.py::_series_key.
+
+    Without this table, dismissals can't survive a page reload (an alert is
+    otherwise a pure function of the current expense list, recomputed fresh
+    every request) and there's no way to tell "this alert has been visible
+    since it first fired" from "this just appeared" across separate
+    requests -- which is what the "new since last visit" badge and stable
+    recurring identities need. New table -> created by
+    SQLModel.metadata.create_all(); every column has a default (CLAUDE.md:
+    no migration tooling exists).
+    """
+    __table_args__ = (
+        Index("ix_series_alert_lookup", "series_key", "alert_type", unique=True),
+    )
+    id: Optional[int] = Field(default=None, primary_key=True)
+    series_key: str = Field(max_length=600)
+    alert_type: str = Field(max_length=30)  # "price_step" | "new_subscription"
+    first_seen: date = Field(default_factory=date.today)
+    last_seen: date = Field(default_factory=date.today)
+    dismissed: bool = Field(default=False)
+    dismissed_by: Optional[str] = Field(default=None, max_length=100)
+    dismissed_at: Optional[datetime] = Field(default=None)
+    baseline_amount: Optional[Decimal] = Field(
+        default=None, sa_column=Column(sqlalchemy.Numeric(10, 2))
+    )

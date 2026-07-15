@@ -1,0 +1,5 @@
+{"timestamp": "2026-07-14T03:54:01.554886+00:00", "operation": "DISMISS_ALERT", "user": "alice", "data": {"series_key": "Subscription::Netflix", "alert_type": "price_step"}}
+{"timestamp": "2026-07-14T03:55:37.417001+00:00", "operation": "DISMISS_ALERT", "user": "alice", "data": {"series_key": "Subscription::Netflix", "alert_type": "price_step"}}
+{"timestamp": "2026-07-14T04:00:43.746957+00:00", "operation": "DISMISS_ALERT", "user": "alice", "data": {"series_key": "Subscription::Netflix", "alert_type": "price_step"}}
+{"timestamp": "2026-07-15T03:15:04.663967+00:00", "operation": "DISMISS_ALERT", "user": "alice", "data": {"series_key": "Subscription::Netflix", "alert_type": "price_step"}}
+{"timestamp": "2026-07-15T03:17:59.743554+00:00", "operation": "DISMISS_ALERT", "user": "alice", "data": {"series_key": "Subscription::Netflix", "alert_type": "price_step"}}

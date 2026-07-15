@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   XAxis,
@@ -26,6 +26,7 @@ import { useIncomeMode } from "../hooks/useIncomeMode";
 import DateInput from "../components/DateInput";
 import Avatar from "../components/Avatar";
 import { getDateRange, groupByDescription, groupByMonth } from "../utils/analytics";
+import { toLocalISODate } from "../utils/dates";
 import { getChartColors, getTooltipStyles } from "../utils/chartConfig";
 import { buildSankeyData, SankeyNode } from "../components/SankeyChart";
 
@@ -67,16 +68,33 @@ export default function Analytics() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [drillDownData, setDrillDownData] = useState(null);
   const [drillDownLoading, setDrillDownLoading] = useState(false);
+  const [drillDownError, setDrillDownError] = useState(null);
   const [categoryVelocityData, setCategoryVelocityData] = useState(null);
   const [sankeyData, setSankeyData] = useState(null);
+  const fetchAbortRef = useRef(null);
+  const drillDownAbortRef = useRef(null);
+  const [sankeyMargin, setSankeyMargin] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 640 ? 24 : 160
+  );
+
+  useEffect(() => {
+    const handleResize = () => setSankeyMargin(window.innerWidth < 640 ? 24 : 160);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const fetchData = useCallback(async (params) => {
+    fetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
+    const { signal } = controller;
     setLoading(true);
     setError(null);
     try {
-      const promises = [getAnalytics(params)];
-      if (incomeEnabled) promises.push(getIncomeSankey(params));
+      const promises = [getAnalytics(params, { signal })];
+      if (incomeEnabled) promises.push(getIncomeSankey(params, { signal }));
       const [result, ...rest] = await Promise.all(promises);
+      if (signal.aborted) return;
       const sankeyResp = rest[0] ?? null;
       setData(result);
       if (sankeyResp) {
@@ -85,14 +103,16 @@ export default function Analytics() {
         setSankeyData(null);
       }
     } catch (err) {
+      if (err.name === "AbortError") return;
       setError("Could not load analytics. Is the server running?");
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [incomeEnabled]);
 
   useEffect(() => {
     fetchData(getDateRange(91));
+    return () => fetchAbortRef.current?.abort();
   }, [fetchData]);
 
   const handlePreset = (preset) => {
@@ -106,7 +126,7 @@ export default function Analytics() {
       const now = new Date();
       params = {
         start_date: `${now.getFullYear()}-01-01`,
-        end_date: now.toISOString().split("T")[0],
+        end_date: toLocalISODate(now),
       };
     } else {
       params = getDateRange(preset.days);
@@ -114,6 +134,7 @@ export default function Analytics() {
     setDateParams(params);
     setSelectedCategory(null);
     setDrillDownData(null);
+    setDrillDownError(null);
     setCategoryVelocityData(null);
     fetchData(params);
   };
@@ -125,24 +146,34 @@ export default function Analytics() {
       setDateParams(params);
       setSelectedCategory(null);
       setDrillDownData(null);
+      setDrillDownError(null);
       setCategoryVelocityData(null);
       fetchData(params);
     }
   };
 
   const fetchDrillDown = async (category) => {
+    drillDownAbortRef.current?.abort();
+    const controller = new AbortController();
+    drillDownAbortRef.current = controller;
+    const { signal } = controller;
     setDrillDownLoading(true);
+    setDrillDownError(null);
     setSelectedCategory(category);
     try {
       const expenses = await getExpenses({
         category,
         ...dateParams,
-      });
+      }, { signal });
+      if (signal.aborted) return;
 
       setDrillDownData(groupByDescription(expenses));
       setCategoryVelocityData(groupByMonth(expenses));
+    } catch (err) {
+      if (err.name === "AbortError") return;
+      setDrillDownError("Could not load expenses for this category. Please try again.");
     } finally {
-      setDrillDownLoading(false);
+      if (!signal.aborted) setDrillDownLoading(false);
     }
   };
 
@@ -233,13 +264,21 @@ export default function Analytics() {
               <p className="text-on-surface-variant text-sm font-medium mb-8">
                 Where your money comes from and where it goes
               </p>
+              {sankeyData?.deficit > 0 && (
+                <div className="mb-6 flex items-center gap-3 px-4 py-3 rounded-2xl bg-error-container text-on-error-container">
+                  <span className="material-symbols-outlined text-[20px]">trending_down</span>
+                  <p className="text-sm font-bold">
+                    You spent {fmt(sankeyData.deficit)} more than you earned this period.
+                  </p>
+                </div>
+              )}
               {sankeyData ? (
                 <ResponsiveContainer width="100%" height={460}>
                   <Sankey
                     data={sankeyData}
                     nodePadding={20}
                     nodeWidth={14}
-                    margin={{ top: 10, right: 160, bottom: 10, left: 160 }}
+                    margin={{ top: 10, right: sankeyMargin, bottom: 10, left: sankeyMargin }}
                     link={{ stroke: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)", strokeWidth: 1 }}
                     node={
                       <SankeyNode
@@ -327,6 +366,7 @@ export default function Analytics() {
                     onClick={() => {
                       setSelectedCategory(null);
                       setDrillDownData(null);
+                      setDrillDownError(null);
                       setCategoryVelocityData(null);
                     }}
                     className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center hover:bg-surface-container-highest transition-colors"
@@ -353,6 +393,10 @@ export default function Analytics() {
                 <div className="flex items-center justify-center h-[280px]">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                 </div>
+              ) : drillDownError ? (
+                <p className="text-error text-sm text-center py-12">
+                  {drillDownError}
+                </p>
               ) : drillDownData && drillDownData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={Math.max(200, drillDownData.length * 44)}>
                   <BarChart
@@ -507,12 +551,12 @@ export default function Analytics() {
           </div>
 
           {/* Spending Velocity Chart */}
-          <div className="md:col-span-12 bg-primary text-on-primary p-8 rounded-[2rem] overflow-hidden relative">
+          <div className="md:col-span-12 bg-surface-container text-on-surface p-8 rounded-[2rem] overflow-hidden relative">
             <div className="relative z-10">
               <h3 className="font-headline text-xl font-bold mb-2">
                 Spending Velocity
               </h3>
-              <p className="text-on-primary/70 text-sm font-medium">
+              <p className="text-on-surface-variant text-sm font-medium">
                 {selectedCategory ? `${selectedCategory} — monthly trend` : "Monthly spending trend"}
               </p>
             </div>
@@ -529,7 +573,7 @@ export default function Analytics() {
                         state: {
                           month,
                           start_date: `${y}-${m}-01`,
-                          end_date: new Date(y, m, 0).toISOString().split("T")[0],
+                          end_date: toLocalISODate(new Date(y, m, 0)),
                           ...(selectedCategory ? { category: selectedCategory } : {}),
                         },
                       });
@@ -538,7 +582,7 @@ export default function Analytics() {
                   >
                     <XAxis
                       dataKey="month"
-                      tick={{ fontSize: 11, fill: "rgba(224,255,254,0.6)" }}
+                      tick={{ fontSize: 11, fill: isDark ? "#a8b5b4" : "#777b7c" }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(val) => {
@@ -563,20 +607,20 @@ export default function Analytics() {
                     <Line
                       type="monotone"
                       dataKey="amount"
-                      stroke="white"
+                      stroke={CHART_COLORS[0]}
                       strokeWidth={3}
-                      dot={{ fill: "white", r: 4 }}
+                      dot={{ fill: CHART_COLORS[0], r: 4 }}
                       activeDot={{ r: 6 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-on-primary/60 text-sm text-center py-12">
+                <p className="text-on-surface-variant text-sm text-center py-12">
                   {selectedCategory ? `No trend data for ${selectedCategory}` : "No trend data available"}
                 </p>
               )}
             </div>
-            <div className="absolute top-0 right-0 w-64 h-64 bg-on-primary/10 blur-[80px] rounded-full -mr-20 -mt-20"></div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] rounded-full -mr-20 -mt-20"></div>
           </div>
 
           {/* Payer Breakdown */}

@@ -151,3 +151,87 @@ def test_dismiss_merge_pair_order_independent(auth_client_a):
         }],
     })
     assert resp.json()["dismissed"] == 0  # same pair, already dismissed
+
+
+# ── similar-descriptions suppression (bucket 08, item 8) ─────────────────
+# Every test above verifies dismissals *persist* (create/list/undismiss),
+# but none of them verify a dismissal actually does its one job: keeping
+# the pair out of /api/similar-descriptions' suggestions. cluster_descriptions
+# is monkeypatched to a fixed grouping so these don't depend on the real
+# embedding model's exact similarity scores — only on the suppression logic
+# in routes/expenses.py's similar_descriptions().
+
+
+def _force_one_cluster(monkeypatch, size):
+    import routes.expenses as expenses_mod
+    monkeypatch.setattr(expenses_mod, "cluster_descriptions", lambda descriptions, threshold: [list(range(size))])
+
+
+def _flat_groups(response_json):
+    """/api/similar-descriptions nests groups per category:
+    [{"category": ..., "groups": [{"canonical": ..., "variants": [...]}]}]."""
+    return [g for cat in response_json for g in cat["groups"]]
+
+
+def test_similar_descriptions_suggests_when_not_dismissed(auth_client_a, monkeypatch):
+    _force_one_cluster(monkeypatch, 2)
+    auth_client_a.post("/api/expenses", json=make_expense(description="Walmart", category="Groceries"))
+    auth_client_a.post("/api/expenses", json=make_expense(description="Walmart", category="Groceries"))
+    auth_client_a.post("/api/expenses", json=make_expense(description="Wal-Mart", category="Groceries"))
+
+    groups = _flat_groups(auth_client_a.get("/api/similar-descriptions").json())
+    walmart_group = next(g for g in groups if g["canonical"] == "Walmart")
+    assert "Wal-Mart" in walmart_group["variants"]
+
+
+def test_similar_descriptions_suppresses_dismissed_pair(auth_client_a, monkeypatch):
+    """The one thing a dismissal exists to do: once dismissed, the exact
+    same clustering must stop offering that pair as a suggestion."""
+    _force_one_cluster(monkeypatch, 2)
+    auth_client_a.post("/api/expenses", json=make_expense(description="Walmart", category="Groceries"))
+    auth_client_a.post("/api/expenses", json=make_expense(description="Walmart", category="Groceries"))
+    auth_client_a.post("/api/expenses", json=make_expense(description="Wal-Mart", category="Groceries"))
+
+    auth_client_a.post("/api/dismiss-merge", json={
+        "dismissals": [{"category": "Groceries", "canonical": "Walmart", "variants": ["Wal-Mart"]}],
+    })
+
+    groups = _flat_groups(auth_client_a.get("/api/similar-descriptions").json())
+    assert not any(
+        g["canonical"] == "Walmart" and "Wal-Mart" in g["variants"] for g in groups
+    )
+
+
+def test_similar_descriptions_suppresses_only_the_dismissed_variant(auth_client_a, monkeypatch):
+    """Dismissing one variant of a 3-way cluster must not suppress the
+    others — only the specific dismissed pair is excluded."""
+    _force_one_cluster(monkeypatch, 3)
+    auth_client_a.post("/api/expenses", json=make_expense(description="Walmart", category="Groceries"))
+    auth_client_a.post("/api/expenses", json=make_expense(description="Walmart", category="Groceries"))
+    auth_client_a.post("/api/expenses", json=make_expense(description="Wal-Mart", category="Groceries"))
+    auth_client_a.post("/api/expenses", json=make_expense(description="WalMart Inc", category="Groceries"))
+
+    auth_client_a.post("/api/dismiss-merge", json={
+        "dismissals": [{"category": "Groceries", "canonical": "Walmart", "variants": ["Wal-Mart"]}],
+    })
+
+    groups = _flat_groups(auth_client_a.get("/api/similar-descriptions").json())
+    walmart_group = next(g for g in groups if g["canonical"] == "Walmart")
+    assert "Wal-Mart" not in walmart_group["variants"]
+    assert "WalMart Inc" in walmart_group["variants"]
+
+
+def test_similar_descriptions_drops_group_entirely_once_all_variants_dismissed(auth_client_a, monkeypatch):
+    """If every variant in a cluster has been dismissed, the group must not
+    appear at all (an empty-variants suggestion is meaningless noise)."""
+    _force_one_cluster(monkeypatch, 2)
+    auth_client_a.post("/api/expenses", json=make_expense(description="Walmart", category="Groceries"))
+    auth_client_a.post("/api/expenses", json=make_expense(description="Walmart", category="Groceries"))
+    auth_client_a.post("/api/expenses", json=make_expense(description="Wal-Mart", category="Groceries"))
+
+    auth_client_a.post("/api/dismiss-merge", json={
+        "dismissals": [{"category": "Groceries", "canonical": "Walmart", "variants": ["Wal-Mart"]}],
+    })
+
+    groups = _flat_groups(auth_client_a.get("/api/similar-descriptions").json())
+    assert not any(g["canonical"] == "Walmart" for g in groups)

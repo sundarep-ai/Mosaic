@@ -6,6 +6,11 @@ export function buildSankeyData(sankeyResp) {
   const { by_source, by_category, income_total, expenses_total, savings } = sankeyResp;
   if (!income_total || income_total === 0) return null;
 
+  // A Sankey diagram can't render a negative flow — a deficit month (expenses
+  // > income) has no "savings" node, it's surfaced as a separate callout by
+  // the caller instead (see `deficit` below).
+  const deficit = savings < -0.01 ? Math.abs(savings) : 0;
+
   // Limit expense categories to top N; bucket the rest as "Other Expenses"
   const topCats = by_category.slice(0, TOP_SANKEY_CATS);
   const otherAmt = by_category.slice(TOP_SANKEY_CATS).reduce((s, c) => s + c.amount, 0);
@@ -31,7 +36,7 @@ export function buildSankeyData(sankeyResp) {
     }
   });
 
-  return { nodes, links, sourceCount: sourceNodes.length };
+  return { nodes, links, sourceCount: sourceNodes.length, deficit };
 }
 
 export function SankeyNode({ x, y, width, height, index, payload, sourceCount, isDark, chartColors }) {

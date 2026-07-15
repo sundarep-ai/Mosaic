@@ -45,7 +45,7 @@ export default function AnomaliesSection({ anomalies, mode }) {
               </p>
             )}
             <p className="text-xs text-on-surface-variant mt-2">
-              {a.category} avg: {fmt(a.category_mean)} &middot; {formatDate(a.date)}
+              {a.category} usual: {fmt(a.category_median)} &middot; {formatDate(a.date)}
             </p>
           </div>
         ))}

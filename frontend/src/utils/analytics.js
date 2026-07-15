@@ -1,3 +1,5 @@
+import { toLocalISODate } from "./dates";
+
 /**
  * Compute a date range by subtracting a number of days from today.
  * @param {number} days – how many days to look back
@@ -9,8 +11,8 @@ export function getDateRange(days, now = new Date()) {
   const start = new Date(now);
   start.setDate(start.getDate() - days);
   return {
-    start_date: start.toISOString().split("T")[0],
-    end_date: end.toISOString().split("T")[0],
+    start_date: toLocalISODate(start),
+    end_date: toLocalISODate(end),
   };
 }
 

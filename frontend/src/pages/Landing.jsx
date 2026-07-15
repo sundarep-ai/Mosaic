@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { getBalance, getMonthlySummary, getExpenses, getPersonalSummary, getMyExpenseSummary } from "../api/expenses";
+import { getBalance, getMonthlySummary, getExpenses, getPersonalSummary, getMyExpenseSummary, getInsights } from "../api/expenses";
 import { getMonthlyIncomeSummary } from "../api/income";
 import { CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
@@ -9,6 +9,7 @@ import { useDateFormat } from "../DateFormatContext";
 import { useAuth } from "../auth/AuthContext";
 import { useIncomeMode } from "../hooks/useIncomeMode";
 import Avatar from "../components/Avatar";
+import InsightsPreview from "../components/insights/InsightsPreview";
 
 export default function Landing() {
   const { userA, userB, mode } = useUsers();
@@ -26,34 +27,43 @@ export default function Landing() {
   const [personalSpend, setPersonalSpend] = useState(null);
   const [myExpense, setMyExpense] = useState(null);
   const [monthlyIncome, setMonthlyIncome] = useState(null);
+  const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     async function fetchData() {
-      try {
-        const promises = [
-          isPersonal ? Promise.resolve({ amount: 0, description: "Personal mode" }) : getBalance(),
-          getMonthlySummary(),
-          getExpenses({ limit: 5, sort: "desc" }),
-          getMyExpenseSummary(),
-        ];
-        if (isBlended) promises.push(getPersonalSummary());
-        if (incomeEnabled) promises.push(getMonthlyIncomeSummary());
+      // Each tile is fetched independently (Promise.allSettled, not
+      // Promise.all) so a single failing endpoint can't blank out the whole
+      // dashboard — including the Add Expense button — for the rest.
+      const tasks = [
+        { key: "balance", fn: () => (isPersonal ? Promise.resolve({ amount: 0, description: "Personal mode" }) : getBalance()) },
+        { key: "monthlySummary", fn: getMonthlySummary },
+        { key: "recentExpenses", fn: () => getExpenses({ limit: 5, sort: "desc" }) },
+        { key: "myExpense", fn: getMyExpenseSummary },
+        { key: "insights", fn: getInsights },
+      ];
+      if (isBlended) tasks.push({ key: "personalSpend", fn: getPersonalSummary });
+      if (incomeEnabled) tasks.push({ key: "monthlyIncome", fn: getMonthlyIncomeSummary });
 
-        const results = await Promise.all(promises);
-        setBalance(results[0]);
-        setMonthlySummary(results[1]);
-        setRecentExpenses(results[2]);
-        setMyExpense(results[3]);
-        let idx = 4;
-        if (isBlended && results[idx]) { setPersonalSpend(results[idx]); idx++; }
-        if (incomeEnabled && results[idx]) setMonthlyIncome(results[idx]);
-      } catch (err) {
-        setError("Could not load dashboard data. Is the server running?");
-      } finally {
-        setLoading(false);
-      }
+      const results = await Promise.allSettled(tasks.map((t) => t.fn()));
+
+      results.forEach((result, i) => {
+        if (result.status !== "fulfilled") return;
+        const { key } = tasks[i];
+        const value = result.value;
+        if (key === "balance") setBalance(value);
+        else if (key === "monthlySummary") setMonthlySummary(value);
+        else if (key === "recentExpenses") setRecentExpenses(value);
+        else if (key === "myExpense") setMyExpense(value);
+        else if (key === "insights") { if (value) setInsights(value); }
+        else if (key === "personalSpend") { if (value) setPersonalSpend(value); }
+        else if (key === "monthlyIncome") { if (value) setMonthlyIncome(value); }
+      });
+
+      const failedCount = results.filter((r) => r.status === "rejected").length;
+      setError(failedCount > 0 ? "Some dashboard data couldn't be loaded. Try refreshing." : null);
+      setLoading(false);
     }
     fetchData();
   }, [isPersonal, isBlended, incomeEnabled]);
@@ -62,14 +72,6 @@ export default function Landing() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-64 text-error text-sm">
-        {error}
       </div>
     );
   }
@@ -102,6 +104,20 @@ export default function Landing() {
           Add Expense
         </Link>
       </header>
+
+      {error && (
+        <div className="bg-error-container/20 border border-error/20 text-error px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+          <span className="material-symbols-outlined text-sm">error</span>
+          {error}
+        </div>
+      )}
+
+      <InsightsPreview
+        recurring_alerts={insights?.recurring_alerts}
+        category_trend_alerts={insights?.category_trend_alerts}
+        forecast={insights?.forecast}
+        mode={insights?.mode || mode}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
         {/* Balance / Total Spend Card */}
@@ -146,7 +162,18 @@ export default function Landing() {
           {!isPersonal && (
             <Link
               to="/add"
-              state={{ description: "Payment", category: "Payment", split_method: "100% other" }}
+              state={
+                Math.abs(balanceAmount) >= 0.01
+                  ? {
+                      description: "Payment",
+                      category: "Payment",
+                      // balanceAmount > 0 means userA owes userB (see backend get_balance)
+                      amount: Math.abs(balanceAmount),
+                      paid_by: balanceAmount > 0 ? userA : userB,
+                      split_method: `100% ${balanceAmount > 0 ? userB : userA}`,
+                    }
+                  : { description: "Payment", category: "Payment" }
+              }
               className="mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-secondary-container text-on-secondary-container font-headline font-bold text-sm shadow-sm active:scale-95 transition-transform hover:shadow-md"
             >
               <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>

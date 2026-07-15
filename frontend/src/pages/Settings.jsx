@@ -5,6 +5,7 @@ import Avatar from "../components/Avatar";
 import { useUsers } from "../ConfigContext";
 import { useIncomeMode } from "../hooks/useIncomeMode";
 import { useDateFormat } from "../DateFormatContext";
+import { useToast } from "../ToastContext";
 import { API_BASE } from "../config";
 import { fetchWithAuth } from "../api/fetchWithAuth";
 import { DATE_FORMATS } from "../constants/dateFormats";
@@ -32,11 +33,13 @@ const MODES = [
 
 export default function Settings() {
   const { user, logout } = useAuth();
-  const { mode, setMode, userCount } = useUsers();
+  const { mode, setMode, userCount, userA } = useUsers();
+  const isPrimaryUser = user?.displayName === userA;
   const fileInputRef = useRef(null);
   const [avatarKey, setAvatarKey] = useState(0);
   const { incomeEnabled, toggleIncome, clearIncome, canUseIncome } = useIncomeMode();
   const { dateFormat, setDateFormat } = useDateFormat();
+  const { showToast } = useToast();
 
   // Stay signed in
   const [staySignedIn, setStaySignedIn] = useState(false);
@@ -78,8 +81,9 @@ export default function Settings() {
     try {
       await uploadAvatar(file);
       setAvatarKey((k) => k + 1);
+      showToast("Profile picture updated.", "success");
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
     e.target.value = "";
   };
@@ -90,8 +94,25 @@ export default function Settings() {
       if (newMode === "shared") {
         clearIncome();
       }
+      showToast("App mode updated.", "success");
+    } catch (err) {
+      showToast(err.message || "Failed to update mode. Please try again.", "error");
+    }
+  };
+
+  const handleToggleIncome = async (val) => {
+    try {
+      await toggleIncome(val);
     } catch {
-      alert("Failed to update mode. Please try again.");
+      showToast("Failed to update income tracking preference.", "error");
+    }
+  };
+
+  const handleDateFormatChange = async (newFormat) => {
+    try {
+      await setDateFormat(newFormat);
+    } catch {
+      showToast("Failed to update date format.", "error");
     }
   };
 
@@ -106,7 +127,7 @@ export default function Settings() {
       if (!res.ok) throw new Error("Failed to update preference");
       setStaySignedIn(enabled);
     } catch {
-      alert("Failed to update stay signed in preference.");
+      showToast("Failed to update stay signed in preference.", "error");
     }
   };
 
@@ -242,7 +263,7 @@ export default function Settings() {
               type="button"
               role="switch"
               aria-checked={incomeEnabled}
-              onClick={() => toggleIncome(!incomeEnabled)}
+              onClick={() => handleToggleIncome(!incomeEnabled)}
               className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${incomeEnabled ? "bg-tertiary" : "bg-surface-container-high"}`}
             >
               <span
@@ -270,13 +291,20 @@ export default function Settings() {
           {MODES.map((m) => {
             const isActive = mode === m.value;
             const needsSecondUser = m.value !== "personal" && userCount < 2;
+            // Only the primary (first-created) account can switch the app to
+            // personal mode — otherwise the secondary user could lock
+            // themselves out of login. Disabling this here keeps the
+            // secondary user from ever hitting the backend's 403 for this.
+            const personalRestricted = m.value === "personal" && userCount >= 2 && !isPrimaryUser;
+            const disabled = needsSecondUser || personalRestricted;
             return (
               <button
                 key={m.value}
-                onClick={() => !needsSecondUser && handleModeChange(m.value)}
-                disabled={needsSecondUser}
+                onClick={() => !disabled && handleModeChange(m.value)}
+                disabled={disabled}
+                title={personalRestricted ? "Only the primary account holder can switch to personal mode." : undefined}
                 className={`flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all ${
-                  needsSecondUser
+                  disabled
                     ? "opacity-50 cursor-not-allowed bg-surface-container border-transparent"
                     : isActive
                       ? "bg-primary-container/30 border-primary/30"
@@ -335,7 +363,7 @@ export default function Settings() {
               return (
                 <button
                   key={f.value}
-                  onClick={() => setDateFormat(f.value)}
+                  onClick={() => handleDateFormatChange(f.value)}
                   className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
                     isActive
                       ? "bg-primary-container/30 border-primary/30"

@@ -1,3 +1,5 @@
+import { CATEGORIES } from "../constants/categories";
+
 /**
  * Validate an expense form and return an error string, or null if valid.
  *
@@ -19,6 +21,19 @@ export function validateExpense(form, { isCustomCategory = false, customCategory
 
   if (!effectiveCategory) {
     return "Category is required.";
+  }
+
+  if (isCustomCategory) {
+    // Case-insensitive collision check, mirroring the backend guard — a
+    // custom category matching an existing one (e.g. "groceries" vs
+    // "Groceries") would otherwise fragment analytics into a second bucket,
+    // or silently collide with a reserved category's money-math semantics.
+    const collision = CATEGORIES.find(
+      (c) => c.toLowerCase() === effectiveCategory.toLowerCase()
+    );
+    if (collision && collision !== effectiveCategory) {
+      return `'${collision}' already exists — select it from the category list.`;
+    }
   }
 
   const amt = parseFloat(form.amount);

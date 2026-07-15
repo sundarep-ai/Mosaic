@@ -98,6 +98,51 @@ def test_balance_settlement_zeroes_out(auth_client_a):
     assert data["description"] == "All settled up!"
 
 
+# ── Balance description currency symbol (B1 #4) ─────────────────────
+
+
+def test_balance_description_uses_default_currency_symbol(auth_client_a):
+    """Default currency (CAD) renders as 'C$', not a hardcoded '$'."""
+    auth_client_a.post("/api/expenses", json=make_expense(
+        amount=100, paid_by=USER_A, split_method="50/50",
+    ))
+    data = auth_client_a.get("/api/balance").json()
+    assert "C$50.00" in data["description"]
+
+
+def test_balance_description_uses_users_own_currency_preference(auth_client_a):
+    """The description reflects the viewing user's own currency preference."""
+    auth_client_a.put("/api/user-preferences", json={"currency": "EUR"})
+    auth_client_a.post("/api/expenses", json=make_expense(
+        amount=100, paid_by=USER_A, split_method="50/50",
+    ))
+    data = auth_client_a.get("/api/balance").json()
+    assert "€50.00" in data["description"]
+    assert "$" not in data["description"]
+
+
+# ── Odd-cent rounding regression (B1 #3) ─────────────────────────────
+
+
+def test_balance_odd_cent_split_settles_correctly(auth_client_a):
+    """A $100.01 50/50 split's exact half is $50.005 — SQLite's REAL storage
+    and the amount/2 division are float math, so the raw balance can land a
+    hair off $50.005. A settlement of the rounded $50.01 half must still
+    zero the balance out via the sub-cent dust threshold at expenses.py."""
+    auth_client_a.post("/api/expenses", json=make_expense(
+        amount=100.01, paid_by=USER_B, split_method="50/50",
+    ))
+    data = auth_client_a.get("/api/balance").json()
+    assert abs(data["amount"] - 50.005) < 0.01
+
+    auth_client_a.post("/api/expenses", json=make_expense(
+        amount=50.01, paid_by=USER_A, split_method=f"100% {USER_B}",
+        category="Payment",
+    ))
+    settled = auth_client_a.get("/api/balance").json()
+    assert settled["description"] == "All settled up!"
+
+
 # ── Monthly Summary ─────────────────────────────────────────────────
 
 
@@ -150,7 +195,10 @@ def test_monthly_summary_excludes_payment(auth_client_a):
     assert "Groceries" in categories
 
 
-def test_monthly_summary_excludes_reimbursement(auth_client_a):
+def test_monthly_summary_nets_reimbursement(auth_client_a):
+    """Reimbursement nets into its own (negative) category line rather than
+    being excluded, so this list's sum matches my-expense-summary's my_total
+    for the same month — see the Reimbursement convention note in CLAUDE.md."""
     auth_client_a.post("/api/expenses", json=make_expense(category="Groceries", amount=80))
     auth_client_a.post(
         "/api/expenses",
@@ -158,6 +206,10 @@ def test_monthly_summary_excludes_reimbursement(auth_client_a):
     )
 
     data = auth_client_a.get("/api/monthly-summary").json()
-    categories = [item["category"] for item in data]
-    assert "Reimbursement" not in categories
-    assert "Groceries" in categories
+    cats = {item["category"]: item["amount"] for item in data}
+    # Groceries: half of 80 (default 50/50) = 40. Reimbursement: half of -25 = -12.5.
+    assert cats["Groceries"] == 40.0
+    assert cats["Reimbursement"] == -12.5
+
+    my_total = auth_client_a.get("/api/my-expense-summary").json()["my_total"]
+    assert sum(cats.values()) == my_total

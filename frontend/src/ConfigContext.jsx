@@ -29,7 +29,10 @@ export function ConfigProvider({ children }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ app_mode: newMode }),
     });
-    if (!res.ok) throw new Error("Failed to update mode");
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Failed to update mode");
+    }
     setConfig((prev) => ({ ...prev, mode: newMode }));
   }, []);
 

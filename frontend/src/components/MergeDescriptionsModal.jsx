@@ -8,6 +8,7 @@ import {
   getUniqueDescriptions,
 } from "../api/expenses";
 import { CATEGORIES } from "../constants/categories";
+import { useToast } from "../ToastContext";
 
 const TABS = [
   { id: "suggestions", label: "Suggestions", icon: "auto_awesome" },
@@ -491,7 +492,7 @@ export default function MergeDescriptionsModal({ onClose, onMerged }) {
   const [results, setResults] = useState([]);
   const [dismissed, setDismissed] = useState([]);
   const [processing, setProcessing] = useState(false);
-  const [toast, setToast] = useState(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -520,16 +521,11 @@ export default function MergeDescriptionsModal({ onClose, onMerged }) {
 
   useEffect(() => { loadData(); }, []);
 
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
-
   const handleAccept = async (merge) => {
     setProcessing(true);
     try {
       const result = await mergeDescriptions([merge]);
-      showToast(`Merged ${result.updated} expense${result.updated !== 1 ? "s" : ""}`);
+      showToast(`Merged ${result.updated} expense${result.updated !== 1 ? "s" : ""}`, "success");
       onMerged?.();
       await loadData();
     } catch {
@@ -543,7 +539,7 @@ export default function MergeDescriptionsModal({ onClose, onMerged }) {
     setProcessing(true);
     try {
       await dismissMergeSuggestions([dismissal]);
-      showToast("Suggestion dismissed permanently");
+      showToast("Suggestion dismissed permanently", "success");
       await loadData();
     } catch {
       setError("Failed to dismiss. Please try again.");
@@ -556,7 +552,7 @@ export default function MergeDescriptionsModal({ onClose, onMerged }) {
     setProcessing(true);
     try {
       await undismissMerges([id]);
-      showToast("Suggestion restored");
+      showToast("Suggestion restored", "success");
       await loadData();
     } catch {
       setError("Failed to restore. Please try again.");
@@ -569,7 +565,7 @@ export default function MergeDescriptionsModal({ onClose, onMerged }) {
     setProcessing(true);
     try {
       const result = await mergeDescriptions([merge]);
-      showToast(`Merged ${result.updated} expense${result.updated !== 1 ? "s" : ""}`);
+      showToast(`Merged ${result.updated} expense${result.updated !== 1 ? "s" : ""}`, "success");
       onMerged?.();
       await loadData();
     } catch {
@@ -638,14 +634,6 @@ export default function MergeDescriptionsModal({ onClose, onMerged }) {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-8 py-6">
-          {/* Toast */}
-          {toast && (
-            <div className="mb-4 bg-primary-container text-on-primary-container px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 animate-in fade-in">
-              <span className="material-symbols-outlined text-sm">check_circle</span>
-              {toast}
-            </div>
-          )}
-
           {error && (
             <div className="bg-error-container/20 border border-error/20 text-error px-4 py-3 rounded-xl text-sm mb-4 flex items-center gap-2">
               <span className="material-symbols-outlined text-sm">error</span>

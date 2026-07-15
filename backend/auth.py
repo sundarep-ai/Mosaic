@@ -21,6 +21,7 @@ import database
 from database import get_session
 from models import User
 from users import get_user_by_username, get_user_count, build_user_map, is_primary_user
+from services.audit import audit_logger
 
 IS_DEV = os.getenv("ENV", "development") == "development"
 
@@ -102,6 +103,11 @@ def _validate_magic(data: bytes, ext: str) -> bool:
 SESSION_COOKIE = "mosaic_session"
 SESSION_TTL = 60 * 60 * 8  # 8 hours
 PERSISTENT_TTL = 60 * 60 * 24 * 365  # 1 year
+# Non-persistent sessions slide forward on activity instead of hard-expiring
+# 8 hours from login: once a cookie is older than this, get_current_user
+# reissues it with a fresh timestamp. Not on every single request, so we
+# don't churn an identical Set-Cookie header for no benefit.
+SESSION_REFRESH_THRESHOLD = 60 * 30  # 30 minutes
 
 
 def _sign(payload: str) -> str:
@@ -114,7 +120,9 @@ def _make_token(username: str, persist: bool = False, session_version: int = 0) 
     return f"{payload}|{sig}"
 
 
-def _verify_token(token: str, session: Session | None = None) -> str | None:
+def _verify_token(token: str, session: Session | None = None) -> dict | None:
+    """Verify a session token's signature, user existence, session version,
+    and TTL. Returns the decoded payload dict on success, None otherwise."""
     parts = token.rsplit("|", 1)
     if len(parts) != 2:
         return None
@@ -145,17 +153,37 @@ def _verify_token(token: str, session: Session | None = None) -> str | None:
     if time.time() - data.get("ts", 0) > ttl:
         return None
 
-    return username
+    return data
 
 
-def get_current_user(request: Request, session: Session = Depends(get_session)) -> str:
-    """Returns the login username of the authenticated user."""
+def get_current_user(request: Request, response: Response, session: Session = Depends(get_session)) -> str:
+    """Returns the login username of the authenticated user.
+
+    Non-persistent sessions ("stay signed in" off) slide forward on activity:
+    once the cookie is older than SESSION_REFRESH_THRESHOLD, it's silently
+    reissued with a fresh timestamp, so an active user isn't abruptly signed
+    out mid-session just because SESSION_TTL elapsed since login. Persistent
+    ("stay signed in") sessions already last a year and don't need this.
+    """
     token = request.cookies.get(SESSION_COOKIE)
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    username = _verify_token(token, session=session)
-    if not username:
+    data = _verify_token(token, session=session)
+    if not data:
         raise HTTPException(status_code=401, detail="Invalid session")
+    username = data["user"]
+
+    if not data.get("persist") and time.time() - data.get("ts", 0) > SESSION_REFRESH_THRESHOLD:
+        fresh_token = _make_token(username, persist=False, session_version=data.get("sv", 0))
+        response.set_cookie(
+            key=SESSION_COOKIE,
+            value=fresh_token,
+            httponly=True,
+            samesite="lax",
+            secure=COOKIE_SECURE,
+            max_age=SESSION_TTL,
+        )
+
     return username
 
 
@@ -312,11 +340,21 @@ def login(data: LoginRequest, response: Response, session: Session = Depends(get
     from config import get_app_mode
     mode = get_app_mode(session)
 
-    # In personal mode, only the first-created user can log in
-    if mode == "personal" and not is_primary_user(session, data.username):
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-
     user = get_user_by_username(session, data.username)
+
+    # In personal mode, only the first-created (primary) user can log in. A
+    # real, registered secondary account gets an honest explanation instead of
+    # "Invalid username or password" — that message reads as a forgotten
+    # password, not a mode restriction, and is a maddening dead end to debug
+    # (see review_order/06-backend-security-access.md #2). This doesn't touch
+    # password verification, so it can't be used to brute-force anything; the
+    # app mode itself is already public via GET /api/config.
+    if mode == "personal" and user is not None and not is_primary_user(session, data.username):
+        raise HTTPException(
+            status_code=403,
+            detail="This app is in personal mode, so only the primary account can log in. Ask the primary account holder to switch to shared mode.",
+        )
+
     if not user or not _check_password(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
@@ -346,8 +384,8 @@ def logout(response: Response):
 
 
 @router.get("/auth/me")
-def get_me(request: Request, session: Session = Depends(get_session)):
-    username = get_current_user(request, session)
+def get_me(request: Request, response: Response, session: Session = Depends(get_session)):
+    username = get_current_user(request, response, session)
     user = get_user_by_username(session, username)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -426,7 +464,7 @@ def change_password(
     response: Response,
     session: Session = Depends(get_session),
 ):
-    username = get_current_user(request, session)
+    username = get_current_user(request, response, session)
     user = get_user_by_username(session, username)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -472,7 +510,7 @@ def update_stay_signed_in(
     response: Response,
     session: Session = Depends(get_session),
 ):
-    username = get_current_user(request, session)
+    username = get_current_user(request, response, session)
     user = get_user_by_username(session, username)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -510,7 +548,7 @@ def delete_account(
     response: Response,
     session: Session = Depends(get_session),
 ):
-    username = get_current_user(request, session)
+    username = get_current_user(request, response, session)
     user = get_user_by_username(session, username)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -526,28 +564,80 @@ def delete_account(
 
     display_name = user.display_name
 
+    # The other registered user, if any. paid_by/split_method are denormalized
+    # display-name strings with no FK — deletion has to explicitly clean up every
+    # place the departing user's name is embedded in the *survivor's* rows too,
+    # not just the rows the departing user paid (see bucket 05 review notes).
+    survivor = session.exec(select(User).where(User.username != username)).first()
+    survivor_username = survivor.username if survivor else None
+    survivor_display_name = survivor.display_name if survivor else None
+
+    expenses_deleted = 0
+    expenses_anonymized = 0
+    expenses_split_corrected = 0
+    expenses_reassigned = 0
+    income_affected = 0
+
     if data.data_action == "delete":
         # Delete all expenses paid by this user
         expenses = session.exec(select(Expense).where(Expense.paid_by == display_name)).all()
         for e in expenses:
             session.delete(e)
+        expenses_deleted = len(expenses)
         # Delete all income
         incomes = session.exec(select(Income).where(Income.user_id == username)).all()
         for i in incomes:
             session.delete(i)
+        income_affected = len(incomes)
     else:
         # Anonymize expenses
         expenses = session.exec(select(Expense).where(Expense.paid_by == display_name)).all()
         for e in expenses:
             e.paid_by = "Deleted User"
+            # Defensive: a payer can never validly owe 100% to themselves, so this
+            # should be unreachable via normal app usage, but guard against stale/
+            # migrated data that predates that validation.
             if e.split_method == f"100% {display_name}":
                 e.split_method = "Personal"
             session.add(e)
+        expenses_anonymized = len(expenses)
         # Anonymize income
         incomes = session.exec(select(Income).where(Income.user_id == username)).all()
         for i in incomes:
             i.user_id = "deleted"
             session.add(i)
+        income_affected = len(incomes)
+
+    # Rows the SURVIVOR paid where the departing user was assigned the full 100%
+    # obligation ("100% <departing name>") now reference a name that no longer
+    # exists. That debt is moot (there's no one left to owe it to), so fold the
+    # full amount into the survivor's own spend instead of leaving a split string
+    # that matches nothing in `_my_portion_expr` and silently zeroes out their
+    # own analytics for that expense forever.
+    if survivor_display_name:
+        owed_by_departing = session.exec(
+            select(Expense)
+            .where(Expense.paid_by == survivor_display_name)
+            .where(Expense.split_method == f"100% {display_name}")
+        ).all()
+        for e in owed_by_departing:
+            e.split_method = "Personal"
+            session.add(e)
+        expenses_split_corrected = len(owed_by_departing)
+
+    # Reassign ownership on every remaining expense still attributed to the
+    # departing user's login (whether they created it themselves, or created it
+    # on the survivor's behalf), so the survivor can keep editing their own
+    # shared history instead of being permanently locked out by the ownership
+    # check in routes/expenses.py.
+    if survivor_username:
+        orphaned = session.exec(
+            select(Expense).where(Expense.user_id == username)
+        ).all()
+        for e in orphaned:
+            e.user_id = survivor_username
+            session.add(e)
+        expenses_reassigned = len(orphaned)
 
     # Delete user preference
     prefs = session.exec(select(UserPreference).where(UserPreference.username == username)).all()
@@ -559,10 +649,10 @@ def delete_account(
     for d in dismissals:
         session.delete(d)
 
-    # Delete avatar
+    # Find the avatar now, but don't remove the file until after the DB commit
+    # below succeeds — deleting it first would leave the account intact but
+    # the avatar file gone if the commit fails.
     existing_avatar = _find_avatar(username)
-    if existing_avatar:
-        os.remove(existing_avatar)
 
     # Delete the user
     session.delete(user)
@@ -577,10 +667,31 @@ def delete_account(
             settings.app_mode = "personal"
             session.add(settings)
 
+    scope = {
+        "data_action": data.data_action,
+        "deleted_username": username,
+        "deleted_display_name": display_name,
+        "expenses_deleted": expenses_deleted,
+        "expenses_anonymized": expenses_anonymized,
+        "expenses_split_corrected": expenses_split_corrected,
+        "expenses_reassigned": expenses_reassigned,
+        "income_affected": income_affected,
+    }
+    # Account deletion is the single most destructive mutation in the app — it
+    # must be audited like any other mutation, with the full scope of what it
+    # touched so the survivor's balance/analytics can be reconciled after the fact.
+    audit_logger.log("ACCOUNT_DELETE", username, scope)
+
     session.commit()
 
+    # Only remove the avatar file now that the DB commit has actually
+    # succeeded — a failed commit above would otherwise leave the account
+    # intact but the avatar gone.
+    if existing_avatar:
+        os.remove(existing_avatar)
+
     response.delete_cookie(key=SESSION_COOKIE)
-    return {"ok": True}
+    return {"ok": True, **scope}
 
 
 # ── Avatar ───────────────────────────────────────────────────────────
@@ -598,10 +709,11 @@ def _find_avatar(username: str) -> str | None:
 @router.post("/auth/avatar")
 async def upload_avatar(
     request: Request,
+    response: Response,
     session: Session = Depends(get_session),
     file: UploadFile = File(...),
 ):
-    username = get_current_user(request, session)
+    username = get_current_user(request, response, session)
 
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_EXTENSIONS:

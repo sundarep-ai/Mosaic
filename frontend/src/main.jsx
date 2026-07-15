@@ -4,7 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { ConfigProvider } from "./ConfigContext";
 import { AuthProvider } from "./auth/AuthContext";
 import { ThemeProvider } from "./ThemeContext";
-import { CurrencyProvider } from "./CurrencyContext";
+import { ToastProvider } from "./ToastContext";
 import App from "./App";
 import "./index.css";
 
@@ -12,13 +12,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
       <ThemeProvider>
-        <CurrencyProvider>
+        <ToastProvider>
           <ConfigProvider>
             <AuthProvider>
               <App />
             </AuthProvider>
           </ConfigProvider>
-        </CurrencyProvider>
+        </ToastProvider>
       </ThemeProvider>
     </BrowserRouter>
   </React.StrictMode>,

@@ -8,48 +8,58 @@ import {
 import { CATEGORIES } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
 import { useAuth } from "../auth/AuthContext";
+import { useCurrency } from "../CurrencyContext";
 import useDescriptionSuggestions from "../hooks/useDescriptionSuggestions";
 import { validateExpense } from "../utils/validation";
+import { getSplitPreview } from "../utils/splitPreview";
+import { toLocalISODate } from "../utils/dates";
+import { useToast } from "../ToastContext";
 import DateInput from "../components/DateInput";
+import SplitCalculatorModal from "../components/SplitCalculatorModal";
 
 const CUSTOM_CATEGORY_VALUE = "__custom__";
+const SESSION_EXPIRY_MESSAGE = "Session expired. Please log in again.";
+const PENDING_KEY = "mosaic_pending_expense_v1";
 
 export default function AddExpense() {
   const navigate = useNavigate();
   const { id } = useParams();
   const location = useLocation();
   const isEdit = Boolean(id);
-  const d = new Date();
-  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const today = toLocalISODate();
   const { userA, userB, mode } = useUsers();
   const isPersonal = mode === "personal";
   const { user: authUser } = useAuth();
   const prefill = location.state || {};
   const loggedInDisplay = authUser?.displayName || userA;
   const otherUser = isPersonal ? "" : (loggedInDisplay === userA ? userB : userA);
+  const { symbol, fmt } = useCurrency();
+  const { showToast } = useToast();
 
   const [form, setForm] = useState({
     date: today,
     description: prefill.description || "",
-    amount: "",
+    amount: prefill.amount != null ? String(prefill.amount) : "",
     category: prefill.category || "Groceries",
-    paid_by: loggedInDisplay,
+    paid_by: !isPersonal && prefill.paid_by ? prefill.paid_by : loggedInDisplay,
     split_method: isPersonal
       ? "Personal"
-      : prefill.split_method === "100% other"
-        ? `100% ${otherUser}`
-        : "50/50",
+      : prefill.split_method || "50/50",
   });
   const [customCategory, setCustomCategory] = useState("");
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [pendingRestore, setPendingRestore] = useState(null);
+  const [showCalculator, setShowCalculator] = useState(false);
   const [suggested, setSuggested] = useState(false);
   const [descSuggestions, setDescSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestionsRef = useRef(null);
   const descInputRef = useRef(null);
+  const amountInputRef = useRef(null);
   const { suggest, suggestCategory: suggestCategoryLocal, refresh: refreshSuggestions } = useDescriptionSuggestions();
 
   useEffect(() => {
@@ -80,6 +90,40 @@ export default function AddExpense() {
     })();
     return () => { cancelled = true; };
   }, [id, isEdit]);
+
+  // Recover a form that was mid-submit when the session expired (see handleSubmit).
+  useEffect(() => {
+    let stashed = null;
+    try {
+      const raw = sessionStorage.getItem(PENDING_KEY);
+      if (raw) stashed = JSON.parse(raw);
+    } catch {
+      sessionStorage.removeItem(PENDING_KEY);
+    }
+    if (!stashed) return;
+    const contextMatches = isEdit
+      ? stashed.isEdit && stashed.id === id
+      : !stashed.isEdit;
+    if (contextMatches) {
+      setPendingRestore(stashed);
+    } else {
+      sessionStorage.removeItem(PENDING_KEY);
+    }
+  }, [isEdit, id]);
+
+  const handleRestorePending = useCallback(() => {
+    if (!pendingRestore) return;
+    setForm(pendingRestore.form);
+    setIsCustomCategory(pendingRestore.isCustomCategory);
+    setCustomCategory(pendingRestore.customCategory);
+    setPendingRestore(null);
+    sessionStorage.removeItem(PENDING_KEY);
+  }, [pendingRestore]);
+
+  const handleDiscardPending = useCallback(() => {
+    setPendingRestore(null);
+    sessionStorage.removeItem(PENDING_KEY);
+  }, []);
 
   const handleDescriptionChange = useCallback((value) => {
     // Show description suggestions (Feature 1A)
@@ -161,9 +205,12 @@ export default function AddExpense() {
     setForm((prev) => ({ ...prev, category: value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, addAnother = false) => {
     e.preventDefault();
     setError("");
+    setSuccessMessage("");
+    // Any active submit supersedes a stale restore offer from an earlier session.
+    setPendingRestore(null);
 
     const validationError = validateExpense(form, { isCustomCategory, customCategory, today });
     if (validationError) {
@@ -182,24 +229,83 @@ export default function AddExpense() {
     };
 
     setSubmitting(true);
+
+    // Stash before the network call — if the session has expired, the 401
+    // throws before we get a response, and this is our only chance to save it.
+    try {
+      sessionStorage.setItem(
+        PENDING_KEY,
+        JSON.stringify({ isEdit, id, form, customCategory, isCustomCategory }),
+      );
+    } catch {
+      // sessionStorage unavailable — proceed without a recovery stash
+    }
+
     try {
       if (isEdit) {
         await updateExpense(id, payload);
       } else {
         await createExpense(payload);
       }
+      sessionStorage.removeItem(PENDING_KEY);
       refreshSuggestions();
-      navigate(isEdit ? "/history" : "/");
-    } catch {
+
+      if (addAnother && !isEdit) {
+        setForm((prev) => ({
+          ...prev,
+          description: "",
+          amount: "",
+          category: "Groceries",
+        }));
+        setIsCustomCategory(false);
+        setCustomCategory("");
+        setSuggested(false);
+        setShowSuggestions(false);
+        setDescSuggestions([]);
+        setSuccessMessage("Expense logged! Add another below.");
+        amountInputRef.current?.focus();
+      } else {
+        showToast(isEdit ? "Expense updated." : "Expense logged.", "success");
+        navigate(isEdit ? (location.state?.returnTo || "/history") : "/");
+      }
+    } catch (err) {
+      const isSessionExpiry = err.message === SESSION_EXPIRY_MESSAGE;
+      if (!isSessionExpiry) sessionStorage.removeItem(PENDING_KEY);
       setError(
-        isEdit
-          ? "Failed to update expense. Please try again."
-          : "Failed to log expense. Please try again.",
+        isSessionExpiry
+          ? "Your session expired before this saved. Log back in and we'll offer to restore your entry."
+          : err.message || (isEdit
+            ? "Failed to update expense. Please try again."
+            : "Failed to log expense. Please try again."),
       );
     } finally {
       setSubmitting(false);
     }
   };
+
+  const handleCalculatorResult = useCallback(({ amount, payer, ower }) => {
+    setForm((prev) => ({
+      ...prev,
+      amount: String(amount),
+      paid_by: payer,
+      split_method: `100% ${ower}`,
+    }));
+  }, []);
+
+  const splitPreviewText = useMemo(() => {
+    if (isPersonal) return null;
+    return getSplitPreview(
+      {
+        amount: parseFloat(form.amount),
+        split_method: form.split_method,
+        paid_by: form.paid_by,
+        category: form.category,
+      },
+      loggedInDisplay,
+      otherUser,
+      fmt,
+    );
+  }, [isPersonal, form.amount, form.split_method, form.paid_by, form.category, loggedInDisplay, otherUser, fmt]);
 
   const splitMethods = useMemo(() => [
     {
@@ -255,6 +361,30 @@ export default function AddExpense() {
           </p>
         </header>
 
+        {pendingRestore && (
+          <div className="bg-primary-container/30 border border-primary/20 text-on-surface px-4 py-3 rounded-xl text-sm mb-6 flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm">restore</span>
+              You have an unsaved entry from before your session expired.
+            </span>
+            <span className="flex items-center gap-3 shrink-0">
+              <button type="button" onClick={handleRestorePending} className="font-bold text-primary hover:underline">
+                Restore
+              </button>
+              <button type="button" onClick={handleDiscardPending} className="font-semibold text-on-surface-variant hover:underline">
+                Discard
+              </button>
+            </span>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="bg-secondary-container/30 border border-secondary/20 text-on-secondary-container px-4 py-3 rounded-xl text-sm mb-6 flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">check_circle</span>
+            {successMessage}
+          </div>
+        )}
+
         {error && (
           <div className="bg-error-container/20 border border-error/20 text-error px-4 py-3 rounded-xl text-sm mb-6 flex items-center gap-2">
             <span className="material-symbols-outlined text-sm">error</span>
@@ -270,14 +400,17 @@ export default function AddExpense() {
             </label>
             <div className="relative flex items-center justify-center">
               <span className="text-4xl font-headline font-bold text-primary mr-1">
-                $
+                {symbol}
               </span>
               <input
+                ref={amountInputRef}
                 autoFocus={!isEdit}
                 type="number"
+                inputMode="decimal"
                 name="amount"
                 value={form.amount}
                 onChange={handleChange}
+                onWheel={(e) => e.target.blur()}
                 step="0.01"
                 className="w-48 text-5xl font-headline font-extrabold text-primary bg-transparent border-none focus:ring-0 text-center placeholder:text-primary/20"
                 placeholder="0.00"
@@ -285,6 +418,21 @@ export default function AddExpense() {
               />
             </div>
             <div className="h-1 w-24 bg-primary-container rounded-full mt-4"></div>
+            {splitPreviewText && (
+              <p className="mt-4 text-sm font-semibold text-on-surface-variant text-center max-w-xs">
+                {splitPreviewText}
+              </p>
+            )}
+            {!isPersonal && (
+              <button
+                type="button"
+                onClick={() => setShowCalculator(true)}
+                className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+              >
+                <span className="material-symbols-outlined text-[16px]">calculate</span>
+                Split calculator
+              </button>
+            )}
           </div>
 
           {/* Date & Description Grid */}
@@ -510,7 +658,7 @@ export default function AddExpense() {
           )}
 
           {/* Submit */}
-          <div className="pt-6">
+          <div className="pt-6 space-y-3">
             <button
               type="submit"
               disabled={submitting}
@@ -525,6 +673,17 @@ export default function AddExpense() {
                   ? "Save Changes"
                   : "Log Expense"}
             </button>
+            {!isEdit && (
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={(e) => handleSubmit(e, true)}
+                className="w-full h-12 rounded-full bg-surface-container-high text-primary font-headline font-bold text-sm active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                <span className="material-symbols-outlined text-[18px]">add</span>
+                Save &amp; add another
+              </button>
+            )}
           </div>
         </form>
       </section>
@@ -548,6 +707,16 @@ export default function AddExpense() {
             </p>
           </div>
         </div>
+      )}
+
+      {showCalculator && !isPersonal && (
+        <SplitCalculatorModal
+          onClose={() => setShowCalculator(false)}
+          userA={userA}
+          userB={userB}
+          defaultPayer={form.paid_by}
+          onUseResult={handleCalculatorResult}
+        />
       )}
     </div>
   );

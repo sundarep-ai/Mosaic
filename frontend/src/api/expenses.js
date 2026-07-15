@@ -1,9 +1,9 @@
 import { API_BASE } from "../config";
 import { fetchWithAuth } from "./fetchWithAuth";
 
-export async function getExpenses(params = {}) {
+export async function getExpenses(params = {}, { signal } = {}) {
   const query = new URLSearchParams(params).toString();
-  const res = await fetchWithAuth(`${API_BASE}/expenses?${query}`);
+  const res = await fetchWithAuth(`${API_BASE}/expenses?${query}`, { signal });
   if (!res.ok) throw new Error("Failed to fetch expenses");
   return res.json();
 }
@@ -20,7 +20,10 @@ export async function createExpense(data) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("Failed to create expense");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create expense");
+  }
   return res.json();
 }
 
@@ -30,7 +33,10 @@ export async function updateExpense(id, data) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("Failed to update expense");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update expense");
+  }
   return res.json();
 }
 
@@ -119,9 +125,9 @@ export async function getInsights() {
   return res.json();
 }
 
-export async function getAnalytics(params = {}) {
+export async function getAnalytics(params = {}, { signal } = {}) {
   const query = new URLSearchParams(params).toString();
-  const res = await fetchWithAuth(`${API_BASE}/analytics?${query}`);
+  const res = await fetchWithAuth(`${API_BASE}/analytics?${query}`, { signal });
   if (!res.ok) throw new Error("Failed to fetch analytics");
   return res.json();
 }

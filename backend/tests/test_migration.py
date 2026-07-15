@@ -6,6 +6,7 @@ isolated from the shared API test database.
 """
 
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
@@ -81,13 +82,13 @@ def _write_income_xlsx(path: Path, rows: list[dict]) -> None:
 
 class TestMigrateExpenses:
 
-    def _run(self, engine, xlsx_path: Path):
+    def _run(self, engine, xlsx_path: Path, date_format: str = "YYYY-MM-DD"):
         """Patch the module-level engine and run migrate()."""
         with (
             patch.object(migrate_expenses, "engine", engine),
             patch.object(migrate_expenses, "create_db_and_tables", lambda: None),
         ):
-            migrate_expenses.migrate(str(xlsx_path))
+            migrate_expenses.migrate(str(xlsx_path), date_format)
 
     def test_happy_path(self, tmp_path):
         engine = _make_engine()
@@ -104,36 +105,58 @@ class TestMigrateExpenses:
         self._run(engine, xlsx)
 
         with Session(engine) as s:
-            expenses = s.exec(select(Expense)).all()
+            expenses = s.exec(select(Expense).order_by(Expense.id)).all()
         assert len(expenses) == 2
         assert expenses[0].paid_by == "Alice"
         assert expenses[0].amount == 80.00
         assert expenses[1].paid_by == "Bob"
         assert expenses[1].amount == 1200.00
 
-    def test_date_formats(self, tmp_path):
-        """All supported date format variants are parsed correctly."""
+    def test_date_format_iso(self, tmp_path):
         engine = _make_engine()
         _seed_users(engine, [("alice", "Alice")])
-
         xlsx = tmp_path / "expenses.xlsx"
         _write_expenses_xlsx(xlsx, [
-            {"date": "2026-01-10", "description": "ISO",
-             "amount": 10, "category": "Groceries", "paid_by": "Alice", "split_method": "Personal"},
-            {"date": "01/20/2026", "description": "US",
-             "amount": 20, "category": "Groceries", "paid_by": "Alice", "split_method": "Personal"},
-            {"date": "25/01/2026", "description": "EU",
-             "amount": 30, "category": "Groceries", "paid_by": "Alice", "split_method": "Personal"},
+            {"date": "2026-01-10", "description": "ISO", "amount": 10,
+             "category": "Groceries", "paid_by": "Alice", "split_method": "Personal"},
         ])
-
-        self._run(engine, xlsx)
-
+        self._run(engine, xlsx, date_format="YYYY-MM-DD")
         with Session(engine) as s:
-            expenses = s.exec(select(Expense).order_by(Expense.amount)).all()
-        assert len(expenses) == 3
-        assert expenses[0].date == date(2026, 1, 10)
-        assert expenses[1].date == date(2026, 1, 20)
-        assert expenses[2].date == date(2026, 1, 25)
+            expense = s.exec(select(Expense)).first()
+        assert expense.date == date(2026, 1, 10)
+
+    def test_date_format_us(self, tmp_path):
+        engine = _make_engine()
+        _seed_users(engine, [("alice", "Alice")])
+        xlsx = tmp_path / "expenses.xlsx"
+        _write_expenses_xlsx(xlsx, [
+            {"date": "01/20/2026", "description": "US", "amount": 20,
+             "category": "Groceries", "paid_by": "Alice", "split_method": "Personal"},
+        ])
+        self._run(engine, xlsx, date_format="MM/DD/YYYY")
+        with Session(engine) as s:
+            expense = s.exec(select(Expense)).first()
+        assert expense.date == date(2026, 1, 20)
+
+    def test_date_format_dd_mm_yyyy_does_not_swap_day_and_month(self, tmp_path):
+        """Regression test for the reviewed DD/MM corruption bug: a sheet in the
+        app's own default display format (DD/MM/YYYY) must import with day and
+        month in the correct place for every row, including day <= 12 where the
+        old guess-multiple-formats logic silently picked the wrong one.
+        """
+        engine = _make_engine()
+        _seed_users(engine, [("alice", "Alice")])
+        xlsx = tmp_path / "expenses.xlsx"
+        _write_expenses_xlsx(xlsx, [
+            # 3rd of November — day <= 12, so the old code would have tried
+            # %m/%d/%Y first and misread this as March 11th.
+            {"date": "03/11/2026", "description": "EU", "amount": 30,
+             "category": "Groceries", "paid_by": "Alice", "split_method": "Personal"},
+        ])
+        self._run(engine, xlsx, date_format="DD/MM/YYYY")
+        with Session(engine) as s:
+            expense = s.exec(select(Expense)).first()
+        assert expense.date == date(2026, 11, 3)
 
     def test_unknown_paid_by_raises(self, tmp_path):
         """Migration aborts if a paid_by value doesn't match any display name."""
@@ -184,8 +207,8 @@ class TestMigrateExpenses:
             self._run(engine, xlsx)
         assert exc_info.value.code == 1
 
-    def test_unparseable_date_skipped(self, tmp_path, capsys):
-        """Rows with unparseable dates are skipped; valid rows still import."""
+    def test_unparseable_date_aborts_entire_import(self, tmp_path, capsys):
+        """A single bad row must abort the whole import — nothing partially lands."""
         engine = _make_engine()
         _seed_users(engine, [("alice", "Alice")])
 
@@ -197,15 +220,116 @@ class TestMigrateExpenses:
              "category": "Groceries", "paid_by": "Alice", "split_method": "Personal"},
         ])
 
-        self._run(engine, xlsx)
+        with pytest.raises(SystemExit) as exc_info:
+            self._run(engine, xlsx)
+        assert exc_info.value.code == 1
 
         with Session(engine) as s:
-            expenses = s.exec(select(Expense)).all()
-        assert len(expenses) == 1
-        assert expenses[0].description == "Good"
+            assert s.exec(select(Expense)).all() == []
 
         captured = capsys.readouterr()
-        assert "WARNING" in captured.out
+        assert "ERROR" in captured.out
+
+    def test_custom_category_is_imported(self, tmp_path):
+        """A novel category not in VALID_CATEGORIES must import successfully,
+        matching the app's own custom-category support."""
+        engine = _make_engine()
+        _seed_users(engine, [("alice", "Alice")])
+        xlsx = tmp_path / "expenses.xlsx"
+        _write_expenses_xlsx(xlsx, [
+            {"date": "2026-01-10", "description": "Good", "amount": 10,
+             "category": "Groceries", "paid_by": "Alice", "split_method": "Personal"},
+            {"date": "2026-01-11", "description": "Custom category", "amount": 20,
+             "category": "Home Renovation", "paid_by": "Alice", "split_method": "Personal"},
+        ])
+        self._run(engine, xlsx)
+        with Session(engine) as s:
+            categories = {e.category for e in s.exec(select(Expense)).all()}
+        assert categories == {"Groceries", "Home Renovation"}
+
+    def test_empty_category_aborts_entire_import(self, tmp_path):
+        engine = _make_engine()
+        _seed_users(engine, [("alice", "Alice")])
+        xlsx = tmp_path / "expenses.xlsx"
+        _write_expenses_xlsx(xlsx, [
+            {"date": "2026-01-10", "description": "Good", "amount": 10,
+             "category": "Groceries", "paid_by": "Alice", "split_method": "Personal"},
+            {"date": "2026-01-11", "description": "Empty category", "amount": 20,
+             "category": "", "paid_by": "Alice", "split_method": "Personal"},
+        ])
+        with pytest.raises(SystemExit) as exc_info:
+            self._run(engine, xlsx)
+        assert exc_info.value.code == 1
+        with Session(engine) as s:
+            assert s.exec(select(Expense)).all() == []
+
+    def test_case_collision_category_aborts_entire_import(self, tmp_path):
+        """A category differing only by case from an existing one (e.g.
+        'groceries' vs 'Groceries') must abort — importing it as-is would
+        fragment analytics into two buckets for the same real category."""
+        engine = _make_engine()
+        _seed_users(engine, [("alice", "Alice")])
+        xlsx = tmp_path / "expenses.xlsx"
+        _write_expenses_xlsx(xlsx, [
+            {"date": "2026-01-10", "description": "Good", "amount": 10,
+             "category": "Groceries", "paid_by": "Alice", "split_method": "Personal"},
+            {"date": "2026-01-11", "description": "Case collision", "amount": 20,
+             "category": "groceries", "paid_by": "Alice", "split_method": "Personal"},
+        ])
+        with pytest.raises(SystemExit) as exc_info:
+            self._run(engine, xlsx)
+        assert exc_info.value.code == 1
+        with Session(engine) as s:
+            assert s.exec(select(Expense)).all() == []
+
+    def test_unknown_split_method_aborts_entire_import(self, tmp_path):
+        engine = _make_engine()
+        _seed_users(engine, [("alice", "Alice"), ("bob", "Bob")])
+        xlsx = tmp_path / "expenses.xlsx"
+        _write_expenses_xlsx(xlsx, [
+            {"date": "2026-01-10", "description": "Good", "amount": 10,
+             "category": "Groceries", "paid_by": "Alice", "split_method": "50/50"},
+            {"date": "2026-01-11", "description": "Bad split", "amount": 20,
+             "category": "Groceries", "paid_by": "Alice", "split_method": "70/30"},
+        ])
+        with pytest.raises(SystemExit) as exc_info:
+            self._run(engine, xlsx)
+        assert exc_info.value.code == 1
+        with Session(engine) as s:
+            assert s.exec(select(Expense)).all() == []
+
+    def test_amount_is_quantized_via_model_validate(self, tmp_path):
+        """Amounts route through Expense.model_validate so round_amount actually runs."""
+        engine = _make_engine()
+        _seed_users(engine, [("alice", "Alice")])
+        xlsx = tmp_path / "expenses.xlsx"
+        _write_expenses_xlsx(xlsx, [
+            {"date": "2026-01-10", "description": "Odd cents", "amount": 10.006,
+             "category": "Groceries", "paid_by": "Alice", "split_method": "Personal"},
+        ])
+        self._run(engine, xlsx)
+        with Session(engine) as s:
+            expense = s.exec(select(Expense)).first()
+        # amount is a Decimal column; comparing to a bare float (10.01 isn't
+        # exactly representable in binary floating point) would spuriously
+        # fail even when quantization is correct.
+        assert expense.amount == Decimal("10.01")
+
+    def test_zero_amount_aborts_entire_import(self, tmp_path):
+        engine = _make_engine()
+        _seed_users(engine, [("alice", "Alice")])
+        xlsx = tmp_path / "expenses.xlsx"
+        _write_expenses_xlsx(xlsx, [
+            {"date": "2026-01-10", "description": "Good", "amount": 10,
+             "category": "Groceries", "paid_by": "Alice", "split_method": "Personal"},
+            {"date": "2026-01-11", "description": "Zero", "amount": 0,
+             "category": "Groceries", "paid_by": "Alice", "split_method": "Personal"},
+        ])
+        with pytest.raises(SystemExit) as exc_info:
+            self._run(engine, xlsx)
+        assert exc_info.value.code == 1
+        with Session(engine) as s:
+            assert s.exec(select(Expense)).all() == []
 
     def test_existing_data_prompt_abort(self, tmp_path):
         """If the user answers N when prompted about existing data, no rows are added."""
@@ -259,18 +383,24 @@ class TestMigrateExpenses:
             expenses = s.exec(select(Expense)).all()
         assert len(expenses) == 2
 
+    def test_cli_requires_date_format_argument(self):
+        """--date-format is mandatory at the CLI layer (argparse required=True)."""
+        parser = migrate_expenses.build_arg_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["expenses.xlsx"])  # no --date-format
+
 
 # ── migrate_income ────────────────────────────────────────────────────────────
 
 class TestMigrateIncome:
 
-    def _run(self, engine, xlsx_path: Path):
+    def _run(self, engine, xlsx_path: Path, date_format: str = "YYYY-MM-DD"):
         """Patch the module-level engine and run migrate()."""
         with (
             patch.object(migrate_income, "engine", engine),
             patch.object(migrate_income, "create_db_and_tables", lambda: None),
         ):
-            migrate_income.migrate(str(xlsx_path))
+            migrate_income.migrate(str(xlsx_path), date_format)
 
     def test_happy_path(self, tmp_path):
         engine = _make_engine()
@@ -295,6 +425,20 @@ class TestMigrateIncome:
         assert alice_income.notes == "January salary"
         bob_income = next(i for i in incomes if i.amount == 500.00)
         assert bob_income.user_id == "bob"
+
+    def test_date_format_dd_mm_yyyy_does_not_swap_day_and_month(self, tmp_path):
+        """Regression test for the reviewed DD/MM corruption bug in migrate_income."""
+        engine = _make_engine()
+        _seed_users(engine, [("alice", "Alice")])
+        xlsx = tmp_path / "income.xlsx"
+        _write_income_xlsx(xlsx, [
+            {"date": "03/11/2026", "amount": 1000.00,
+             "source": "Salary / Wages", "display_name": "Alice"},
+        ])
+        self._run(engine, xlsx, date_format="DD/MM/YYYY")
+        with Session(engine) as s:
+            income = s.exec(select(Income)).first()
+        assert income.date == date(2026, 11, 3)
 
     def test_display_name_resolves_to_username(self, tmp_path):
         """user_id stored in DB must be the login username, not the display name."""
@@ -362,8 +506,8 @@ class TestMigrateIncome:
             self._run(engine, xlsx)
         assert exc_info.value.code == 1
 
-    def test_invalid_source_skipped(self, tmp_path, capsys):
-        """Rows with unrecognised income sources are skipped; valid rows import."""
+    def test_invalid_source_aborts_entire_import(self, tmp_path, capsys):
+        """A row with an unrecognised income source aborts the whole import."""
         engine = _make_engine()
         _seed_users(engine, [("alice", "Alice")])
 
@@ -375,18 +519,18 @@ class TestMigrateIncome:
              "source": "Salary / Wages", "display_name": "Alice"},
         ])
 
-        self._run(engine, xlsx)
+        with pytest.raises(SystemExit) as exc_info:
+            self._run(engine, xlsx)
+        assert exc_info.value.code == 1
 
         with Session(engine) as s:
-            incomes = s.exec(select(Income)).all()
-        assert len(incomes) == 1
-        assert incomes[0].amount == 3000.00
+            assert s.exec(select(Income)).all() == []
 
         captured = capsys.readouterr()
-        assert "WARNING" in captured.out
+        assert "ERROR" in captured.out
 
-    def test_non_positive_amount_skipped(self, tmp_path, capsys):
-        """Rows with zero or negative amounts are skipped."""
+    def test_non_positive_amount_aborts_entire_import(self, tmp_path):
+        """Rows with zero or negative amounts abort the whole import."""
         engine = _make_engine()
         _seed_users(engine, [("alice", "Alice")])
 
@@ -400,15 +544,15 @@ class TestMigrateIncome:
              "source": "Salary / Wages", "display_name": "Alice"},
         ])
 
-        self._run(engine, xlsx)
+        with pytest.raises(SystemExit) as exc_info:
+            self._run(engine, xlsx)
+        assert exc_info.value.code == 1
 
         with Session(engine) as s:
-            incomes = s.exec(select(Income)).all()
-        assert len(incomes) == 1
-        assert incomes[0].amount == 2000
+            assert s.exec(select(Income)).all() == []
 
-    def test_empty_display_name_skipped(self, tmp_path, capsys):
-        """Rows with an empty display name cell are skipped."""
+    def test_empty_display_name_aborts_entire_import(self, tmp_path):
+        """A row with an empty display name cell aborts the whole import."""
         engine = _make_engine()
         _seed_users(engine, [("alice", "Alice")])
 
@@ -420,15 +564,15 @@ class TestMigrateIncome:
         xlsx = tmp_path / "income.xlsx"
         wb.save(xlsx)
 
-        self._run(engine, xlsx)
+        with pytest.raises(SystemExit) as exc_info:
+            self._run(engine, xlsx)
+        assert exc_info.value.code == 1
 
         with Session(engine) as s:
-            incomes = s.exec(select(Income)).all()
-        assert len(incomes) == 1
-        assert incomes[0].amount == 2000
+            assert s.exec(select(Income)).all() == []
 
-    def test_unparseable_date_skipped(self, tmp_path, capsys):
-        """Rows with unparseable dates are skipped; valid rows still import."""
+    def test_unparseable_date_aborts_entire_import(self, tmp_path, capsys):
+        """Rows with unparseable dates abort the whole import."""
         engine = _make_engine()
         _seed_users(engine, [("alice", "Alice")])
 
@@ -440,15 +584,15 @@ class TestMigrateIncome:
              "source": "Salary / Wages", "display_name": "Alice"},
         ])
 
-        self._run(engine, xlsx)
+        with pytest.raises(SystemExit) as exc_info:
+            self._run(engine, xlsx)
+        assert exc_info.value.code == 1
 
         with Session(engine) as s:
-            incomes = s.exec(select(Income)).all()
-        assert len(incomes) == 1
-        assert incomes[0].amount == 3000.00
+            assert s.exec(select(Income)).all() == []
 
         captured = capsys.readouterr()
-        assert "WARNING" in captured.out
+        assert "ERROR" in captured.out
 
     def test_existing_data_prompt_abort(self, tmp_path):
         """If the user answers N when prompted about existing data, no rows are added."""
@@ -519,3 +663,9 @@ class TestMigrateIncome:
             income = s.exec(select(Income)).first()
         assert income is not None
         assert income.user_id == "alice"
+
+    def test_cli_requires_date_format_argument(self):
+        """--date-format is mandatory at the CLI layer (argparse required=True)."""
+        parser = migrate_income.build_arg_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["income.xlsx"])  # no --date-format

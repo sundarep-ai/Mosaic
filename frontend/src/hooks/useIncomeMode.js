@@ -1,34 +1,6 @@
-import { useState } from "react";
-import { useUsers } from "../ConfigContext";
-
-const STORAGE_KEY = "income_mode_enabled";
-
-export function useIncomeMode() {
-  const { mode } = useUsers();
-  const canUseIncome = mode === "personal" || mode === "blended";
-
-  const [enabled, setEnabled] = useState(
-    () => canUseIncome && localStorage.getItem(STORAGE_KEY) === "true"
-  );
-
-  function toggleIncome(val) {
-    if (val) {
-      localStorage.setItem(STORAGE_KEY, "true");
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-    setEnabled(val && canUseIncome);
-  }
-
-  function clearIncome() {
-    localStorage.removeItem(STORAGE_KEY);
-    setEnabled(false);
-  }
-
-  return {
-    incomeEnabled: enabled && canUseIncome,
-    toggleIncome,
-    clearIncome,
-    canUseIncome,
-  };
-}
+// income-mode-enabled is now a per-user server-side preference living on the
+// same UserPreference row as date_format and currency — see
+// UserPreferencesContext.jsx (whose provider is mounted once, as
+// DateFormatProvider, in App.jsx). Re-exported under its original name so
+// existing useIncomeMode() consumers don't need to change.
+export { useIncomeMode } from "../UserPreferencesContext";

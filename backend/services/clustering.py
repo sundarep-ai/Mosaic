@@ -13,6 +13,13 @@ import numpy as np
 _embedding_model = None
 _embedding_lock = threading.Lock()
 
+# Descriptions are immutable strings, so a description -> embedding mapping
+# never goes stale. Re-embedding every unique description on every call was
+# the single biggest cost of the insights page (see
+# review_order/09-insights-recurring-forecast.md, item 1).
+_embedding_cache: dict[str, "np.ndarray"] = {}
+_embedding_cache_lock = threading.Lock()
+
 
 def get_embedding_model():
     """Lazy singleton for TextEmbedding model. Thread-safe initialization."""
@@ -25,14 +32,26 @@ def get_embedding_model():
     return _embedding_model
 
 
+def _get_embeddings(descriptions: list[str]) -> list:
+    """Return one embedding per description, computing (and caching) only
+    the ones not already cached."""
+    missing = [d for d in descriptions if d not in _embedding_cache]
+    if missing:
+        model = get_embedding_model()
+        computed = list(model.embed(missing))
+        with _embedding_cache_lock:
+            for desc, emb in zip(missing, computed):
+                _embedding_cache[desc] = emb
+    return [_embedding_cache[d] for d in descriptions]
+
+
 def _run_clustering(descriptions: list[str], threshold: float) -> list[list[int]]:
     """Core greedy embedding clustering. Returns all clusters including singletons.
 
     Each candidate j must be similar to ALL current cluster members (not just
     the seed) before it is admitted, preventing incoherent transitive groupings.
     """
-    model = get_embedding_model()
-    embeddings = list(model.embed(descriptions))
+    embeddings = _get_embeddings(descriptions)
     emb_matrix = np.array(embeddings)
 
     # Cosine similarity matrix

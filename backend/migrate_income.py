@@ -2,29 +2,49 @@
 Migrate income entries from an existing .xlsx or .csv file into the Mosaic SQLite database.
 
 Usage:
-    python migrate_income.py path/to/your/income.xlsx
-    python migrate_income.py path/to/your/income.csv
+    python migrate_income.py path/to/your/income.xlsx --date-format DD/MM/YYYY
+    python migrate_income.py path/to/your/income.csv --date-format YYYY-MM-DD
 
 Expected columns (header matching is case-insensitive and flexible):
     Date, Amount, Source, Display Name
     Notes  (optional)
 
 Valid sources: "Salary / Wages", "Freelance / Side Income", "Other"
+
+--date-format is required: a string date like "01/02/2026" is ambiguous
+(Jan 2 or Feb 1) and guessing silently produces day/month-swapped dates for
+some rows and not others, leaving self-inconsistent history with no error.
+Dates already stored as real Excel date cells (not text) are read directly —
+the flag only matters for string date cells (always the case for .csv).
+
+The whole file is validated before anything is written: if any row fails
+validation, nothing is imported. A partial import (some rows in, some
+silently dropped mid-run) is worse than refusing to run at all.
 """
 
+import argparse
 import csv
 import sys
-from datetime import datetime
+from datetime import datetime, date as date_cls
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import openpyxl
+from pydantic import ValidationError
 from sqlalchemy import func
 from sqlmodel import Session, select
 
 from database import engine, create_db_and_tables
 from models import Income, VALID_INCOME_SOURCES
 from users import get_all_users
+
+# Maps the app's own date-format vocabulary to strptime patterns. Kept
+# deliberately small and explicit (no guessing) — see module docstring.
+DATE_FORMAT_MAP = {
+    "YYYY-MM-DD": "%Y-%m-%d",
+    "MM/DD/YYYY": "%m/%d/%Y",
+    "DD/MM/YYYY": "%d/%m/%Y",
+}
 
 
 def normalize(header: str) -> str:
@@ -49,13 +69,44 @@ def _load_rows(filepath: str) -> tuple[list[str], list[tuple]]:
         return headers, rows
 
 
-def migrate(filepath: str) -> None:
+def _parse_date(raw, strptime_fmt: str, row_num: int, errors: list[str]):
+    """Return a date for a cell that's either a native Excel date or a string
+    in the explicitly-requested format. Appends to `errors` and returns None
+    on failure rather than raising, so the caller can collect every bad row
+    before deciding whether to abort.
+    """
+    if isinstance(raw, datetime):
+        return raw.date()
+    if isinstance(raw, date_cls):
+        return raw
+    try:
+        return datetime.strptime(str(raw).strip(), strptime_fmt).date()
+    except ValueError:
+        errors.append(f"Row {row_num}: unparseable date {raw!r} for format {strptime_fmt!r}")
+        return None
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Migrate income entries into Mosaic's database.")
+    parser.add_argument("filepath", help="Path to the .xlsx or .csv file")
+    parser.add_argument(
+        "--date-format",
+        required=True,
+        choices=sorted(DATE_FORMAT_MAP),
+        help="Format of string date cells in the sheet (ignored for native Excel date cells).",
+    )
+    return parser
+
+
+def migrate(filepath: str, date_format: str) -> None:
     create_db_and_tables()
 
     suffix = Path(filepath).suffix.lower()
     if suffix not in (".xlsx", ".csv"):
         print(f"ERROR: Unsupported file type '{suffix}'. Use .xlsx or .csv.")
         sys.exit(1)
+
+    strptime_fmt = DATE_FORMAT_MAP[date_format]
 
     headers, rows = _load_rows(filepath)
 
@@ -117,85 +168,81 @@ def migrate(filepath: str) -> None:
                 print("Aborted.")
                 sys.exit(0)
 
-        count = 0
-        skipped = 0
+        # ── Pass 1: validate every row before touching the database ──
+        errors: list[str] = []
+        validated: list[Income] = []
+
         for row_num, row in enumerate(rows, start=2):
             if not row or row[col_map["date"]] in (None, ""):
                 continue
 
-            # --- Date ---
-            date_val = row[col_map["date"]]
-            if isinstance(date_val, str):
-                for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%m-%d-%Y"):
-                    try:
-                        date_val = datetime.strptime(date_val, fmt).date()
-                        break
-                    except ValueError:
-                        continue
-                else:
-                    print(f"WARNING: Row {row_num} — skipping unparseable date: {date_val!r}")
-                    skipped += 1
-                    continue
-            elif isinstance(date_val, datetime):
-                date_val = date_val.date()
+            row_ok = True
 
-            # --- Amount ---
+            date_val = _parse_date(row[col_map["date"]], strptime_fmt, row_num, errors)
+            if date_val is None:
+                row_ok = False
+
+            # --- Amount --- validated up front (not via model_validate) so a
+            # non-numeric cell reports a friendly row-numbered error instead of
+            # an uncaught decimal.InvalidOperation (pydantic only catches
+            # ValueError/TypeError/AssertionError raised inside a validator).
             raw_amount = row[col_map["amount"]]
+            amount_val = None
             try:
                 amount_val = Decimal(str(raw_amount)).quantize(Decimal("0.01"))
                 if amount_val <= 0:
                     raise ValueError("non-positive")
             except (InvalidOperation, ValueError):
-                print(f"WARNING: Row {row_num} — skipping invalid amount: {raw_amount!r}")
-                skipped += 1
-                continue
+                errors.append(f"Row {row_num}: invalid amount {raw_amount!r}")
+                row_ok = False
 
-            # --- Source ---
             source_val = str(row[col_map["source"]]).strip()
             if source_val not in VALID_INCOME_SOURCES:
-                print(
-                    f"WARNING: Row {row_num} — skipping unknown source: {source_val!r}. "
-                    f"Valid values: {valid_sources}"
+                errors.append(
+                    f"Row {row_num}: unknown source {source_val!r}. Valid values: {valid_sources}"
                 )
-                skipped += 1
-                continue
+                row_ok = False
 
-            # --- Display Name → resolve to username ---
             raw_display = row[col_map["display_name"]]
-            if raw_display is None:
-                print(f"WARNING: Row {row_num} — skipping row with empty display name")
-                skipped += 1
-                continue
-            display_name_val = str(raw_display).strip()
+            display_name_val = str(raw_display).strip() if raw_display is not None else ""
             if not display_name_val:
-                print(f"WARNING: Row {row_num} — skipping row with empty display name")
-                skipped += 1
-                continue
-            user_id_val = display_name_to_username[display_name_val]
+                errors.append(f"Row {row_num}: empty display name")
+                row_ok = False
 
-            # --- Notes (optional) ---
+            if not row_ok:
+                continue  # already recorded above
+
             notes_val = None
             if "notes" in col_map and row[col_map["notes"]] is not None:
                 notes_val = str(row[col_map["notes"]]).strip() or None
 
-            income = Income(
-                date=date_val,
-                amount=amount_val,
-                source=source_val,
-                notes=notes_val,
-                user_id=user_id_val,
-            )
-            session.add(income)
-            count += 1
+            try:
+                income = Income.model_validate({
+                    "date": date_val,
+                    "amount": amount_val,
+                    "source": source_val,
+                    "notes": notes_val,
+                    "user_id": display_name_to_username[display_name_val],
+                })
+            except ValidationError as e:
+                errors.append(f"Row {row_num}: {e}")
+                continue
 
+            validated.append(income)
+
+        if errors:
+            print(f"ERROR: {len(errors)} row(s) failed validation. Nothing was imported.")
+            for e in errors:
+                print(f"  - {e}")
+            sys.exit(1)
+
+        # ── Pass 2: every row validated — commit as a single unit ──
+        for income in validated:
+            session.add(income)
         session.commit()
-        print(f"Successfully migrated {count} income entries into mosaic.db")
-        if skipped:
-            print(f"Skipped {skipped} rows due to validation errors (see warnings above).")
+        print(f"Successfully migrated {len(validated)} income entries into mosaic.db")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python migrate_income.py <path_to_xlsx_or_csv>")
-        sys.exit(1)
-    migrate(sys.argv[1])
+    args = build_arg_parser().parse_args()
+    migrate(args.filepath, args.date_format)

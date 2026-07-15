@@ -47,11 +47,12 @@ export async function getMonthlyIncomeSummary() {
   return res.json();
 }
 
-export async function getIncomeSankey(params = {}) {
+export async function getIncomeSankey(params = {}, { signal } = {}) {
   const res = await fetchWithAuth(`${API_BASE}/income/sankey`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
+    signal,
   });
   if (!res.ok) throw new Error("Failed to fetch Sankey data");
   return res.json();

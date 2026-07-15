@@ -11,6 +11,7 @@ from auth import get_current_user
 from config import get_app_mode
 from database import get_session
 from models import Expense, Income, IncomeCreate, IncomeUpdate
+from services.audit import audit_logger, income_to_dict
 from utils import to_decimal
 
 router = APIRouter()
@@ -63,6 +64,7 @@ def create_income(
     session.add(income)
     session.commit()
     session.refresh(income)
+    audit_logger.log("CREATE", current_user, income_to_dict(income))
     return income
 
 
@@ -81,11 +83,13 @@ def update_income(
         raise HTTPException(status_code=403, detail="You can only edit your own income entries")
     if data.date > date.today():
         raise HTTPException(status_code=422, detail="date cannot be in the future")
+    before = income_to_dict(income)
     for field, value in data.model_dump().items():
         setattr(income, field, value)
     session.add(income)
     session.commit()
     session.refresh(income)
+    audit_logger.log("UPDATE", current_user, income_to_dict(income), before=before)
     return income
 
 
@@ -101,8 +105,10 @@ def delete_income(
         raise HTTPException(status_code=404, detail="Income entry not found")
     if income.user_id != current_user:
         raise HTTPException(status_code=403, detail="You can only delete your own income entries")
+    deleted_data = income_to_dict(income)
     session.delete(income)
     session.commit()
+    audit_logger.log("DELETE", current_user, deleted_data)
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +127,11 @@ def get_monthly_income_summary(
     month_start = today.replace(day=1)
 
     rows = session.exec(
-        select(Income.source, func.sum(Income.amount).label("amount"))
+        select(
+            Income.source,
+            func.sum(Income.amount).label("amount"),
+            func.count(Income.id).label("entry_count"),
+        )
         .where(Income.user_id == current_user)
         .where(Income.date >= month_start)
         .where(Income.date <= today)
@@ -129,8 +139,9 @@ def get_monthly_income_summary(
     ).all()
 
     total = sum(to_decimal(r.amount) for r in rows)
+    entry_count = sum(r.entry_count for r in rows)
     by_source = [{"source": r.source, "amount": float(to_decimal(r.amount))} for r in rows]
-    return {"total": float(total), "count": len(rows), "by_source": by_source}
+    return {"total": float(total), "count": entry_count, "by_source": by_source}
 
 
 class SankeyRequest(BaseModel):
@@ -180,8 +191,9 @@ def get_income_sankey(
     income_total = sum(r["amount"] for r in by_source)
 
     # --- Expense side: current user's share, excluding Payment + Reimbursement ---
-    from routes.expenses import _resolve_names, _my_portion_expr
-    me, other = _resolve_names(current_user, session)
+    from routes.expenses import _my_portion_expr
+    from users import resolve_names
+    me, other = resolve_names(session, current_user)
     portion_expr = _my_portion_expr(me, other)
 
     expense_stmt = (
@@ -204,7 +216,10 @@ def get_income_sankey(
     )
     expenses_total = sum(r["amount"] for r in by_category)
 
-    savings = max(0.0, round(income_total - expenses_total, 2))
+    # Negative here means an overspend month (deficit) — deliberately not
+    # clamped to zero, so the frontend can render the shortfall instead of a
+    # misleading "$0 saved".
+    savings = round(income_total - expenses_total, 2)
 
     return {
         "income_total": round(income_total, 2),

@@ -43,14 +43,16 @@ _config.SECRET_KEY = SECRET_KEY
 _config.BACKUP_PATH = ""
 _config.VALID_MODES = {"personal", "shared", "blended"}
 
-def _get_app_mode(session=None):
-    if session is None:
-        return "shared"
+def _get_app_mode(session) -> str:
+    """Delegate to the real get_app_mode (config.example.py) rather than
+    reimplementing it — a hand-rolled copy here previously defaulted to
+    "shared" with no Settings row, while the shipped default is "personal";
+    dozens of tests ran under a mode-resolver that wasn't the real one."""
     from models import Settings
     row = session.get(Settings, 1)
     if row and row.app_mode in _config.VALID_MODES:
         return row.app_mode
-    return "shared"
+    return "personal"
 
 _config.get_app_mode = _get_app_mode
 sys.modules["config"] = _config
@@ -120,6 +122,16 @@ def _clean_db():
             security_question=SECURITY_QUESTION,
             security_answer_hash=_answer_hash,
         ))
+        # Mirrors what actually happens in production the moment a 2nd user
+        # registers (see main.py/auth.py — registering the 2nd account
+        # auto-switches app_mode to "shared"). Seeding users directly like
+        # this bypasses that endpoint, so without this row every test would
+        # start from the *real* no-Settings-row default of "personal" instead
+        # — which is a fine scenario for one dedicated test (see
+        # test_settings_default_mode) but not a realistic baseline for the
+        # rest of a two-user test suite.
+        from models import Settings
+        s.add(Settings(id=1, app_mode="shared"))
         s.commit()
 
     yield
@@ -135,22 +147,79 @@ def _clean_db():
 
 
 @pytest.fixture(autouse=True)
+def _reset_password_reset_rate_limiter():
+    """auth._reset_attempts is a module-level dict keyed by username and
+    real wall-clock time, entirely independent of the DB — _clean_db never
+    touches it. Left alone, a test that trips the forgot-password rate
+    limiter would leak failed-attempt counts into any later test in the
+    same run that happens to touch the same username within the 5-minute
+    window, which easily includes an entire fast test session."""
+    import auth as auth_mod
+    auth_mod._reset_attempts.clear()
+    yield
+    auth_mod._reset_attempts.clear()
+
+
+@pytest.fixture(autouse=True)
+def _clear_embedding_cache():
+    """services/clustering.py caches description -> embedding globally
+    (process-wide, keyed only by description text) so it never re-embeds an
+    immutable string twice. That's safe across real requests, but
+    test_clustering.py swaps in a fake model with hand-built vectors for
+    specific description strings (e.g. "Netflix") -- if a real-model
+    embedding for that same string is already cached from another test
+    (test_insights.py legitimately uses "Netflix" too), the fake model
+    would never even be called."""
+    import services.clustering as clustering_mod
+    clustering_mod._embedding_cache.clear()
+    yield
+    clustering_mod._embedding_cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def _clear_insights_cache():
+    """services/insights_cache.py is a process-wide dict keyed by
+    (user, mode, day), entirely independent of the DB -- _clean_db wiping
+    the tables doesn't clear it. Left alone, a cached /insights payload from
+    one test would leak into the next test for the same user on the same
+    day, e.g. test_mode_in_response's second `set_mode` call bypasses the
+    audited /api/settings endpoint (it writes the Settings row directly),
+    so the mutation-triggered cache-clear hook never fires for it."""
+    import services.insights_cache as cache_mod
+    cache_mod.clear()
+    yield
+    cache_mod.clear()
+
+
+@pytest.fixture(autouse=True)
 def audit_log(tmp_path):
     """Redirect audit logging to a temp directory per test."""
     import services.audit as audit_mod
     import routes.expenses as expenses_mod
+    import routes.income as income_mod
+    import auth as auth_mod
+    import main as main_mod
 
     test_logger = AuditLogger(tmp_path / "audit")
     old_audit = audit_mod.audit_logger
     old_expenses = expenses_mod.audit_logger
+    old_income = income_mod.audit_logger
+    old_auth = auth_mod.audit_logger
+    old_main = main_mod.audit_logger
 
     audit_mod.audit_logger = test_logger
     expenses_mod.audit_logger = test_logger
+    income_mod.audit_logger = test_logger
+    auth_mod.audit_logger = test_logger
+    main_mod.audit_logger = test_logger
 
     yield test_logger
 
     audit_mod.audit_logger = old_audit
     expenses_mod.audit_logger = old_expenses
+    income_mod.audit_logger = old_income
+    auth_mod.audit_logger = old_auth
+    main_mod.audit_logger = old_main
 
 
 @pytest.fixture

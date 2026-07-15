@@ -3,13 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { addIncome } from "../api/income";
 import { INCOME_SOURCES } from "../constants/incomeSources";
 import { useIncomeMode } from "../hooks/useIncomeMode";
+import { useCurrency } from "../CurrencyContext";
+import { toLocalISODate } from "../utils/dates";
+import { useToast } from "../ToastContext";
 import DateInput from "../components/DateInput";
 
 export default function AddIncome() {
   const navigate = useNavigate();
   const { incomeEnabled } = useIncomeMode();
-  const d = new Date();
-  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const { symbol } = useCurrency();
+  const { showToast } = useToast();
+  const today = toLocalISODate();
 
   const [form, setForm] = useState({
     date: today,
@@ -54,6 +58,7 @@ export default function AddIncome() {
     setSubmitting(true);
     try {
       await addIncome(payload);
+      showToast("Income logged.", "success");
       navigate("/");
     } catch (err) {
       setError(err.message || "Failed to log income. Please try again.");
@@ -89,14 +94,16 @@ export default function AddIncome() {
             </label>
             <div className="relative flex items-center justify-center">
               <span className="text-4xl font-headline font-bold text-tertiary mr-1">
-                $
+                {symbol}
               </span>
               <input
                 autoFocus
                 type="number"
+                inputMode="decimal"
                 name="amount"
                 value={form.amount}
                 onChange={handleChange}
+                onWheel={(e) => e.target.blur()}
                 step="0.01"
                 min="0.01"
                 className="w-48 text-5xl font-headline font-extrabold text-tertiary bg-transparent border-none focus:ring-0 text-center placeholder:text-tertiary/20"

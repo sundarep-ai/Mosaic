@@ -62,7 +62,13 @@ export default function AddNew() {
         </div>
       </div>
 
-      {tab === "expense" ? <AddExpense /> : <AddIncome />}
+      {/* Both tabs stay mounted so switching never wipes a half-typed entry */}
+      <div className={tab === "expense" ? "" : "hidden"}>
+        <AddExpense />
+      </div>
+      <div className={tab === "income" ? "" : "hidden"}>
+        <AddIncome />
+      </div>
     </div>
   );
 }

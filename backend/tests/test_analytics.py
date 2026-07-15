@@ -65,12 +65,26 @@ def test_analytics_by_split_method(auth_client_a):
 
 
 def test_analytics_top_expenses(auth_client_a):
-    for amt in [10, 50, 30, 80, 20, 60]:
-        auth_client_a.post("/api/expenses", json=make_expense(amount=amt))
+    """Assert row identity and order, not just length/sortedness — the five
+    *smallest* amounts sorted descending would satisfy the old assertions
+    just as well as the real top 5, silently hiding a wrong-end sort bug."""
+    amounts = [10, 50, 30, 80, 20, 60]
+    for amt in amounts:
+        auth_client_a.post(
+            "/api/expenses",
+            json=make_expense(description=f"Item {amt}", amount=amt),
+        )
     data = auth_client_a.get("/api/analytics").json()
     assert len(data["top_expenses"]) == 5
-    amounts = [e["amount"] for e in data["top_expenses"]]
-    assert amounts == sorted(amounts, reverse=True)
+    top = [(e["description"], e["amount"]) for e in data["top_expenses"]]
+    # The 10 must be dropped (6 expenses, only top 5 kept), rest descending.
+    assert top == [
+        ("Item 80", 80.0),
+        ("Item 60", 60.0),
+        ("Item 50", 50.0),
+        ("Item 30", 30.0),
+        ("Item 20", 20.0),
+    ]
 
 
 def test_analytics_excludes_payment(auth_client_a):
@@ -106,7 +120,8 @@ def test_analytics_reimbursement_in_total_spend(auth_client_a):
 
 
 def test_analytics_reimbursement_excluded_from_distribution(auth_client_a):
-    """Reimbursement should not appear in category distribution or by_category."""
+    """Distribution (percentage-of-whole) excludes Reimbursement — a refund
+    can't sensibly own a slice of a pie chart."""
     auth_client_a.post("/api/expenses", json=make_expense(category="Groceries", amount=100))
     auth_client_a.post(
         "/api/expenses",
@@ -114,13 +129,26 @@ def test_analytics_reimbursement_excluded_from_distribution(auth_client_a):
     )
     data = auth_client_a.get("/api/analytics").json()
     dist_cats = [d["category"] for d in data["distribution"]]
-    by_cats = [c["category"] for c in data["by_category"]]
     assert "Reimbursement" not in dist_cats
-    assert "Reimbursement" not in by_cats
 
 
-def test_analytics_reimbursement_excluded_from_payer_breakdown(auth_client_a):
-    """Reimbursement should not count in payer breakdown totals."""
+def test_analytics_reimbursement_included_in_by_category(auth_client_a):
+    """by_category is a totals view, so Reimbursement nets in as its own
+    (typically negative) line — this is what keeps it reconciled with
+    total_spend (see the Reimbursement convention note in CLAUDE.md)."""
+    auth_client_a.post("/api/expenses", json=make_expense(category="Groceries", amount=100))
+    auth_client_a.post(
+        "/api/expenses",
+        json=make_expense(category="Reimbursement", amount=-30),
+    )
+    data = auth_client_a.get("/api/analytics").json()
+    by_cats = {c["category"]: c["amount"] for c in data["by_category"]}
+    assert by_cats["Reimbursement"] == -30.0
+    assert sum(by_cats.values()) == data["total_spend"]
+
+
+def test_analytics_reimbursement_nets_into_payer_breakdown(auth_client_a):
+    """by_payer is a totals view, so a payer's Reimbursement nets into their total."""
     auth_client_a.post(
         "/api/expenses",
         json=make_expense(paid_by=USER_A, category="Groceries", amount=100),
@@ -131,8 +159,8 @@ def test_analytics_reimbursement_excluded_from_payer_breakdown(auth_client_a):
     )
     data = auth_client_a.get("/api/analytics").json()
     payers = {p["payer"]: p for p in data["by_payer"]}
-    assert payers[USER_A]["amount"] == 100.0
-    assert payers[USER_A]["count"] == 1
+    assert payers[USER_A]["amount"] == 70.0
+    assert payers[USER_A]["count"] == 2
 
 
 def test_analytics_reimbursement_excluded_from_top_expenses(auth_client_a):

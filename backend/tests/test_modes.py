@@ -25,10 +25,19 @@ def _set_mode(auth_client, mode):
 
 # ── Settings API ───────────────────────────────────────────────────────
 
-def test_settings_default_mode(auth_client_a):
+def test_settings_default_mode(auth_client_a, db):
+    """conftest seeds a "shared" Settings row by default (mirroring what
+    registering a 2nd user really does). This test instead targets the raw
+    resolver fallback for a database that has no Settings row at all — e.g.
+    a fresh install, or one seeded directly like this test suite's own
+    fixtures — which must be "personal", not "shared"."""
+    from sqlalchemy import text
+    db.execute(text("DELETE FROM settings"))
+    db.commit()
+
     resp = auth_client_a.get("/api/settings")
     assert resp.status_code == 200
-    assert resp.json()["app_mode"] == "shared"
+    assert resp.json()["app_mode"] == "personal"
 
 
 def test_settings_update_mode(auth_client_a):
@@ -79,12 +88,17 @@ def test_config_endpoint_includes_mode(auth_client_a):
 # ── Personal Mode: Login Restriction ──────────────────────────────────
 
 def test_personal_blocks_user_b_login(auth_client_a, client):
+    """A real, registered secondary account gets an honest mode-restriction
+    error (403), not the generic "Invalid username or password" (401) —
+    see review_order/06-backend-security-access.md #2. Full coverage of this
+    behavior (unknown users still get the generic 401, wrong password for
+    the primary user still 401s, etc.) lives in test_security_access.py."""
     _set_mode(auth_client_a, "personal")
     resp = client.post("/api/auth/login", json={
         "username": USER_B_LOGIN,
         "password": PASSWORD_B,
     })
-    assert resp.status_code == 401
+    assert resp.status_code == 403
 
 
 def test_personal_allows_user_a_login(auth_client_a, client):
@@ -247,6 +261,19 @@ def test_personal_summary_excludes_payment_category(auth_client_a):
     assert resp.json()["amount"] == 0.0
 
 
+def test_personal_summary_nets_reimbursement(auth_client_a):
+    """A personal Reimbursement nets into the personal total rather than
+    being excluded — see the Reimbursement convention note in CLAUDE.md."""
+    auth_client_a.post("/api/expenses", json=make_expense(
+        amount=100, split_method="Personal", paid_by=USER_A, category="Groceries",
+    ))
+    auth_client_a.post("/api/expenses", json=make_expense(
+        amount=-20, split_method="Personal", paid_by=USER_A, category="Reimbursement",
+    ))
+    resp = auth_client_a.get("/api/personal-summary")
+    assert resp.json()["amount"] == 80.0
+
+
 def test_personal_summary_requires_auth(client):
     resp = client.get("/api/personal-summary")
     assert resp.status_code == 401
@@ -317,23 +344,59 @@ def test_validation_adapts_after_mode_switch(auth_client_a):
     assert resp.status_code == 201
 
 
-def test_personal_edit_rejects_shared_split(auth_client_a):
-    """Editing an expense in personal mode must also enforce personal validation."""
+def test_personal_edit_allows_historical_shared_split(auth_client_a):
+    """A historical 50/50 row created in shared mode must remain editable
+    after switching to personal mode — edit validation checks the union of
+    every mode's ever-valid values, not just the currently active mode.
+    See review_order/07-backend-auditing-editing-hygiene.md #4 (this test
+    replaces the old test_personal_edit_rejects_shared_split, which asserted
+    the exact bug this fix removes)."""
     # Create in shared mode
     resp = auth_client_a.post("/api/expenses", json=make_expense(
         split_method="50/50",
     ))
     expense_id = resp.json()["id"]
 
-    # Switch to personal and try to edit with a shared split
+    # Switch to personal — the same historical split must still be editable
     _set_mode(auth_client_a, "personal")
     resp = auth_client_a.put(f"/api/expenses/{expense_id}", json=make_expense(
         split_method="50/50",
     ))
-    assert resp.status_code == 422
+    assert resp.status_code == 200
 
-    # But editing to Personal should work
+    # Editing to Personal should also still work
     resp = auth_client_a.put(f"/api/expenses/{expense_id}", json=make_expense(
         paid_by=USER_A, split_method="Personal",
     ))
     assert resp.status_code == 200
+
+
+def test_personal_edit_allows_historical_paid_by_other_user(auth_client_a):
+    """A historical row paid_by the secondary user must remain editable after
+    switching to personal mode, even though personal mode's *create* rules
+    only allow the primary user as payer."""
+    resp = auth_client_a.post("/api/expenses", json=make_expense(
+        paid_by=USER_B, split_method="50/50",
+    ))
+    expense_id = resp.json()["id"]
+
+    _set_mode(auth_client_a, "personal")
+    resp = auth_client_a.put(f"/api/expenses/{expense_id}", json=make_expense(
+        paid_by=USER_B, split_method="50/50",
+    ))
+    assert resp.status_code == 200
+
+
+def test_personal_edit_still_rejects_garbage_split(auth_client_a):
+    """The relaxed edit validation widens the *set* of historically-valid
+    values — it does not disable validation altogether."""
+    resp = auth_client_a.post("/api/expenses", json=make_expense(
+        split_method="50/50",
+    ))
+    expense_id = resp.json()["id"]
+
+    _set_mode(auth_client_a, "personal")
+    resp = auth_client_a.put(f"/api/expenses/{expense_id}", json=make_expense(
+        split_method="75/25",
+    ))
+    assert resp.status_code == 422

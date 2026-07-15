@@ -9,10 +9,19 @@ from sqlmodel import Session, select
 from auth import get_current_user
 from database import get_session
 from models import Expense
-from routes.expenses import _resolve_names, _my_portion_expr
+from routes.expenses import _my_portion_expr
+from users import resolve_names
 from utils import to_decimal
 
 router = APIRouter()
+
+# Reimbursement convention (see CLAUDE.md "Money & currency"): a Reimbursement
+# is a refund, so it nets (subtracts) into every *totals* figure below —
+# total_spend, by_category, by_payer, by_split_method, my_share — the same
+# way it already does in my-expense-summary and monthly-summary. It is only
+# excluded from `distribution`, since that view expresses each category as a
+# percentage of the whole and a refund-driven negative slice isn't meaningful
+# there. Payment is excluded everywhere — it's a balance settlement, not spend.
 
 
 def _date_filters(statement, start_date, end_date, *, exclude_categories=("Payment",)):
@@ -53,8 +62,25 @@ def get_analytics(
     total_spend = to_decimal(total_row[0])
     total_shared_spend = to_decimal(total_row[1])
 
-    # Spend by category (exclude Payment and Reimbursement from distribution)
+    # Spend by category — Reimbursement convention: net refunds into every
+    # totals view (this bar chart included), but exclude them from the
+    # percentage-of-whole "distribution" view below, since a category that's
+    # net-negative from refunds can't sensibly own a slice of a pie chart.
     cat_rows = session.exec(
+        _date_filters(
+            select(Expense.category, func.sum(Expense.amount).label("total"))
+            .group_by(Expense.category)
+            .order_by(func.sum(Expense.amount).desc()),
+            start_date,
+            end_date,
+        )
+    ).all()
+    category_data = [
+        {"category": cat, "amount": float(round(to_decimal(total), 2))}
+        for cat, total in cat_rows
+    ]
+
+    dist_rows = session.exec(
         _date_filters(
             select(Expense.category, func.sum(Expense.amount).label("total"))
             .group_by(Expense.category)
@@ -64,18 +90,14 @@ def get_analytics(
             exclude_categories=("Payment", "Reimbursement"),
         )
     ).all()
-    cat_total = sum(to_decimal(total) for _, total in cat_rows)
-    category_data = [
-        {"category": cat, "amount": float(round(to_decimal(total), 2))}
-        for cat, total in cat_rows
-    ]
+    dist_total = sum(to_decimal(total) for _, total in dist_rows)
     distribution = [
         {
             "category": cat,
             "amount": float(round(to_decimal(total), 2)),
-            "percentage": float(round(to_decimal(total) / cat_total * 100, 1)) if cat_total > 0 else 0,
+            "percentage": float(round(to_decimal(total) / dist_total * 100, 1)) if dist_total > 0 else 0,
         }
-        for cat, total in cat_rows
+        for cat, total in dist_rows
     ]
 
     # Spend over time (grouped by month) -- use strftime for SQLite
@@ -97,7 +119,7 @@ def get_analytics(
         for month, total, cnt in month_rows
     ]
 
-    # Spend by payer (exclude Payment and Reimbursement)
+    # Spend by payer (exclude Payment; net Reimbursement into each payer's total)
     payer_rows = session.exec(
         _date_filters(
             select(
@@ -109,7 +131,6 @@ def get_analytics(
             .order_by(func.sum(Expense.amount).desc()),
             start_date,
             end_date,
-            exclude_categories=("Payment", "Reimbursement"),
         )
     ).all()
     payer_data = [
@@ -144,7 +165,7 @@ def get_analytics(
     ]
 
     # User's share (exclude Payment only — Reimbursements reduce net share)
-    me, other = _resolve_names(current_user, session)
+    me, other = resolve_names(session, current_user)
     my_share_result = session.exec(
         _date_filters(
             select(func.coalesce(func.sum(_my_portion_expr(me, other)), 0)),

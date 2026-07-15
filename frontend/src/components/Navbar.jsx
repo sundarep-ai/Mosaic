@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../ThemeContext";
 import { useCurrency } from "../CurrencyContext";
+import { useToast } from "../ToastContext";
 import Avatar from "./Avatar";
 import HelpModal from "./HelpModal";
 import config from "../config";
@@ -20,6 +21,7 @@ const topLinks = [
 const bottomLinks = [
   { to: "/", label: "Home", icon: "home" },
   { to: "/add", label: "Add New", icon: "add_circle" },
+  { to: "/analytics", label: "Analytics", icon: "bar_chart" },
   { to: "/calendar", label: "Calendar", icon: "calendar_month" },
   { to: "/insights", label: "Insights", icon: "lightbulb" },
   { to: "/history", label: "Expenses", icon: "receipt_long" },
@@ -30,9 +32,18 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { currency, setCurrency, currencies } = useCurrency();
+  const { showToast } = useToast();
   const { mode } = useUsers();
   const modeLabel = mode === "personal" ? "Personal" : mode === "blended" ? "Blended" : "Shared";
   const [showHelp, setShowHelp] = useState(false);
+
+  const handleCurrencyChange = async (code) => {
+    try {
+      await setCurrency(code);
+    } catch {
+      showToast("Failed to update currency preference.", "error");
+    }
+  };
 
   return (
     <>
@@ -105,7 +116,7 @@ export default function Navbar() {
               aria-label="Select display currency (symbol only, no conversion)"
               title="Display currency only — no conversion"
               value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
+              onChange={(e) => handleCurrencyChange(e.target.value)}
               className="bg-surface-container text-on-surface text-sm font-bold rounded-full px-3 py-2 border-none outline-none cursor-pointer hover:bg-surface-container-high transition-colors appearance-none text-center"
               style={{ minWidth: "4.5rem" }}
             >
@@ -139,14 +150,14 @@ export default function Navbar() {
       </header>
 
       {/* Bottom Nav Bar (Mobile Only) */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-background/80 backdrop-blur-xl z-50 rounded-t-3xl shadow-[0_-4px_24px_rgba(47,51,52,0.06)]">
+      <nav className="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-1 pb-6 pt-3 bg-background/80 backdrop-blur-xl z-50 rounded-t-3xl shadow-[0_-4px_24px_rgba(47,51,52,0.06)]">
         {bottomLinks.map((link) => {
           const active = location.pathname === link.to;
           return (
             <Link
               key={link.to}
               to={link.to}
-              className={`flex flex-col items-center justify-center px-5 py-2 active:scale-90 transition-transform duration-150 ${
+              className={`flex flex-col items-center justify-center px-2 sm:px-4 py-2 active:scale-90 transition-transform duration-150 ${
                 active
                   ? "bg-primary-container text-primary rounded-2xl"
                   : "text-on-surface-variant hover:text-primary"
