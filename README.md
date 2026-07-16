@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a href="#screenshots">Screenshots</a>&nbsp;&bull;&nbsp;<a href="#why-mosaic">Why Mosaic</a>&nbsp;&bull;&nbsp;<a href="#features-at-a-glance">Features</a>&nbsp;&bull;&nbsp;<a href="#setup">Setup</a>&nbsp;&bull;&nbsp;<a href="#method-2-docker">Docker</a>&nbsp;&bull;&nbsp;<a href="FEATURES.md">Full Docs</a>&nbsp;&bull;&nbsp;<a href="CONTRIBUTING.md">Contributing</a>
+  <a href="#screenshots">Screenshots</a>&nbsp;&bull;&nbsp;<a href="#whats-new-in-v200">What's New</a>&nbsp;&bull;&nbsp;<a href="#why-mosaic">Why Mosaic</a>&nbsp;&bull;&nbsp;<a href="#features-at-a-glance">Features</a>&nbsp;&bull;&nbsp;<a href="#setup">Setup</a>&nbsp;&bull;&nbsp;<a href="#method-2-docker">Docker</a>&nbsp;&bull;&nbsp;<a href="FEATURES.md">Full Docs</a>&nbsp;&bull;&nbsp;<a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
 ---
@@ -79,6 +79,35 @@ Mosaic is a personal expense tracker that runs entirely on your own machine. No 
     </tr>
   </tbody>
 </table>
+
+---
+
+## What's New in v2.0.0
+
+*Released 2026-07-15*
+
+A major release focused on making the numbers trustworthy, the insights genuinely useful, and the day-to-day flow faster. Highlights:
+
+**New features**
+
+- **Itemized split calculator** — for a mixed receipt (some items yours, some your partner's, some shared, some taxable), a calculator in the Add Expense form works out who owes what — including a custom tax rate — and drops the result straight into the expense.
+- **Custom categories** — create your own categories from the Add Expense form. They're validated to prevent look-alike duplicates (`groceries` vs `Groceries`) that would fragment your analytics.
+- **Insights, redesigned** — smarter recurring-payment detection (now catches bimonthly, semiannual, and series with a skipped cycle), **price-increase alerts** that tell you the story (*"Netflix $15.99 → $17.99 since March · +$24/yr"*), **new-subscription alerts**, a rebuilt **forecast** (this-month "on pace" total, next-month estimate with a likely range, upcoming bills, and a subscription roll-up), and anomaly detection that no longer gets fooled by one big purchase. Insights now live on their own attention-first page instead of cluttering Home.
+- **Per-user preferences** — your currency and income-tracking choices are now saved to your account and follow you across devices and browsers, instead of being stuck on one device.
+- **Faster expense entry** — **Save & add another**, a live split preview under the amount (*"50/50 → you'll owe Bob $12.50"*), settle-up that prefills the amount and direction, and crash/session-safe entry (a half-typed expense survives a session timeout and offers to restore).
+- **Better History & export** — filtered views are now shareable/bookmarkable via the URL and survive editing a row, pagination reaches your oldest expenses, filters from Calendar/Analytics show a clear pill, and the spreadsheet export matches exactly what's on screen and now includes an **Income** sheet.
+- **Analytics on mobile**, in-app toast notifications, an overspend callout on the income-flow chart, and dark-mode contrast fixes.
+
+**More reliable & correct**
+
+- **Money reconciles everywhere** — your balance, monthly summary, and "my spend" figures now always agree, including a fixed odd-cent rounding bug that could make them differ by a cent. Reimbursements and settlement payments follow one consistent convention across every total.
+- **Accurate forecasting** — fixed an inverted-weighting bug that skewed the spending forecast.
+- **Safer account deletion** — deleting one account no longer silently drops the other person's shared expenses from their totals or locks those rows from editing.
+- **Hardened backups** — every backup is verified after it's written, backups now also fire on data changes (not just at startup), and the app refuses to start on a corrupt database rather than backing up over a good copy.
+- **Safer data import** — the migration scripts now require you to state your date format (no more silent day/month swaps) and import all-or-nothing instead of quietly dropping bad rows.
+- **Security hardening** — path-traversal fix on static file serving, sliding session expiry (an active session no longer logs you out mid-use), and fixes to mode-switching/login edge cases that could lock a user out.
+
+For the complete feature reference, see [FEATURES.md](FEATURES.md).
 
 ---
 
@@ -207,9 +236,11 @@ cd backend && uvicorn main:app --host 0.0.0.0 --port 8000
 
 ### Method 2: Docker
 
-Two containers — nginx serves the frontend and proxies the API, the backend runs uvicorn. All data persists in a Docker named volume across restarts and rebuilds.
+A single container running FastAPI, which serves both the API and the web UI. By default Compose **pulls a prebuilt, versioned image** from Docker Hub ([`srpraveen97/mosaic`](https://hub.docker.com/r/srpraveen97/mosaic)), so there's no local build step. All data persists in a Docker named volume across restarts and updates.
 
 **Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+You only need the `docker-compose.yml` and a `.env` file to run Mosaic, but cloning the repo is the simplest way to get them:
 
 ```bash
 git clone https://github.com/sundarep-ai/Mosaic.git
@@ -229,31 +260,37 @@ Edit `.env` and set your secret key:
 SECRET_KEY=<long random string>
 # Generate with: python -c "import secrets; print(secrets.token_urlsafe(48))"
 
-# Optional: change the port (default is 80)
+# Optional: which release to run (default: latest). Pin a version for reproducible deploys.
+# MOSAIC_VERSION=2.0.0
+
+# Optional: change the port (default is 8000)
 # MOSAIC_PORT=8080
 
 # Optional: set to true if serving over HTTPS
 # COOKIE_SECURE=true
 ```
 
-**Build and start:**
+**Pull and start:**
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
-Open **http://localhost** (or `http://localhost:8080` if you changed the port).
+Open **http://localhost:8000** (or your `MOSAIC_PORT` if you changed it).
 
-> **Build note:** The first build downloads the fastembed ONNX model (~45 MB) and bakes it into the image. Subsequent builds and container restarts use the cached layer — no re-download.
+> **Note:** The published image already includes the fastembed ONNX model (~45 MB), so the container starts instantly — no download or build on first run.
 
 **To update to a new version:**
 
 ```bash
-git pull origin main
-docker compose up -d --build
+docker compose pull      # fetch the newest image (or bump MOSAIC_VERSION in .env)
+docker compose up -d     # recreate the container with the new image
 ```
 
-Your data (database, audit logs, backups, avatars) is stored in the `mosaic-data` Docker volume and is never touched by a rebuild.
+To pin a specific release instead of tracking `latest`, set `MOSAIC_VERSION=2.0.0` in `.env` and re-run the two commands above. Your data (database, audit logs, backups, avatars) is stored in the `mosaic-data` Docker volume and is never touched by an update.
+
+> **Building from source instead:** contributors can build the image locally rather than pulling it with `docker compose up -d --build` — the `build:` block is kept in `docker-compose.yml` for exactly this. The first build downloads the fastembed ONNX model (~45 MB) and bakes it into the image; subsequent builds use the cached layer.
 
 **To stop:**
 
@@ -316,7 +353,7 @@ Open **http://localhost:5173**.
 
 ### Optional: Import existing data
 
-If you have expenses in a `.xlsx` or `.csv` file (works with all methods — run from the backend directory with the venv active, or `docker exec` into the backend container):
+If you have expenses in a `.xlsx` or `.csv` file (works with all methods — run from the backend directory with the venv active, or `docker exec` into the running `mosaic` container):
 
 ```bash
 cd backend

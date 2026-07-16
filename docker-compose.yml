@@ -1,5 +1,9 @@
 services:
-  backend:
+  mosaic:
+    # Pulls the published image by default; pin a version with MOSAIC_VERSION in .env
+    # (e.g. MOSAIC_VERSION=2.0.0). The build: block is kept so contributors can still
+    # build from source with `docker compose build` / `docker compose up -d --build`.
+    image: srpraveen97/mosaic:${MOSAIC_VERSION:-latest}
     build:
       context: .
       dockerfile: Dockerfile
@@ -8,20 +12,12 @@ services:
       - ENV=production
       - COOKIE_SECURE=${COOKIE_SECURE:-false}
       - DATA_DIR=/app/data
-      # Empty CORS_ORIGINS disables CORS headers — nginx handles same-origin routing
+      # Same-origin (FastAPI serves the UI + API together) — no cross-origin CORS needed
       - CORS_ORIGINS=
+    ports:
+      - "${MOSAIC_PORT:-8000}:8000"
     volumes:
       - mosaic-data:/app/data
-    restart: unless-stopped
-
-  nginx:
-    build:
-      context: .
-      dockerfile: nginx/Dockerfile
-    ports:
-      - "${MOSAIC_PORT:-80}:80"
-    depends_on:
-      - backend
     restart: unless-stopped
 
 volumes:

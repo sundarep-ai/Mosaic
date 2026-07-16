@@ -6,24 +6,38 @@ Full reference for all features across every page and mode.
 
 ## Insights
 
-Automated analysis of your spending patterns. All monetary values reflect your personal expense share, not raw totals.
+Automated analysis of your spending patterns, on its own dedicated page. All monetary values reflect your personal expense share, not raw totals.
 
-### Alert Banners
+The page is **attention-first**: a single headline, a "Needs your attention" tier for actionable signals, and a "Trends & patterns" tier for the always-on analysis. Sections that have no data for your account are hidden rather than shown as empty placeholders — a brand-new account sees a single friendly empty state, not a wall of blank boxes. Insights no longer appear on the Home page.
 
-- **Recurring payment alerts** — flags when a recurring expense has changed significantly from its historical average, showing the old vs. new amount and the percentage change.
-- **Category trend alerts** — flags categories where this month's spending is significantly above or below the 3-month average.
+### On-Pace Headline
+
+A one-line current-month projection — *"On track for ~$X this month"* — combining what you've already spent this month, scheduled bills still due before month-end, and your typical variable spending rate.
+
+### Alert Banners (Needs your attention)
+
+- **Price-increase alerts** — detects when a recurring bill steps up (or down) to a new price and tells you the story: *"Netflix $15.99 → $17.99 since March · +$24/yr"*, showing the old price, new price, the date it changed, and the annualized impact. Stays visible until the new price is confirmed a few times, then goes quiet.
+- **New-subscription alerts** — flags a brand-new recurring charge as early as its second occurrence (*"Disney+ looks like a new monthly subscription"*), so a signup you forgot about surfaces quickly.
+- **Category trend alerts** — flags categories tracking above or below your usual spending, compared fairly against your spend *through the same day of the month* in prior months (so a partial month isn't misread as "down 60%"). Suppressed when the increase is already explained by an anomaly or a price step, to avoid three alerts for one cause.
+- **Dismiss** — alerts can be dismissed; a dismissed alert stays gone until the situation changes (e.g. the price steps again).
 
 ### Forecast
 
-Predicts next month's total expense, broken down into recurring (predictable) and variable portions. Shows a per-category comparison of forecast vs. last month as a horizontal bar chart, plus the percentage change from the previous month. Requires at least 1 month of history.
+Predicts next month's spending as **scheduled bills + variable spending**:
+
+- **Scheduled** — each detected recurring bill projected into the month(s) it's actually due (an annual bill appears only in its due month, not smeared across the year).
+- **Variable** — the median of your recent complete months' non-recurring spend, with a seasonal adjustment once there's enough history (13+ months).
+- A **likely range** (not just a single number) once there's enough history, a per-category comparison vs. last month, and the percentage change from the previous month.
+- **Upcoming bills** — the next due dates across your recurring charges.
+- **Subscription roll-up** — how many active recurring charges you have and their combined monthly and annual cost (*"12 active recurring ≈ $214/mo ≈ $2,568/yr"*).
 
 ### Unusual Expenses (Anomalies)
 
-Cards highlighting individual expenses that are statistically unusual, much higher or lower than the category average. Shows the expense description, amount, category mean, and date.
+Cards highlighting individual expenses that are genuinely unusual for their category, using robust statistics (median/MAD) that aren't thrown off by one big outlier. Only unusually *high* expenses are surfaced. Shows the expense description, amount, the category's usual value, and date.
 
 ### Recurring Expenses
 
-A table of detected recurring expenses: description, category, detected frequency (Weekly, Biweekly, Monthly, Quarterly, Annual), average amount, last amount, and total occurrences. Sorted by occurrence count.
+A table of detected recurring expenses: description, category, detected frequency (Weekly, Biweekly, Monthly, Bimonthly, Quarterly, Semiannual, Annual), average amount, last amount, and total occurrences. Detection handles skipped cycles and same-day duplicate postings, and covers cadences that a simpler detector would miss (bimonthly, semiannual). Sorted by occurrence count.
 
 ### Weekend vs Weekday Spending
 
@@ -74,7 +88,7 @@ Preset filters: **1M**, **3M**, **6M**, **YTD**, **1Y**, **All**. Or set a custo
 
 ### Income Flow (Sankey Chart)
 
-Available when Income Tracking is enabled. A Sankey diagram showing income sources (left) flowing into expense categories (right). If income exceeds expenses, a Savings node appears on the right. Up to 8 expense categories are shown; the rest are bucketed as "Other Expenses". The chart respects the active date range filter.
+Available when Income Tracking is enabled. A Sankey diagram showing income sources (left) flowing into expense categories (right). If income exceeds expenses, a Savings node appears on the right; if you spent more than you earned, a red callout states the deficit explicitly (*"You spent $X more than you earned this period"*) instead of quietly showing no savings. Up to 8 expense categories are shown; the rest are bucketed as "Other Expenses". The chart respects the active date range filter.
 
 ### Your Expense Summary
 
@@ -180,7 +194,7 @@ Two-tab form for logging expenses and income.
 - **Date** — when the expense occurred, in your configured format. A calendar picker icon is available. Future dates are not allowed.
 - **Description** — as you type, the app suggests matching descriptions from your history using fuzzy search (Fuse.js, client-side). Selecting a suggestion auto-fills the category field.
 - **Auto-suggested category** — Mosaic suggests a category based on your past expenses for the same description. A sparkle indicator appears when a suggestion is active.
-- **Category** — choose from the default list or create a custom category with `+ New Category`.
+- **Category** — choose from the default list or create your own with `+ New Category`. A custom name is accepted as long as it isn't an empty/whitespace-only string and doesn't collide (case-insensitively) with an existing category — so you can't accidentally create a second `groceries` alongside `Groceries` and split your analytics in two.
 
   Default categories: Groceries, Rent, Utilities, Dining, Transportation, Entertainment, Healthcare, Shopping, Travel, Payment, Gas, Car Insurance, Car Maintenance, Home Care, Pet Care, Pet Insurance, Vet, Gift, Subscription, Parking, Tenant Insurance, Reimbursement, Other.
 
@@ -189,6 +203,17 @@ Two-tab form for logging expenses and income.
   - `50/50` — split equally; the non-payer owes half.
   - `100% (Other Owes)` — the non-payer is fully responsible.
   - `Personal` — no balance impact; tracked privately for the payer only.
+- **Live split preview** (Shared / Blended) — a sentence under the amount shows the net effect on your balance as you type, e.g. *"50/50 → you'll owe Bob $12.50"* or *"100% → Bob will owe you $100.00"*, so you can see who ends up owing what before saving.
+
+#### Split Calculator (Shared / Blended)
+
+For a mixed receipt — some items only yours, some only your partner's, some shared, some taxable — the **Split calculator** button works out the net amount owed in-app instead of forcing you to do the math offline. Add line items, mark each as Mine / Theirs / Shared and taxable or not, set a tax rate (remembered across sessions), and see a live *"X owes Y"* preview. "Use this result" fills the expense in as a `100% owes` entry with the computed amount.
+
+#### Faster entry & crash safety
+
+- **Save & add another** — save the current expense and immediately start a new one without leaving the page. The date, payer, and split method are kept (usually the same across a batch of receipts); the description, amount, and category reset.
+- **Half-typed entries survive** — switching between the Expense and Income tabs keeps whatever you'd started typing in each. If your session expires while saving, Mosaic stashes the in-progress entry and offers to **Restore** it after you log back in, so a timeout never eats your data.
+- **Clear error messages** — validation problems from the server (e.g. an invalid split for a settlement) are shown directly instead of a generic failure.
 
 ### Adding Income
 
@@ -215,15 +240,19 @@ A detailed, filterable list of all your expenses.
 
 **Expense table** — each row shows: date, description with category icon and badge, amount, and (Shared / Blended) who paid and the split type.
 
+**Shareable filters** — the active search and filters are reflected in the page URL, so a filtered view can be bookmarked or shared, and it's restored when you come back. Either partner can edit either person's expense, and editing a row returns you to the exact filtered view you came from instead of a blank list.
+
 **Edit** — click the pencil icon to edit any expense's details inline.
 
 **Delete** — click the trash icon to permanently delete an expense (with confirmation dialog).
 
-Up to 100 expenses are shown at a time. The footer shows "Showing 100 of N expenses" when truncated — refine your filters to narrow the view.
+**Pagination** — 100 expenses load at a time; a "Load 100 more" button in the footer reaches the rest, all the way back to your oldest entries.
 
-**Drill-down from Analytics** — clicking a data point in the Spending Velocity chart lands you here with the month (and optionally category) pre-filtered. A filter pill shows the active filter; click × to clear it.
+**Drill-down from Calendar / Analytics** — clicking a day in the Calendar or a point in the Spending Velocity chart lands you here pre-filtered to that date or month (and optionally category). A filter pill labels the active drill-down and where it came from; click × to clear it.
 
-**Export** — download the current filtered view as a `.xlsx` spreadsheet.
+**Clean Up badge** — when there are description duplicates to review, the Clean Up button shows a count so you know there's something to tidy without opening it.
+
+**Export** — download the current filtered view as a `.xlsx` spreadsheet. The export matches exactly what's on screen — the same search, category, payer, date range, type, and sort — and includes a second **Income** sheet alongside the expenses.
 
 ---
 
@@ -268,11 +297,13 @@ Mosaic supports up to 2 user accounts, created through the web UI.
 
 **Top navigation bar** — logo (links to Home), mode badge (Personal / Shared / Blended), page links, help icon, settings icon, user avatar, currency selector, dark/light mode toggle, logout.
 
-**Currency selector** — switch the display currency symbol: USD, EUR, GBP, CAD, AUD, INR, JPY, CNY, CHF, SGD. Display-only — amounts are not converted.
+**Currency selector** — switch the display currency symbol: USD, EUR, GBP, CAD, AUD, INR, JPY, CNY, CHF, SGD. Display-only — amounts are not converted. Your choice is saved to your account, so it follows you across devices and browsers. Amounts display with thousands separators and a correctly-placed negative sign.
 
 **Dark / Light mode** — toggle between themes. Preference is saved in localStorage.
 
-**Mobile bottom navigation** — on mobile, a bottom nav bar provides quick access to Home, Add New, Calendar, Insights, and Expenses.
+**Mobile bottom navigation** — on mobile, a bottom nav bar provides quick access to Home, Add New, Analytics, Calendar, Insights, and Expenses.
+
+**Toast notifications** — saves, deletes, merges, and errors surface as brief, auto-dismissing toasts that persist across page navigation, replacing blocking browser alert dialogs.
 
 ---
 
@@ -284,21 +315,22 @@ Every mutation (create, update, delete, description merge) is appended to `backe
 
 ### Automatic Backups
 
-On every startup, Mosaic creates a timestamped backup of both the database and the audit log. Backups are stored in `backend/data/backups/` and rotated to keep the 10 most recent. For off-site redundancy, set `BACKUP_PATH` in `backend/.env` to a cloud-synced folder:
+Mosaic creates timestamped backups of both the database and the audit log — on startup and again periodically as your data changes, so a long-running install stays current. Each backup is **verified after it's written** (integrity check plus a row-count comparison against the live data) so a silently-corrupt backup isn't mistaken for a good one. Backups are stored in `backend/data/backups/` and rotated to keep the most recent (30 by default, configurable). For off-site redundancy, set `BACKUP_PATH` in `backend/.env` to a cloud-synced folder:
 
 ```env
 BACKUP_PATH=C:/Users/yourname/OneDrive/Mosaic-Backups
 ```
 
-Backups use the SQLite online backup API — safe to create while the app is running.
+Backups use the SQLite online backup API — safe to create while the app is running. On startup, Mosaic checks the database's integrity and refuses to start on a corrupt file (naming the backup folder to restore from) rather than backing up over a good copy.
 
 ### Security
 
 - Passwords and security answers are stored as bcrypt hashes — plaintext is never stored.
 - Session cookies are HMAC-SHA256 signed with a required `SECRET_KEY`.
 - Changing your password invalidates all existing sessions immediately.
+- Sessions slide forward with activity — an active session no longer logs you out mid-use at a fixed cutoff (opt into a year-long session with "Stay Signed In").
 - Forgot-password resets are rate-limited to 5 attempts per 5-minute window per username.
-- Avatar uploads are validated with magic byte checks and path traversal protection; file writes are atomic.
-- Personal mode blocks the second user at the auth layer, not just in the UI.
+- Avatar uploads are validated with magic byte checks and path traversal protection; file writes are atomic. Static file serving is guarded against directory-traversal escapes.
+- Personal mode blocks the second user at the auth layer, not just in the UI; only the primary account holder can switch the app back to Personal mode.
 - Account creation is capped at 2 users, enforced server-side.
 - Account deletion requires password confirmation.
