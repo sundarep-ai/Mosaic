@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { getBalance, getMonthlySummary, getExpenses, getPersonalSummary, getMyExpenseSummary, getInsights } from "../api/expenses";
+import { getBalance, getMonthlySummary, getExpenses, getPersonalSummary, getMyExpenseSummary } from "../api/expenses";
 import { getMonthlyIncomeSummary } from "../api/income";
 import { CATEGORY_ICONS, CATEGORY_BG } from "../constants/categories";
 import { useUsers } from "../ConfigContext";
@@ -9,7 +9,6 @@ import { useDateFormat } from "../DateFormatContext";
 import { useAuth } from "../auth/AuthContext";
 import { useIncomeMode } from "../hooks/useIncomeMode";
 import Avatar from "../components/Avatar";
-import InsightsPreview from "../components/insights/InsightsPreview";
 
 export default function Landing() {
   const { userA, userB, mode } = useUsers();
@@ -27,7 +26,6 @@ export default function Landing() {
   const [personalSpend, setPersonalSpend] = useState(null);
   const [myExpense, setMyExpense] = useState(null);
   const [monthlyIncome, setMonthlyIncome] = useState(null);
-  const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -41,7 +39,6 @@ export default function Landing() {
         { key: "monthlySummary", fn: getMonthlySummary },
         { key: "recentExpenses", fn: () => getExpenses({ limit: 5, sort: "desc" }) },
         { key: "myExpense", fn: getMyExpenseSummary },
-        { key: "insights", fn: getInsights },
       ];
       if (isBlended) tasks.push({ key: "personalSpend", fn: getPersonalSummary });
       if (incomeEnabled) tasks.push({ key: "monthlyIncome", fn: getMonthlyIncomeSummary });
@@ -56,7 +53,6 @@ export default function Landing() {
         else if (key === "monthlySummary") setMonthlySummary(value);
         else if (key === "recentExpenses") setRecentExpenses(value);
         else if (key === "myExpense") setMyExpense(value);
-        else if (key === "insights") { if (value) setInsights(value); }
         else if (key === "personalSpend") { if (value) setPersonalSpend(value); }
         else if (key === "monthlyIncome") { if (value) setMonthlyIncome(value); }
       });
@@ -111,13 +107,6 @@ export default function Landing() {
           {error}
         </div>
       )}
-
-      <InsightsPreview
-        recurring_alerts={insights?.recurring_alerts}
-        category_trend_alerts={insights?.category_trend_alerts}
-        forecast={insights?.forecast}
-        mode={insights?.mode || mode}
-      />
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
         {/* Balance / Total Spend Card */}

@@ -1,7 +1,7 @@
 import { CATEGORY_ICONS } from "../../constants/categories";
 import { useCurrency } from "../../CurrencyContext";
 
-export default function AlertBanners({ recurring_alerts, category_trend_alerts, mode }) {
+export default function AlertBanners({ recurring_alerts = [], new_subscription_alerts = [], category_trend_alerts = [], mode }) {
   const { fmt } = useCurrency();
   const isPersonal = mode === "personal";
 
@@ -44,6 +44,37 @@ export default function AlertBanners({ recurring_alerts, category_trend_alerts, 
               }`}
             >
               {a.direction === "up" ? "+" : ""}{a.change_pct}%
+            </span>
+          </div>
+        );
+      })}
+
+      {new_subscription_alerts.map((a, i) => {
+        const amountDisplay = a.my_amount != null ? a.my_amount : a.amount;
+        return (
+          <div
+            key={`ns-${i}`}
+            className="flex items-center gap-4 bg-secondary-container/50 border border-secondary/20 p-4 rounded-2xl"
+          >
+            <div className="w-10 h-10 rounded-xl bg-secondary/15 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-secondary">fiber_new</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-on-surface">
+                {a.description}
+                <span className="font-normal text-on-surface-variant"> looks like a new </span>
+                {(a.frequency || "").toLowerCase()} subscription
+              </p>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                {a.category} &middot; {fmt(amountDisplay)}
+                {!isPersonal && a.my_amount != null && a.my_amount !== a.amount && (
+                  <span> &middot; Full: {fmt(a.amount)}</span>
+                )}
+                {a.occurrence_count != null && <span> &middot; seen {a.occurrence_count}x</span>}
+              </p>
+            </div>
+            <span className="px-3 py-1 rounded-full text-xs font-bold shrink-0 bg-secondary-container text-on-secondary-container">
+              New
             </span>
           </div>
         );

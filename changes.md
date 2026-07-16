@@ -100,7 +100,7 @@ Source: `review_order/02-frontend-navigation-history-surfacing.md`
 - **Verify manually:** with pending duplicate descriptions, visit History and confirm the badge appears without opening Clean Up; merge or dismiss suggestions and confirm the badge count updates afterward.
 
 ### 6. Surface insights on the Landing page (A3)
-**Status: Done (basic version — optional "new since last visit" badge explicitly deferred, depends on bucket 10)**
+**Status: Done, then intentionally REVERSED — see "Bonus 2" below.** The product owner found any insight on Home/Landing overwhelming and asked for insights to live only on the dedicated Insights page. `InsightsPreview` and the `getInsights()` fetch were removed from `Landing.jsx`; the pure `getForecastLine` helper survived (moved into `frontend/src/utils/insightsView.js`). This item is left in place for history — Bonus 2 is the current state.
 
 - New `frontend/src/utils/insightsPreview.js` — pure helpers: `selectTopAlerts(recurringAlerts, categoryTrendAlerts, max=2)` (recurring alerts first, category-trend alerts fill any remaining slots) and `getForecastLine(forecast, fmt)` (returns `"On track for ~$2,340 this month"` or `null` when there's no forecast yet).
 - New `frontend/src/components/insights/InsightsPreview.jsx` — renders the top 1–2 alerts via the existing `AlertBanners` component (reused, not reimplemented), the one-line forecast sentence, and a "See all insights →" link to `/insights`. Renders nothing if there are no alerts and no forecast.
@@ -615,3 +615,48 @@ Source: none — user-requested directly, not from a `review_order/*.md` doc.
 - Backend: `pytest tests/ -v` in `backend/` — **379 passed, 0 failed** (up from 373 before this bonus work; includes all new/updated category and migration tests).
 - Frontend: `npx vitest run` — **117/117 passing** across 12 files (up from 108; includes new `splitCalc.test.js`). `npm run build` — production build succeeds with no errors; build output deleted afterward, nothing deployed.
 - **Not performed**: manual browser click-through (no local server was started in this session). Before shipping, please: (a) add a custom category end-to-end and confirm it saves and displays correctly, and (b) open the Split Calculator, add a few mixed items with tax, confirm the live "X owes Y" preview, click "Use this result", and confirm the Add Expense form and the resulting balance match the calculator's numbers.
+
+---
+
+## Bonus 2 — Insights: off the Home page, and decluttered into an attention-first page
+
+Source: none — user-requested directly ("no insight should be visible on the main landing page or the home page … only relevant insights are shown and that they are accurate"). Frontend-only change; **no backend calculation was altered** (the "accuracy" ask was handled as a general correctness pass — the numbers were already correct after buckets 09/10; this change surfaces the *right* ones and stops rendering empty placeholders). Product-owner decisions captured up front: (1) declutter style = *attention-first, two tiers*; (2) additionally surface two relevant signals the backend already computed but the UI never showed — *new-subscription alerts* and the *this-month on-pace total* (upcoming-bills was explicitly **not** wired in this pass).
+
+### 1. Remove all insights from Home / Landing
+**Status: Done — reverses Bucket 02 §6**
+
+- `frontend/src/pages/Landing.jsx` — removed the `InsightsPreview` render, its `import`, the `insights` state, the `getInsights` import, and the `{ key: "insights", fn: getInsights }` task from the `Promise.allSettled` dashboard fetch. Home no longer calls the insights endpoint at all, so it's also one fewer request per Home load. The rest of the dashboard (balance, monthly summary, recent activity, income tile) is untouched.
+- Deleted `frontend/src/components/insights/InsightsPreview.jsx` (its only consumer was Landing) and `frontend/src/utils/insightsPreview.js` / `insightsPreview.test.js`. The one still-useful pure helper, `getForecastLine`, was **moved** into the new `frontend/src/utils/insightsView.js` (see §3); `selectTopAlerts` was Landing-preview-only and is gone with it.
+
+### 2. Insights page → attention-first, two tiers
+**Status: Done**
+
+- `frontend/src/pages/Insights.jsx` — rebuilt from "render all 7 sections unconditionally (most with `EmptyState` placeholders)" into:
+  - **On-pace headline** — a single hero line, *"On track for ~$X this month"*, driven by `forecast.on_pace.estimated_total` (the accurate current-month projection; falls back to `total_forecast` only for older payloads). Rendered only when a positive figure exists. This is the "this-month on-pace total" the product owner asked to surface, and the same number that used to only appear on Home.
+  - **Tier 1 — "Needs your attention"** — the actionable signals, shown only when at least one exists: price-step recurring alerts, **new-subscription alerts (newly wired — see §4)**, category-trend alerts (all three via the existing `AlertBanners`), then the `AnomaliesSection` cards. Ordered price-step → new-subscription → trend → anomalies.
+  - **Tier 2 — "Trends & patterns"** — the always-on analytical sections (Forecast, Recurring table, Weekend-vs-Weekday, Top Growing, Income), **each rendered only when it actually has data**. The whole tier (and its heading) is hidden when none qualify. This is what removes the "wall of empty placeholder boxes" that made the page overwhelming for light/new accounts.
+  - **Global empty state** — when there's no attention item, no on-pace figure, and no populated analytical section, the page shows a single friendly `EmptyState` instead of seven separate empty cards.
+- No section component's internals were rewritten — the page now *gates* each section on a data-presence check instead of letting the component fall through to its own `EmptyState`. `AnomaliesSection` already returned `null` when empty, so it needed nothing; the others (`ForecastSection`, `RecurringExpenses`, `WeekendVsWeekday`, `TopGrowingCategories`, `IncomeInsightsSection`) are simply not mounted unless their data check passes.
+
+### 3. New pure helper module + tests
+**Status: Done**
+
+- New `frontend/src/utils/insightsView.js` — the single source of truth for the page's structural decisions, all pure and unit-tested:
+  - `getAttention(data)` — groups the four attention arrays and reports `hasAny`.
+  - `getSectionVisibility(data, incomeEnabled)` — per-section booleans (`forecast`/`recurring`/`weekend`/`topGrowing`/`income`). Mirrors each component's own internal empty-check (e.g. `forecast.total_forecast > 0`, weekend transaction count > 0, the income "any logged income" check) so the page and the components agree on "has data".
+  - `hasWeekendData` / `hasIncomeData` / `hasAnySection` — the individual predicates behind the above.
+  - `getForecastLine(forecast, fmt)` — moved verbatim from the deleted `insightsPreview.js` (behavior unchanged; still prefers `on_pace.estimated_total`).
+- New `frontend/src/utils/insightsView.test.js` — covers `getAttention` (empty/undefined, each array independently, hasAny), the three data predicates, `getSectionVisibility` (empty payload, forecast threshold, array-length sections, and the `incomeEnabled=false` gate hiding income even when data exists), `hasAnySection`, and the ported `getForecastLine` cases (null/zero/positive, on_pace preference, fallback).
+
+### 4. Wire in the two backend signals the UI never showed
+**Status: Done — completes a flag left open in Bucket 10 §2**
+
+- **New-subscription alerts** — `backend`'s `new_subscription_alerts` array (fired when a recurring series is <60 days old with ≥2 occurrences on a cadence, e.g. "someone signed us up for Disney+") was computed and returned by `/api/insights` since Bucket 10 but **rendered nowhere**. `frontend/src/components/insights/AlertBanners.jsx` now accepts a `new_subscription_alerts` prop and renders a distinct `fiber_new`/"New" banner for each — its own shape (`description`, `frequency`, `category`, `amount`/`my_amount`, `occurrence_count`), never merged into the differently-shaped `recurring_alerts`. Copy reads e.g. *"Disney+ looks like a new monthly subscription · $10.99 · seen 2x"*. Personal vs. shared handling matches the other banners (shows the user's portion, with the full amount as a secondary note when they differ).
+- **On-pace total** — surfaced as the headline in §2 (was previously only reachable on Home via the now-removed preview).
+- Deliberately **not** wired this pass (per the product owner's answer): `forecast.upcoming_bills`. Still available in the payload for a future follow-up.
+
+### Verification performed
+- `npx vitest run` in `frontend/`: **127/127 passing** across 12 files — the `insightsPreview.test.js` cases (11) were replaced by the broader `insightsView.test.js` (20), and everything else is unchanged. No test previously covered `Landing.jsx`, `Insights.jsx`, or `AlertBanners.jsx` directly (they're pages/JSX); the structural logic they now depend on is covered by `insightsView.test.js`.
+- `npx vite build` in `frontend/`: production build succeeds with no errors (static cross-file correctness check for `Landing.jsx`, `Insights.jsx`, `AlertBanners.jsx`, and the new util — none of which have direct unit tests). Build output was deleted afterward; nothing deployed or served.
+- **Backend**: not touched, not re-run — this change consumes the existing `/api/insights` payload shape (`new_subscription_alerts`, `forecast.on_pace.estimated_total`) exactly as buckets 09/10 defined it. No SQL, no calculation, no route changed.
+- **Not performed**: manual browser click-through against a live backend (consistent with every prior bucket — no local server was started). Before shipping, please: (a) open **Home** and confirm no insight/forecast content appears anywhere; (b) open **Insights** on an account with real history and confirm the on-pace headline reads sensibly, Tier-1 alerts (including any new-subscription banner) appear, and Tier-2 shows only sections that have data; and (c) open **Insights** on a brand-new/empty account and confirm you get the single friendly empty state, not a wall of empty boxes.
